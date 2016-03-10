@@ -1,0 +1,1 @@
+wget -v -e use_proxy=yes -e http_proxy=http://squid.icecube.wisc.edu:3128 --user ofadiran --password=SvnPasswd http://code.icecube.wisc.edu/svn/projects/level3-filter-muon/releases/V2012/python//level3_Master.py

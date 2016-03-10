@@ -1,0 +1,17 @@
+# run by ofadiran account
+3 * * * * python /net/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2014/CacheChksums_2014.py >> /net/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2014/CacheChksums_2014.log
+
+# running on cobalt04 as ofadiran
+39 * * * * python /net/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/ProdTools/DiskStatus.py >> /net/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/ProdTools/DiskStatus.log
+
+# running on cobalt04 as ofadiran
+7 */4 * * * python /net/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2014/CacheChksums_2014.py >> /net/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2014/CacheChksums_2014.log
+
+# running on cobalt04 as ofadiran
+2 2 * * * python /net/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/MonitorTxToDESY.py >> /net/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/MonitorTxToDESY.log
+
+# running on cobalt04 as ofadiran
+2 7 2,4,6,8,10,12,14,16,18,20,22,24,26,28,30  * * python /net/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/ProdTools/copySysChkLogs.py >> /net/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/ProdTools/copySysChkLogs.log
+
+# run from i3filter account, currently running on cobalt04
+6 * * * * python /net/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/ProdTools/parseCondorUsageFiles.py >> /net/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/ProdTools/parseCondorUsageFiles.log
