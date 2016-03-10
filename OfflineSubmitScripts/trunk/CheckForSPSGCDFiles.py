@@ -1,78 +1,99 @@
 #!/usr/bin/env python
 
+"""
+This script takes all good runs that PoleGCDCheck has not been performed (yet).
+It checks for these runs if the SPS GCD file actually exists.
+
+Therefore, it helps to understand why the PoleGCDCheck is not performed for
+some runs.
+"""
+
 from __future__ import print_function
 import glob
 import os
 import stat
 import subprocess
-from optparse import OptionParser
 import SQLClient_dbs4 as dbs4
+from libs.logger import get_logger
+from libs.argparser import get_defaultparser
 
-def GetOptions():
-    usage = "usage: %prog [options]"
-    parser = OptionParser(usage)
+def CheckRun(runId, year, month, day, logger, verbose = True):
+    """
+    Checks if the SPS GCD file exists for this run.
 
-    parser.add_option("-s", "--startrun", type="int", default=0,
-                                      dest="STARTRUN_", help="start submission from this run")
+    Args:
+        runId (int): The Run Id
+        year (int): Year of the run
+        month (int): Month of the run
+        day (int): Day of the run
+        logger (logging.Logger): The logger
+        verbose (bool): Be more verbose? Default is `True`
 
-    parser.add_option("-e", "--endrun", type="int", default=0,
-                                      dest="ENDRUN_", help="end submission at this run")
-        
-    (options,args) = parser.parse_args()
-    if len(args) != 0:
-        message = "Got undefined options:"
-        for a in args:
-            message += a
-            message += " " 
-        parser.error(message)
+    Returns:
+        bool: `True` if the SPS GCD file exists for this run. Otherwise, `False` is returned.
+    """
 
-    params = {}
-    params['startrun'] = options.STARTRUN_
-    params['endrun'] = options.ENDRUN_
+    if month < 10:
+        month = '0' + str(month)
 
-    return params
+    if day < 10:
+        day = '0' + str(day)
 
-def CheckRun(runId, year, month, day, verbose = True):
-	if month < 10:
-		month = '0' + str(month)
+    path = '/data/exp/IceCube/' + str(year) + '/internal-system/sps-gcd/' + str(month) + str(day) + '/SPS-GCD_Run*' + str(runId) + '*.i3.tar.gz';
 
-	if day < 10:
-		day = '0' + str(day)
+    if verbose:
+        logger.info('Check run ' + str(runId) + ': ')
 
-	path = '/data/exp/IceCube/' + str(year) + '/internal-system/sps-gcd/' + str(month) + str(day) + '/SPS-GCD_Run*' + str(runId) + '*.i3.tar.gz';
+    files = glob.glob(path)
 
-	if verbose:
-		print('Check run ' + str(runId) + ': ', end = '')
-
-        files = glob.glob(path)
-
-	return len(files) > 0;
+    return len(files) > 0;
 
 if __name__ == '__main__':
-	dbs4_ = dbs4.MySQL()
+    # Handle arguments
+    parser = get_defaultparser(__doc__)
 
-	options = GetOptions()
+    parser.add_argument('-s', '--startrun', type = int, required = True,
+                        dest = "STARTRUN", 
+                        help = "Start file check from this run")
 
-	if options['startrun'] > options['endrun']:
-		print('The end run id must be equal or bigger than the start run id.')
-		exit(1)
+    parser.add_argument("-e", "--endrun", type = int, required = True,
+                        dest = "ENDRUN",
+                        help = "Stop file check at this run")
+    
+    args = parser.parse_args()
+ 
+    options = {}
+    options['startrun'] = args.STARTRUN
+    options['endrun'] = args.ENDRUN
 
-	runs = dbs4_.fetchall("""SELECT run_id, good_tStart FROM grl_snapshot_info WHERE run_id BETWEEN %s AND %s AND (good_i3 = 1 OR good_it = 1) AND PoleGCDCheck IS NULL"""%(options['startrun'], options['endrun']))
+    # Logger
+    LOGFILE=os.path.join(os.path.split(__file__)[0],"logs/PreProcessing/CheckForSPSGCDFiles_")
+    logger = get_logger(args.loglevel, LOGFILE)
+	
+    # Main script
+    dbs4_ = dbs4.MySQL()
 
-	if len(runs) == 0:
-		print('Runs not found.')
-		exit(1) 
+    if options['startrun'] > options['endrun']:
+        logger.error('The end run id must be equal or bigger than the start run id.')
+        exit(1)
 
-	print('Attempt to check files for ' + str(len(runs)) + ' runs')
+    runs = dbs4_.fetchall("""SELECT run_id, good_tStart FROM grl_snapshot_info WHERE run_id BETWEEN %s AND %s AND (good_i3 = 1 OR good_it = 1) AND PoleGCDCheck IS NULL"""%(options['startrun'], options['endrun']))
 
-	count = 0
-	for run in runs:
-		runId = run[0]
-		date = run[1]
+    if len(runs) == 0:
+        logger.error("""No runs found within the range of %s and %s that have not been checked by the PoleGCDCheck."""%(args.STARTRUN, args.ENDRUN))
+        exit(1) 
 
-		if CheckRun(runId, date.year, date.month, date.day):
-			print("""Run %s has SPS-GCD file but hanot been checked by PoleGCDCheck"""%(runId))
-		else:
-			print("""No SPS-GCD file for run %s"""%(runId))
-			count += 1
-	print("""%s runs have missing SPS-GCD file"""%(count))
+    logger.info('Attempt to check files for ' + str(len(runs)) + ' runs')
+
+    count = 0
+    for run in runs:
+        runId = run[0]
+        date = run[1]
+
+        if CheckRun(runId, date.year, date.month, date.day, logger):
+            logger.info("""Run %s has SPS-GCD file but has not been checked by PoleGCDCheck"""%(runId))
+        else:
+            logger.info("""No SPS-GCD file for run %s"""%(runId))
+            count += 1
+    logger.info("""%s runs have missing SPS-GCD file"""%(count))
+    
