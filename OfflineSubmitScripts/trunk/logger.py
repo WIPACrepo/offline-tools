@@ -3,8 +3,10 @@ Convenience function to provide easy logging
 """
 
 import logging
+import os.path
 from datetime import datetime
 
+# add logtime
 LOGFORMAT = '%(levelname)s:%(message)s:%(module)s:%(funcName)s:%(lineno)d'
 #alertstring = lambda x :  "\033[0;31m" + x + "\033[00m"
 
@@ -29,6 +31,13 @@ def GetLogger(loglevel,logfile):
         logfile.replace(".log",today+".log")
     else:
         logfile += (today + ".log")
+    logfilecount = 1
+    while os.path.exists(logfile):
+        logfile = logfile.replace("." + str(logfilecount -1),"")
+        logfile = logfile +"." + str(logfilecount)
+        logfilecount += 1
+        if logfilecount >= 60:
+            raise SystemError("More than 1 logfile per second, this is insane.. aborting")
     fh = logging.FileHandler(logfile)
     fh.setFormatter(formatter)
     fh.setLevel(loglevel)
