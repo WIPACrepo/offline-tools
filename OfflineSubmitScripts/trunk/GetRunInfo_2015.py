@@ -15,7 +15,7 @@ import SQLClient_dbs2 as dbs2
 from sys import exit
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
-import libs.checkpffiltsizepermission
+import libs.checks
 from RunTools import RunTools
 
 dbs4_ = dbs4.MySQL()
@@ -141,7 +141,7 @@ def main(logger,dryrun=False):
         goodStop_frac = RunInfo_[r]['tStop_frac']
         if RunInfo_[r]['good_tstop_frac'] != "NULL"  : goodStop_frac = RunInfo_[r]['good_tstop_frac']
         # Check PFFilt files if there are empty and/or have no reading permission
-        fileChkRlt = libs.checkpffiltsizepermission.check_run(r, RunInfo_[r]['tStart'].year, RunInfo_[r]['tStart'].month, RunInfo_[r]['tStart'].day, logger, False)
+        fileChkRlt = libs.checks.pffilt_size_and_permission(r, RunInfo_[r]['tStart'].year, RunInfo_[r]['tStart'].month, RunInfo_[r]['tStart'].day, logger, False)
         if len(fileChkRlt['empty']) + len(fileChkRlt['permission']) + len(fileChkRlt['emptyAndPermission']) > 0:
             logger.warning("Run %s has issues with PFFilt files"%r)
             warnstring = '  Empty files w/o reading permission:\n'
