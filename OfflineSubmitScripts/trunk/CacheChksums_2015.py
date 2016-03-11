@@ -17,37 +17,22 @@ import subprocess as sub
 import datetime
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
+import libs.process
 
 sys.path.append('/data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools')
 from RunTools import *
 from FileTools import *
 
 def main(logger, dryrun):
-    lock_file = os.path.join(os.path.split(__file__)[0], "tmp/Chksums_Submit.lock")
+    # FIXME: adjust paths for season
     ChkSumCacheFile = os.path.join(os.path.split(__file__)[0], "IC86_2015.dat")
 
     logger.info("Attempting Update @ %s"%datetime.datetime.now().isoformat().replace("T"," "))
 
-    # Check if this script is already running    
-    if os.path.isfile(lock_file):
-        f = open(lock_file ,'r')
-        pid = f.readline()
-        # Check if a process with this pid is still running, just printing the command w/o the ps header (so, no line if no process with PID is running)
-        sub_proc = sub.Popen(['ps', '-p', str(pid), '-o', 'command='], shell=False, stdout=sub.PIPE)
-        for line in sub_proc.stdout:
-            # Check if the running process is still a PoleGCDCheck (is required since the PIDs are recycled)
-            if 'CacheChksums_2015.py' in line:
-                #print "Another instance of the Cache chksums script is running ... exiting"
-                logger.info("Another instance of the Cache chksums script is running @ %s... exiting"%datetime.datetime.now().isoformat().replace("T"," "))
-                exit(0)
-    
-        logger.info("removing stale lock file")
-        os.system("rm -f " + lock_file)
-    
-    # Ok, it's not running. Lets store the current PID and proceed
-    with open(lock_file ,'w') as f:
-        f.write(str(os.getpid()))
-    
+    # Stop process if running
+    lock = libs.process.Lock(os.path.basename(__file__), logger)
+    lock.lock()    
+
     ChkSums = {}
     
     try:
@@ -96,10 +81,8 @@ def main(logger, dryrun):
     if not dryrun:    
         with open(ChkSumCacheFile,mode="r+") as f:
             cPickle.dump(ChkSums,f)
-    
-    if os.path.isfile(lock_file):
-        logger.info("removing cache chksum submission lock file")
-        os.system("rm -f " + lock_file)
+
+    lock.unlock()    
 
 if __name__ == "__main__":
     argparser = get_defaultparser(__doc__, dryrun = True)

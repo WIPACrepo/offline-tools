@@ -23,6 +23,7 @@ from FileTools import *
 from DbTools import *
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
+import libs.process
 
 import SQLClient_dbs4 as dbs4
 dbs4_ = dbs4.MySQL()
@@ -39,7 +40,6 @@ CMPGCD = "CmpGCDFiles.py"
 SENDER = "jan.oertlin"
 RECEIVERS = ['drwilliams3@ua.edu','john.kelley@icecube.wisc.edu','matt.kauer@icecube.wisc.edu','tomas.j.palczewski@ua.edu','david.schultz@icecube.wisc.edu','achim.stoessl@icecube.wisc.edu','jan.oertlin@icecube.wisc.edu']
 DOMAIN = '@icecube.wisc.edu'
-LOCKFILE = os.path.join(get_tmpdir(),"PoleGCDCheck_SubmitLock.lock")
 LOGFILEPATH = get_logdir(sublogpath="PoleGCDChecks")
 LOGFILE = os.path.join(LOGFILEPATH,"PoleGCDChecks_")
 
@@ -154,26 +154,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     logger = get_logger(args.loglevel, LOGFILE)   
     logger.info( "Attempting PoleGCDChecks @ %s"%datetime.datetime.now().isoformat().replace("T"," "))    
-    
-    if os.path.isfile(LOCKFILE):
-        f = open(LOCKFILE,'r')
-        pid = f.readline()
-        # Check if a process with this pid is still running, just printing the command w/o the ps header (so, no line if no process with PID is running)
-        sub_proc = sub.Popen(['ps', '-p', str(pid), '-o', 'command='], shell=False, stdout=sub.PIPE)
-        for line in sub_proc.stdout:
-            # Check if the running process is still a PoleGCDCheck (is required since the PIDs are recycled)
-            if 'PoleGCDChecks.py' in line:
-                logger.warning( "Another instance of the PoleGCDCheck script is running @ %s ... exiting"%datetime.datetime.now().isoformat().replace("T"," "))
-                exit(0)
-    
-        logger.debug( "removing stale lock file")
-        os.remove(LOCKFILE)
-    
-    with open(LOCKFILE,'w') as f:
-        f.write(str(os.getpid()))
-    
+   
+    lock = libs.process.Lock(os.path.basename(__file__), logger)
+    lock.lock()
+
     main(logger,StartRun = args.StartRun,dryrun=args.dryrun)
-    if os.path.isfile(LOCKFILE):
-        logger.debug( "removing PoleGCDCheck chksum submission lock file")
-        os.remove(LOCKFILE)
-            
+    
+    lock.unlock()
