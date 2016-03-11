@@ -7,7 +7,7 @@ Checks for the given runs the PFFilt files if they have a file sizes > 0 and hav
 import os
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
-from libs.checkpffiltsizepermission import check_run
+import libs.checks
 import SQLClient_dbs4 as dbs4
 
 if __name__ == '__main__':
@@ -63,7 +63,7 @@ if __name__ == '__main__':
         runId = run[0]
         date = run[1]
 
-        result = check_run(runId, date.year, date.month, date.day, logger)
+        result = libs.checks.pffilt_size_and_permission(runId, date.year, date.month, date.day, logger)
         emptyFiles += result['empty']
         wrongPermissions += result['permission']
         emptyAndWPerm += result['emptyAndPermission']
