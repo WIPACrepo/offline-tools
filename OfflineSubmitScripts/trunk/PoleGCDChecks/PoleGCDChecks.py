@@ -1,7 +1,10 @@
 #!/usr/bin/env python
+"""
+Compare the GCD Files created in the North to those created
+at the Pole and transferred to the North
+"""
 
 import os, sys
-import subprocess as sub
 import time
 import datetime
 import glob
@@ -10,49 +13,68 @@ import subprocess as sub
 
 sys.path.append("/data/user/i3filter/SQLServers_n_Clients/")
 sys.path.append('/data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools')
+sys.path.append("/data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_trunk")
 
 import SendNotification as SN
 
+from libs.files import get_tmpdir, get_logdir
 from RunTools import *
 from FileTools import *
 from DbTools import *
+from libs.logger import get_logger
+from libs.argparser import get_defaultparser
 
-try:
-    import SQLClient_dbs4 as dbs4
-    dbs4_ = dbs4.MySQL()
+import SQLClient_dbs4 as dbs4
+dbs4_ = dbs4.MySQL()
+
+#FIXME: adjust paths for season
+INDIR_2015 = "/data/exp/IceCube/2015/internal-system/sps-gcd"
+INDIR_2016 = "/data/exp/IceCube/2016/internal-system/sps-gcd"
+ENVSHELL   = "/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-05/./env-shell.sh"    
+OFFLINEPRODUCTIONTOOLS = "/data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/"
+DATAPATH = "/data/exp/IceCube/"
+VERIFIEDGCD = "filtered/level2/VerifiedGCD/"
+
+CMPGCD = "CmpGCDFiles.py"
+SENDER = "jan.oertlin"
+RECEIVERS = ['drwilliams3@ua.edu','john.kelley@icecube.wisc.edu','matt.kauer@icecube.wisc.edu','tomas.j.palczewski@ua.edu','david.schultz@icecube.wisc.edu','achim.stoessl@icecube.wisc.edu','jan.oertlin@icecube.wisc.edu']
+DOMAIN = '@icecube.wisc.edu'
+LOCKFILE = os.path.join(get_tmpdir(),"PoleGCDCheck_SubmitLock.lock")
+LOGFILEPATH = get_logdir(sublogpath="PoleGCDChecks")
+LOGFILE = os.path.join(LOGFILEPATH,"PoleGCDChecks_")
+
+def main(logger,StartRun = 126445,dryrun=False):
+    # default run number to start checks, this can be over-written by supplying an
+    # no valid GCD files between season start (126378) and 126444
+    # run when 'good' GCD files started flowing again from Pole (126445)
+    runs_ = dbs4_.fetchall("""SELECT * FROM i3filter.grl_snapshot_info g
+                 where (good_it or good_i3) and run_id>=%d
+                 and PoleGCDCheck is NULL order by run_id """%StartRun, UseDict=True)
     
-except Exception, err:
-    raise Exception("Error: %s "%str(err))
-
-
-
-
-def main(inDirs,run_id):
-
+    run_id = [r['run_id'] for r in runs_]
+    
+    inDir = INDIR_2015
+    inDirs = glob.glob(INDIR_2015 + "/*")
+    if os.path.isdir(INDIR_2016):
+        inDirs.extend(glob.glob(INDIR_2016 + "/*"))
+    
+    if not len(inDirs):
+        logger.info("No GCD file meet criteria for testing .... exiting")
+        exit(0)
+        
+    inDirs.sort()
     for i in inDirs:
-        #print i
         if os.path.isdir(i):
-            #
-            
             Files = glob.glob(i+"/*GCD*")
             Files.sort()
-            
-            #Files = Files[0:1]
-            
-            
             for f in Files:
                 try:
                     runNum = int(f.split('.i3.tar.gz')[0][-6:])
                 except:
-                    print "could not extract RunNumber from ",f
+                    logger.warning("could not extract RunNumber from %s" %f)
                     continue
                 
-                #if runNum!= 126378 : continue
-                #if runNum!= 126445 : continue
-                
                 if not runNum in run_id: continue
-                
-                
                 sub.check_call(["tar","xvzf",f])
                 tFile = os.path.basename(f).replace(".tar.gz",".dat.tar")
                 sub.check_call(["tar","xvf",tFile])
@@ -60,51 +82,41 @@ def main(inDirs,run_id):
                 sub.check_call(["gunzip",zFile])
                 poleFile = os.path.basename(f).replace(".i3.tar.gz",".i3")
                 
-                print poleFile
+                logger.debug("Working with file %s" %poleFile)
                 
                 year_ = f[f.find("IceCube/")+8:f.find("/internal-system")]
                 run_ = f[f.find("_Run")+4:f.find(".i3.tar.gz")]
                 if not run_.isdigit(): run_ = f[f.find("_run")+4:f.find(".i3.tar.gz")]
                 if not run_.isdigit():
-                    print " could not get run number from Pole file name ...exiting"
+                    logger.warning( " could not get run number from Pole file name ...")
                     continue
                 
-                northFile = glob.glob("/data/exp/IceCube/%s/filtered/level2/VerifiedGCD/*%s*"%(year_,run_))
+                northFile = glob.glob(DATAPATH + str(year_) + "/" + VERIFIEDGCD + "*" + str(run_) + "*")
                 if not len(northFile):
-                    print " **** no Verified GCD file in the north for run %s ****"%run_
+                    logger.warning(" **** no Verified GCD file in the north for run %s ****"%run_)
                     #clean up
-                    os.system("rm *%s*"%run_)
+                    files = glob.glob("*" + str(run_) + "*")
+                    logger.debug("Removing files %s" %files.__repr__())
+                    map(os.remove,files)
                     continue
-                
                 
                 if len(northFile)>0:northFile.sort(key=lambda x: os.path.getmtime(x),reverse=True)
                 northFile = northFile[0]
-                
-                    
                 sub.check_call(["cp",northFile,"."])
-                
-                
-                outLog = "/data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/PoleGCDChecks/logs/Run%s.logs"%run_
-                
+                outLog = os.path.join(LOGFILEPATH,"Run%s.logs"%run_)
                 
                 with open (outLog,"w") as oL:
-                
                     try:
-                        RV = sub.call(["/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-02/./env-shell.sh",
-                                        "python", "/data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/CmpGCDFiles.py",
+                        RV = sub.call([ENVSHELL,
+                                        "python", os.path.join(OFFLINEPRODUCTIONTOOLS,CMPGCD),
                                         "-f", "%s %s"%(northFile,poleFile),"-v"],stdout=oL, stderr=oL)
                         
-                        dbs4_.execute("""update i3filter.grl_snapshot_info g
+                        if not dryrun: dbs4_.execute("""update i3filter.grl_snapshot_info g
                                          set PoleGCDCheck=%s where run_id=%s"""%(RV,runNum))
-                        
-                        #print "RV ",RV
                         
                         if RV:
                             message = ""
-                            sender = 'ofadiran'
-                            receivers = ['drwilliams3@ua.edu','john.kelley@icecube.wisc.edu','matt.kauer@icecube.wisc.edu','tomas.j.palczewski@ua.edu','david.schultz@icecube.wisc.edu','achim.stoessl@icecube.wisc.edu','jan.oertlin@icecube.wisc.edu']
                             #receivers = ['ofadiran@icecube.wisc.edu']
-                            domain = '@icecube.wisc.edu'
                             subject = " Pole/North GCD check for Run%s"%runNum
                             messageBody = ""
     
@@ -124,81 +136,44 @@ def main(inDirs,run_id):
                                 poleFile: %s
                                 """%(runNum,RV,northFile,f)
     
-                            message = SN.CreateMsg(domain, sender, receivers, subject,messageBody,mimeVersion,contentType)
+                            message = SN.CreateMsg(DOMAIN, SENDER, RECEIVERS, subject,messageBody,mimeVersion,contentType)
     
-                            if len(message):
-                                SN.SendMsg(sender,receivers,message)
+                            if len(message) and not dryrun:
+                                SN.SendMsg(SENDER,RECEIVERS,message)
     
-                
                     except Exception, err:
-                        oL.write("\ncompare error for run %s"%run_)
+                        oL.write("\n Error for run %s"%run_)
                         oL.write(str(err))
-    
-                
                 #clean up 
-                os.system("rm *%s*"%run_)
+                os.remove(run_)
             
-
-
 if __name__ == '__main__':
     
+    parser = get_defaultparser(__doc__,dryrun=True)
+    parser.add_argument("StartRun",type=int)
+    args = parser.parse_args()
+    logger = get_logger(args.loglevel, LOGFILE)   
+    logger.info( "Attempting PoleGCDChecks @ %s"%datetime.datetime.now().isoformat().replace("T"," "))    
     
-    print "Attempting PoleGCDChecks @ %s"%datetime.datetime.now().isoformat().replace("T"," ")
-    
-    
-    if os.path.isfile("/data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/PoleGCDChecks/PoleGCDCheck_SubmitLock.txt"):
-        f = open("/data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/PoleGCDChecks/PoleGCDCheck_SubmitLock.txt",'r')
+    if os.path.isfile(LOCKFILE):
+        f = open(LOCKFILE,'r')
         pid = f.readline()
         # Check if a process with this pid is still running, just printing the command w/o the ps header (so, no line if no process with PID is running)
         sub_proc = sub.Popen(['ps', '-p', str(pid), '-o', 'command='], shell=False, stdout=sub.PIPE)
         for line in sub_proc.stdout:
             # Check if the running process is still a PoleGCDCheck (is required since the PIDs are recycled)
             if 'PoleGCDChecks.py' in line:
-                print "Another instance of the PoleGCDCheck script is running @ %s ... exiting"%datetime.datetime.now().isoformat().replace("T"," ")
+                logger.warning( "Another instance of the PoleGCDCheck script is running @ %s ... exiting"%datetime.datetime.now().isoformat().replace("T"," "))
                 exit(0)
     
-        print "removing stale lock file"
-        os.system("rm -f /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/PoleGCDChecks/PoleGCDCheck_SubmitLock.txt")
+        logger.debug( "removing stale lock file")
+        os.remove(LOCKFILE)
     
-    with open("/data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/PoleGCDChecks/PoleGCDCheck_SubmitLock.txt",'w') as f:
+    with open(LOCKFILE,'w') as f:
         f.write(str(os.getpid()))
     
-
-    # default run number to start checks, this can be over-written by supplying an
-    #StartRun = 126378      # no valid GCD files between season start (126378) and 126444
-    StartRun = 126445       # run when 'good' GCD files started flowing again from Pole
-    try:
-        StartRun = int(sys.argv[1])
-    except:
-        pass
-    
-    
-    runs_ = dbs4_.fetchall("""SELECT * FROM i3filter.grl_snapshot_info g
-                 where (good_it or good_i3) and run_id>=%d
-                 and PoleGCDCheck is NULL order by run_id """%StartRun, UseDict=True)
-    
-    run_id = [r['run_id'] for r in runs_]
-   
-
-    
-    inDir = "/data/exp/IceCube/2015/internal-system/sps-gcd"
-    inDirs = glob.glob("/data/exp/IceCube/2015/internal-system/sps-gcd/*")
-    if os.path.isdir("/data/exp/IceCube/2016/internal-system/sps-gcd"):
-        inDirs.extend(glob.glob("/data/exp/IceCube/2016/internal-system/sps-gcd/*"))
-    
-    if not len(inDirs):
-        print "No GCD file meet criteria for testing .... exiting"
-        exit(0)
-        
-        
-    inDirs.sort()
-    #inDirs = inDirs[110:111]
-    
-    main(inDirs,run_id)
-    
-    
-    
-    if os.path.isfile("/data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/PoleGCDChecks/PoleGCDCheck_SubmitLock.txt"):
-        print "removing PoleGCDCheck chksum submission lock file"
-        os.system("rm -f /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/PoleGCDChecks/PoleGCDCheck_SubmitLock.txt")
+    main(logger,StartRun = args.StartRun,dryrun=args.dryrun)
+    if os.path.isfile(LOCKFILE):
+        logger.debug( "removing PoleGCDCheck chksum submission lock file")
+        os.remove(LOCKFILE)
             
