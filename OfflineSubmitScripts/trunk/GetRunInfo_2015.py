@@ -8,7 +8,6 @@ and run_info_summary on dbs4
 
 import os
 import re
-import CheckPFFiltSizeAndPermission
 import SQLClient_i3live as live
 import SQLClient_dbs4 as dbs4
 import SQLClient_dbs2 as dbs2
@@ -16,6 +15,7 @@ import SQLClient_dbs2 as dbs2
 from sys import exit
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
+import libs.checkpffiltsizepermission
 from RunTools import RunTools
 
 dbs4_ = dbs4.MySQL()
@@ -141,7 +141,7 @@ def main(logger,dryrun=False):
         goodStop_frac = RunInfo_[r]['tStop_frac']
         if RunInfo_[r]['good_tstop_frac'] != "NULL"  : goodStop_frac = RunInfo_[r]['good_tstop_frac']
         # Check PFFilt files if there are empty and/or have no reading permission
-        fileChkRlt = CheckPFFiltSizeAndPermission.CheckRun(r, RunInfo_[r]['tStart'].year, RunInfo_[r]['tStart'].month, RunInfo_[r]['tStart'].day, False)
+        fileChkRlt = libs.checkpffiltsizepermission.check_run(r, RunInfo_[r]['tStart'].year, RunInfo_[r]['tStart'].month, RunInfo_[r]['tStart'].day, logger, False)
         if len(fileChkRlt['empty']) + len(fileChkRlt['permission']) + len(fileChkRlt['emptyAndPermission']) > 0:
             logger.warning("Run %s has issues with PFFilt files"%r)
             warnstring = '  Empty files w/o reading permission:\n'
@@ -172,9 +172,7 @@ def main(logger,dryrun=False):
 
 if __name__ == "__main__":
 
-    parser = get_defaultparser(__doc__)
-    parser.add_argument('--dryrun', help="Don't change the database",dest="dryrun",action="store_true",default=False)  
-
+    parser = get_defaultparser(__doc__,dryrun=True)
     args = parser.parse_args()
     LOGFILE=os.path.join(os.path.split(__file__)[0],"logs/PreProcessing/GetRunInfo_")     
     logger = get_logger(args.loglevel,LOGFILE)

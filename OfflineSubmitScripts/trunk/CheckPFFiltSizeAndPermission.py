@@ -1,146 +1,94 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
-import glob
+"""
+Checks for the given runs the PFFilt files if they have a file sizes > 0 and have proper file permissions.
+"""
+
 import os
-import stat
-import subprocess
-from optparse import OptionParser
+from libs.logger import get_logger
+from libs.argparser import get_defaultparser
+from libs.checkpffiltsizepermission import check_run
 import SQLClient_dbs4 as dbs4
 
-def GetOptions():
-    usage = "usage: %prog [options]"
-    parser = OptionParser(usage)
-
-    parser.add_option("-s", "--startrun", type="int", default=0,
-                                      dest="STARTRUN_", help="start submission from this run")
-
-    parser.add_option("-e", "--endrun", type="int", default=0,
-                                      dest="ENDRUN_", help="end submission at this run")
-        
-    (options,args) = parser.parse_args()
-    if len(args) != 0:
-        message = "Got undefined options:"
-        for a in args:
-            message += a
-            message += " " 
-        parser.error(message)
-
-    params = {}
-    params['startrun'] = options.STARTRUN_
-    params['endrun'] = options.ENDRUN_
-
-    return params
-
-def CheckRun(runId, year, month, day, verbose = True):
-	result = {'empty': [], 'permission': [], 'emptyAndPermission': []}
-
-	if month < 10:
-		month = '0' + str(month)
-
-	if day < 10:
-		day = '0' + str(day)
-
-	path = '/data/exp/IceCube/' + str(year) + '/filtered/PFFilt/' + str(month) + str(day) + '/PFFilt_*' + str(runId) + '*.tar.bz2'
-
-	if verbose:
-		print('Check run ' + str(runId) + ': ', end = '')
-
-        files = glob.glob(path)
-        files.sort()
-
-        for file in files:
-                st = os.stat(file)
-        	size = st.st_size
-
-		empty = False
-		perm = False
-
-                if size == 0:
-			empty = True
-
-                if not (st.st_mode & stat.S_IRGRP):
-			perm = True
-
-		if empty and perm:
-			result['emptyAndPermission'].append(file)
-		elif empty:
-	                result['empty'].append(file)
-		elif perm:
-                        result['permission'].append(file)
-
-	if verbose:
-        	if len(result['empty']) > 0 or len(result['permission']) > 0 or len(result['emptyAndPermission']) > 0:
-                	print(str(len(result['empty'])) + ' empty files; ' + str(len(result['permission'])) + ' files with wrong permissions; ' + str(len(result['emptyAndPermission'])) + ' empty files with wrong permissions;')
-        	else:
-                	print('everything is allright')
-
-	return result
-
 if __name__ == '__main__':
-	dbs4_ = dbs4.MySQL()
+    parser = get_defaultparser(__doc__)
 
-	options = GetOptions()
+    parser.add_argument('-s', '--startrun', type = int, required = True,
+                        dest = "STARTRUN", 
+                        help = "Start file check from this run")
 
-	if options['startrun'] > options['endrun']:
-		print('The end run id must be equal or bigger than the start run id.')
-		exit(1)
+    parser.add_argument("-e", "--endrun", type = int, required = True,
+                        dest = "ENDRUN",
+                        help = "Stop file check at this run")
+    
+    args = parser.parse_args()
+    
+    LOGFILE=os.path.join(os.path.split(__file__)[0],"logs/PreProcessing/CheckPFFiltSizeAndPermission_")
+    logger = get_logger(args.loglevel, LOGFILE)
 
-	runs = dbs4_.fetchall("""SELECT run_id, tStart FROM run_info_summary WHERE run_id BETWEEN %s AND %s"""%(options['startrun'], options['endrun']))
+    dbs4_ = dbs4.MySQL()
 
-	if len(runs) == 0:
-		print('Runs not found.')
-		exit(1) 
+    if args.STARTRUN > args.ENDRUN:
+        logger.error('The end run id must be equal or bigger than the start run id.')
+        exit(1)
 
-	paths = {}
+    runs = dbs4_.fetchall("""SELECT run_id, tStart FROM run_info_summary 
+                             WHERE run_id BETWEEN %s AND %s"""%(args.STARTRUN, args.ENDRUN))
 
-	for run in runs:
-		date = run[1]
-		runId = run[0]
+    if len(runs) == 0:
+        logger.error("No runs found within the range of %s and %s."%(args.STARTRUN, args.ENDRUN))
+        exit(1) 
 
-		month = str(date.month)
-		day = str(date.day)
+    paths = {}
 
-		if date.month < 10: month = '0' + month
-		if date.day < 10: day = '0' + day
+    for run in runs:
+        date = run[1]
+        runId = run[0]
 
-		paths[runId] = '/data/exp/IceCube/' + str(date.year) + '/filtered/PFFilt/' + month + day + '/PFFilt_*' + str(runId) + '*.tar.bz2'
+        month = str(date.month)
+        day = str(date.day)
 
-	emptyFiles = []
-	wrongPermissions = []
-	emptyAndWPerm = []
+        if date.month < 10: month = '0' + month
+        if date.day < 10: day = '0' + day
 
-	print('Attempt to check files for ' + str(len(paths)) + ' runs')
+        paths[runId] = '/data/exp/IceCube/' + str(date.year) + '/filtered/PFFilt/' + month + day + '/PFFilt_*' + str(runId) + '*.tar.bz2'
 
-	for run in runs:
-		runId = run[0]
-		date = run[1]
+    emptyFiles = []
+    wrongPermissions = []
+    emptyAndWPerm = []
 
-		result = CheckRun(runId, date.year, date.month, date.day)
-		emptyFiles += result['empty']
-		wrongPermissions += result['permission']
-		emptyAndWPerm += result['emptyAndPermission']
+    logger.info('Attempt to check files for ' + str(len(paths)) + ' runs')
 
-	print('')
-	print('---------------------------------------------')
-	print('                  REPORT:')
-	print('---------------------------------------------')
-	print('---------------------------------------------')
-	print('EMPTY FILES W/ READING PERMISSION (' + str(len(emptyFiles)) + ')')
-	print('---------------------------------------------')
-	for file in emptyFiles:
-		print(file)
+    for run in runs:
+        runId = run[0]
+        date = run[1]
 
-	print('')
-        print('---------------------------------------------')
-        print('EMPTY FILES W/O READING PERMISSION (' + str(len(emptyAndWPerm)) + ')')
-        print('---------------------------------------------')
-        for file in emptyAndWPerm:
-                print(file)
+        result = check_run(runId, date.year, date.month, date.day, logger)
+        emptyFiles += result['empty']
+        wrongPermissions += result['permission']
+        emptyAndWPerm += result['emptyAndPermission']
 
-	print('')
-	print('---------------------------------------------')
-	print('NOT EMPTY FILES W/O READING PERMISSION (' + str(len(wrongPermissions)) + ')')
-	print('---------------------------------------------')
-	for file in wrongPermissions:
-		print(file)
+    logger.info('')
+    logger.info('---------------------------------------------')
+    logger.info('                  REPORT:')
+    logger.info('---------------------------------------------')
+    logger.info('---------------------------------------------')
+    logger.info('EMPTY FILES W/ READING PERMISSION (' + str(len(emptyFiles)) + ')')
+    logger.info('---------------------------------------------')
+    for file in emptyFiles:
+        logger.info(file)
+
+    logger.info('')
+    logger.info('---------------------------------------------')
+    logger.info('EMPTY FILES W/O READING PERMISSION (' + str(len(emptyAndWPerm)) + ')')
+    logger.info('---------------------------------------------')
+    for file in emptyAndWPerm:
+        logger.info(file)
+
+    logger.info('')
+    logger.info('---------------------------------------------')
+    logger.info('NOT EMPTY FILES W/O READING PERMISSION (' + str(len(wrongPermissions)) + ')')
+    logger.info('---------------------------------------------')
+    for file in wrongPermissions:
+        logger.info(file)
+
