@@ -4,29 +4,31 @@ Tools to work with files
 
 import os
 from warnings import warn
+from logger import DummyLogger
+from i3tools import TrimFileClass
+import glob
 
 try:
     from I3Tray import I3Tray
+    from icecube import icetray,dataclasses,dataio
 except:
     warn("No env-shell loaded")
 
 ########################################################
 
-def GetSubRunStartStop(FileName,logger,fromgapsfile=True):
+def GetSubRunStartStop(FileName,logger=DummyLogger(),fromgapsfile=True):
     """
     Attempt to get the start and stop times from a subrun
 
     Args:
         FileName (str): An *.i3.* file
-        logger (logging.Logger): the logger instance to use
 
     Keyword Args:
-        getStop (bool): Return stop time
         fromgapsfile (bool): Attempt to use the gaps.txt file first
                              to get the start and stop time (cheaper)
+        logger (logging.Logger): the logger instance to use
     Returns:
-        starttime (I3Time)
-        if getStop is set, a tuple (starttime,endtime) is returned 
+        tuple -> (I3Time,I3Time)
     
     """
     if fromgapsfile:
@@ -45,10 +47,10 @@ def GetSubRunStartStop(FileName,logger,fromgapsfile=True):
 
                 start_ = dataclasses.I3Time(fYear,fTenthofNanoSeconds)
                 stop_ = dataclasses.I3Time(lYear,lTenthofNanoSeconds)
-                return start_,stop__
-        except:
-            logger.warning("Attempt to get times from gaps file failed...")
-            logger.warning("Trying to get times from file!")
+                return start_,stop_
+        except Exception as e:
+            logger.error("Attempt to get times from gaps file failed. Exception %s has arisen" %e.__repr__())
+            logger.info("Trying to get times from file!")
             
     # try getting times from .i3 files if attempt from .gaps.txt file fails   
     start_ = (dataio.I3File(FileName)).pop_frame()['I3EventHeader'].start_time
@@ -86,7 +88,7 @@ def GetGoodSubruns(OutFiles,GoodStartTime,GoodStopTime,ProdVersion):
     firstGood = L2Files[0]
     thrownawaysome = False
     for f in L2Files:
-        start_,end_ = GetSubRunStartStop(f,getStop=1)
+        start_,end_ = GetSubRunStartStop(f)
         # There might be gaps! Don't ask why...
         if end_ <= GoodStartTime: # This clearly should be thrown away
             thrownawaysome = True
@@ -102,7 +104,7 @@ def GetGoodSubruns(OutFiles,GoodStartTime,GoodStopTime,ProdVersion):
     lastGood = L2Files[-1]
     thrownawaysome = False
     for f in reversed(L2Files):
-        start_,end_ = GetSubRunStartStop(f,getStop=1)
+        start_,end_ = GetSubRunStartStop(f)
         if start_ >= GoodStopTime: # This clearly should be thrown away
             thrownawaysome = True
             continue
@@ -118,7 +120,7 @@ def GetGoodSubruns(OutFiles,GoodStartTime,GoodStopTime,ProdVersion):
                 
 ##############################################
 
-def TrimFile(InFile,GoodStart,GoodEnd,logger):
+def TrimFile(InFile,GoodStart,GoodEnd,logger=DummyLogger(),dryrun=False):
     """
     Truncate a file and remove events which are not in the time interval
     [GoodStart,GoodEnd]
@@ -127,7 +129,10 @@ def TrimFile(InFile,GoodStart,GoodEnd,logger):
         InFile (str): the name of the file to 
         GoodStart (): grl good start time
         GoodStop (): grl good stop time
+
+    Keyword Args:
         logger (logging.Logger): the logger instance to use
+        dryrun (boo): if set, don't do anything
     """
     InFiles = [f for f in glob.glob(InFile.replace(".i3.bz2","*")) if ".i3" in f]
         
@@ -145,20 +150,22 @@ def TrimFile(InFile,GoodStart,GoodEnd,logger):
         tray.AddModule("I3Reader","readL2File", filename = InFile_)
         tray.AddModule(TrimFileClass, 'Trim',
                        GoodStart = GoodStart,
-                       GoodEnd = GoodEnd)
+                       GoodEnd = GoodEnd,
+                       logger = logger,
+                       dryrun = dryrun)
         tray.AddModule('I3Writer', 'FileWriter',
                         FileName = TrimmedFile,
-                        Streams = [ I3Frame.DAQ,
-                                    I3Frame.Physics]
+                        Streams = [ icetray.I3Frame.DAQ,
+                                    icetray.I3Frame.Physics]
                     )
         tray.AddModule("TrashCan","trash")
         tray.Execute()
-        tray.Finish()
+        tray.Finish()  
+        if not dryrun:
+            logger.info("moving %s to %s"%(TrimmedFile,InFile_))
+            os.system("mv -f %s %s"%(TrimmedFile,InFile_))
         
-        logger.info("moving %s to %s"%(TrimmedFile,InFile_))
-        os.system("mv -f %s %s"%(TrimmedFile,InFile_))
-        
-        dbs4_.execute("""update i3filter.urlpath u
+            dbs4_.execute("""update i3filter.urlpath u
                          set md5sum="%s", size="%s", transferstate="WAITING"
                          where u.dataset_id=%s 
                          and concat(substring(u.path,6),"/",u.name) = "%s" """%\
@@ -173,6 +180,10 @@ def TrimFile(InFile,GoodStart,GoodEnd,logger):
             GFile = InFile.replace(".i3.bz2","_gaps.txt")
             if os.path.isfile(GFile):
                 UpdatedGFile = os.path.join(os.path.dirname(GFile),'Updated_'+os.path.basename(GFile))
+                # for dryrun, write the stuff to a temporary file
+                if dryrun:
+                    UpdatedGFile = os.path.join(get_tmpdir(),os.path.split(UpdatedGFile)[1])
+                    logger.info("--dryrun set, writing to temporary file %s" %UpdatedGFile)
                 with open(UpdatedGFile,"w") as u:
                     u.write('Run: %s\n'%FirstEvent.run_id)
                     u.write('First Event of File: %s %s %s\n'%(FirstEvent.event_id,\
@@ -186,16 +197,21 @@ def TrimFile(InFile,GoodStart,GoodEnd,logger):
                     u.write("File Livetime: %s\n"%str((LastEvent.end_time - FirstEvent.start_time)/1e9))
                         
                 logger.info("moving %s to %s"%(UpdatedGFile,GFile))
-                os.system("mv -f %s %s"%(UpdatedGFile,GFile))
-                dbs4_.execute("""update i3filter.urlpath u
+                if not dryrun:
+                    os.system("mv -f %s %s"%(UpdatedGFile,GFile))
+                    dbs4_.execute("""update i3filter.urlpath u
                                 set md5sum="%s", size="%s"
                                 where u.dataset_id=%s 
                                 and concat(substring(u.path,6),"/",u.name) = "%s" """%\
                                 (str(FileTools(GFile).md5sum()),str(os.path.getsize(GFile)),"1883",GFile))
+                else: # here we actually have to do something
+                      # as we haven't overwritten the original file
+                      # we have a stale Trimmed_ file...
+                    os.remove(TrimmedFile)
 
 ################################################################
 
-def RemoveBadSubRuns(L2Files,firstGood,lastGood,logger,CleanDB = False):
+def RemoveBadSubRuns(L2Files,firstGood,lastGood,logger=DummyLogger(),CleanDB = False,dryrun=False):
     """
     Move sub runs which are not in the good run range 
     to a subfolder in the actual data folder of the run and
@@ -205,11 +221,11 @@ def RemoveBadSubRuns(L2Files,firstGood,lastGood,logger,CleanDB = False):
         L2Files (list): the files of the run
         firstGood (str): name of the first file considered "good"
         lastGood (str): name of the last file considered "good"
-        logger (logging.Logger): the logger instance to use
 
     KeywordArgs:
         CleanDB (bool): change the urlpath table and mark files as "DELETED"
-
+        logger (logging.Logger): the logger instance to use
+        dryrun (bool): Don't do anything...
     """ 
 
     logger.debug("Removing subruns not within good run range ....")
@@ -231,27 +247,26 @@ def RemoveBadSubRuns(L2Files,firstGood,lastGood,logger,CleanDB = False):
         ToBeRemovedL.sort()
     
     if not os.path.isdir(os.path.join(os.path.dirname(ToBeRemovedL[0]),"Bad_NotWithinGoodRunRange")):
-        os.mkdir(os.path.join(os.path.dirname(ToBeRemovedL[0]),"Bad_NotWithinGoodRunRange"))
+        if not dryrun: os.mkdir(os.path.join(os.path.dirname(ToBeRemovedL[0]),"Bad_NotWithinGoodRunRange"))
     
     BadDirOutput = os.path.join(os.path.dirname(ToBeRemovedL[0]),"Bad_NotWithinGoodRunRange")
      
     for r in ToBeRemovedL:
         BadName = os.path.join(os.path.dirname(r),BadDirOutput,os.path.basename(r).replace("Level2","BadDontUse_Level2"))
         logger.debug("moving %s %s"%(r,BadName))
-        os.system("mv %s %s"%(r,BadName))
+        if not dryrun: os.system("mv %s %s"%(r,BadName))
     
     if CleanDB:
         # get <str> version of list to be used in DB cleanup
         ToBeRemovedS = """'""" + """','""".join(ToBeRemovedL) + """'"""
 
-        dbs4_.execute("""update i3filter.urlpath u
+        if not dryrun: dbs4_.execute("""update i3filter.urlpath u
                  join i3filter.job j on u.queue_id=j.queue_id
                  set u.transferstate="DELETED",j.status="BadRun"
                  where u.dataset_id=%s and j.dataset_id=%s
                  and concat(substring(u.path,6),"/",u.name) in (%s)"""%("1883","1883",ToBeRemovedS))
 
-
-
+##############################################################
 
 def get_rootdir():
     """
