@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Checks for the given runs the PFFilt files if they have a file sizes > 0 and have proper file permissions.
+Functions to perform checks.
 """
 
 import glob
@@ -9,7 +9,7 @@ import os
 import stat
 
 
-def check_run(runId, year, month, day, logger, verbose = True):
+def pffilt_size_and_permission(runId, year, month, day, logger, verbose = True):
     """
     Checks if the PFFilt files of the given run has a proper file (size > 0) and proper file permission.
 
@@ -72,3 +72,30 @@ def check_run(runId, year, month, day, logger, verbose = True):
             logger.info('  everything is allright')
 
     return result
+
+def has_sps_gcd_file(runId, year, month, day, logger):
+    """
+    Checks if the SPS GCD file exists for this run.
+
+    Args:
+        runId (int): The Run Id
+        year (int): Year of the run
+        month (int): Month of the run
+        day (int): Day of the run
+        logger (logging.Logger): The logger
+
+    Returns:
+        bool: `True` if the SPS GCD file exists for this run. Otherwise, `False` is returned.
+    """
+
+    if month < 10:
+        month = '0' + str(month)
+
+    if day < 10:
+        day = '0' + str(day)
+
+    path = '/data/exp/IceCube/' + str(year) + '/internal-system/sps-gcd/' + str(month) + str(day) + '/SPS-GCD_Run*' + str(runId) + '*.i3.tar.gz';
+
+    files = glob.glob(path)
+
+    return len(files) > 0;
