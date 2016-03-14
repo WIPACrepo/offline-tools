@@ -20,11 +20,7 @@ def ComputeTenthOfNanosec(time_,time_frac=0):
 
     """
     # use leap second-aware version
-    return seconds_passed_since_newyears(time_) + int(time_frac)
-
-#####################################################
-
-
+    return seconds_passed_since_newyears(time_)*10000000000 + int(time_frac)
 
 ###########################################
 
@@ -116,9 +112,9 @@ def seconds_passed_since_newyears(moment):
                     datetime.date(int(moment.year),1,1)).days * 86400 + \
                     int(moment.hour) * 3600 + \
                     int(moment.minute)  * 60 + \
-                    int(moment.second)) * 10000000000
+                    int(moment.second))
     
-    return non_leap_seconds + has_leapsecond(moment)
+    return (non_leap_seconds + has_leapsecond(moment))
 
 ##########################################
 
@@ -133,5 +129,6 @@ if __name__ == "__main__":
     print has_leapsecond(momentC)
     print seconds_passed_since_newyears(momentA)
     print seconds_passed_since_newyears(momentC)
-    
+    print ComputeTenthOfNanosec(momentA, 1234567890)
+    print ComputeTenthOfNanosec(momentC, 1234567890)    
 
