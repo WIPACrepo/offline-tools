@@ -2,11 +2,13 @@
 Tools to work with files
 """
 
-import os
+import os,time,glob
+import subprocess as sub
+
 from warnings import warn
 from logger import DummyLogger
 from i3tools import TrimFileClass
-import glob
+
 
 try:
     from I3Tray import I3Tray
@@ -24,7 +26,7 @@ dbs2_ = dbs2.MySQL()
 
 
 RUNINFODIR = lambda year : "/data/exp/IceCube/%s/filtered/level2/RunInfo/" %str(year)
-LEVEL2_DIR = lambda year : "/data/exp/IceCube/%s/filtered/level2/" 
+LEVEL2_DIR = lambda year : "/data/exp/IceCube/%s/filtered/level2/" %str(year)
 
 def MakeRunInfoFile(dryrun=False):
     """
@@ -112,7 +114,7 @@ def MakeRunInfoFile(dryrun=False):
         if not dryrun: sub.call(["rm",LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt"%(ProductionYear)])
     if not dryrun: sub.call(["ln","-s","%s"%LatestGoodRunInfo, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt"%(ProductionYear)])
        
-    LatestGoodRunInfoV = glob.glob(RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_Versioned*"%(LatestProductionVersion))
+    LatestGoodRunInfoV = glob.glob(RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_Versioned*"%(ProductionYear,LatestProductionVersion))
     LatestGoodRunInfoV.sort(key=lambda x: os.path.getmtime(x))
     LatestGoodRunInfoV = LatestGoodRunInfoV[-1]
     if os.path.lexists(LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt"%(ProductionYear)):

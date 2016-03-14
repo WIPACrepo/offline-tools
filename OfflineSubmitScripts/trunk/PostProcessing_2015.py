@@ -70,8 +70,9 @@ def main(runinfo,logger,dryrun=False):
             main_run(run,logger,dryrun = dryrun) 
         except Exception as e:
             logger.exception("Exception %s thrown for: Run=%s, production_version=%s" %(e.__repr__(),run['run_id'],str(run['production_version'])))
-    
-    MakeRunInfoFile(dryrun=dryrun) 
+   
+    if runinfo: 
+        MakeRunInfoFile(dryrun=dryrun) 
 
 
 if __name__ == '__main__':
