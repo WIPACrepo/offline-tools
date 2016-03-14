@@ -14,6 +14,7 @@ import stat
 import subprocess
 import SQLClient_dbs4 as dbs4
 from libs.logger import get_logger
+from libs.files import get_logdir
 from libs.argparser import get_defaultparser
 import libs.checks
 
@@ -32,7 +33,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
  
     # Logger
-    LOGFILE=os.path.join(os.path.split(__file__)[0],"logs/PreProcessing/CheckForSPSGCDFiles_")
+    LOGFILE=os.path.join(get_logdir(sublogpath = 'PreProcessing'), 'CheckForSPSGCDFiles_')
     logger = get_logger(args.loglevel, LOGFILE)
 	
     # Main script

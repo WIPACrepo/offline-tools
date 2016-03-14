@@ -7,6 +7,7 @@ Checks for the given runs the PFFilt files if they have a file sizes > 0 and hav
 import os
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
+from libs.files import get_logdir
 import libs.checks
 import SQLClient_dbs4 as dbs4
 
@@ -23,7 +24,7 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     
-    LOGFILE=os.path.join(os.path.split(__file__)[0],"logs/PreProcessing/CheckPFFiltSizeAndPermission_")
+    LOGFILE=os.path.join(get_logdir(sublogpath = 'PreProcessing'), 'CheckPFFiltSizeAndPermission_')
     logger = get_logger(args.loglevel, LOGFILE)
 
     dbs4_ = dbs4.MySQL()

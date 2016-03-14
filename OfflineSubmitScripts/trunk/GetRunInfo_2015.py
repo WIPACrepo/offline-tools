@@ -15,6 +15,7 @@ import SQLClient_dbs2 as dbs2
 from sys import exit
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
+from libs.files import get_logdir
 import libs.checks
 from RunTools import RunTools
 
@@ -174,7 +175,7 @@ if __name__ == "__main__":
 
     parser = get_defaultparser(__doc__,dryrun=True)
     args = parser.parse_args()
-    LOGFILE=os.path.join(os.path.split(__file__)[0],"logs/PreProcessing/GetRunInfo_")     
+    LOGFILE=os.path.join(get_logdir(sublogpath = 'PreProcessing'), 'GetRunInfo_')
     logger = get_logger(args.loglevel,LOGFILE)
     main(logger,dryrun=args.dryrun)    
 
