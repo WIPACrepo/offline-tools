@@ -125,7 +125,8 @@ def MakeGCD(RunNum,FName,GCDName,ProductionVersion,SnapshotId,effectiveStartTime
                         Mjd = 54560 # any nominal value > PMTInfoIntroduction (54559, 2008/04/03)
                         #Database = 'I3OmDb'
                         )
-
+        
+        #FIXME: adjust paths for season
         #spe_correction_file = os.path.expandvars("$I3_SRC") + "/filterscripts/resources/data/final-spe-fits-pole-run2015.json"
         spe_correction_file = os.path.expandvars("$I3_SRC") + "/filterscripts/resources/data/spe-fits-IC86-2015-05-11-2015-V1.json"
         tray.AddModule(I3SPEFitInjector, "fixspe", Filename = spe_correction_file)
