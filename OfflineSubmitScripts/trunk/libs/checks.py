@@ -8,6 +8,149 @@ import glob
 import os
 import stat
 
+import SQLClient_i3live as live
+import SQLClient_dbs4 as dbs4
+import SQLClient_dbs2 as dbs2
+
+m_live = live.MySQL()    
+dbs4_ = dbs4.MySQL()   
+dbs2_ = dbs2.MySQL()    
+
+from RunTools import RunTools
+
+ICECUBE_GCDDIR = lambda x : "/data/exp/IceCube/%s/filtered/level2/VerifiedGCD" %str(x)
+ICECUBE_DATADIR = lambda x : "/data/exp/IceCube/%s/filtered/level2/" %str(x)
+
+def CheckFiles(r,logger,dryrun=False):
+    """
+    Check if there are as many L2 files as there are PFFilt files. 
+    Check for GCD files and database consistency;
+
+    Args:
+        r (dict): extracted from database
+
+    Returns:
+        bool: 0 if everything is fine, 1 if errors
+    """
+
+    if not r['GCDCheck'] or not r['BadDOMsCheck']:
+        logger.info("GCDCheck or BadDOMsCheck failed for run=%s, production_version%s" %(str(r['run_id']),str(r['production_version'])))
+        return 1
+    
+    R = RunTools(r['run_id'])
+    InFiles = R.GetRunFiles(r['tStart'],'P')
+    OutFiles = R.GetRunFiles(r['tStart'],'L')
+    
+    ProdVersion = "%s_%s/"%(str(r['run_id']),str(r['production_version']))
+    
+    Files2Check = []
+    
+    # check for multiple GCD files in out Dir, usually results from re-processing
+    
+    GCDName = [f for f in OutFiles if "GCD" in f and ProdVersion in f]
+
+    if len(GCDName)!=1:
+        logger.warning("Either None or more than 1 GCD file in output dir for run=%s"%str(r['run_id']))
+        return 1
+    
+    GCDName = GCDName[0]
+    GCDName = os.path.join(ICECUBE_GCDDIR(r['tStart'].year),os.path.basename(GCDName))
+
+    if not os.path.isfile(GCDName):
+        logger.warning("No Verified GCD file for run=%s, production_version%s"%\
+               (str(r['run_id']),str(r['production_version'])))
+        return 1
+    
+    Files2Check.append(GCDName)    
+    
+    L2Files = [f for f in OutFiles if "GCD" not in f \
+                   and "txt" not in f and "root" not in f\
+                   and "EHE" not in f and "IT" not in f \
+                   and "log" not in f
+                   and ProdVersion in f]  
+    L2Files.sort()
+    
+
+    if len(InFiles) != len(L2Files):
+        logger.warning("No. of Input and Output files don't match for run=%s, production_version=%s" %(str(r['run_id']),str(r['production_version'])))
+        return 1
+
+    for p in InFiles:
+        l = os.path.join(os.path.dirname(L2Files[0]),os.path.basename(p).replace\
+             ("PFFilt_PhysicsFiltering","Level2_IC86.2015_data").replace\
+             (".tar",".i3").replace\
+             ("Subrun00000000_","Subrun"))
+    
+        if not os.path.isfile(l):
+            logger.warning("At least one output file %s does not exist for input file %s"%(l,p))
+            return 1
+
+        Files2Check.append(p)
+        Files2Check.append(l)
+    
+    Files2CheckS = """'""" + """','""".join(Files2Check) + """'"""
+    
+    FilesInDb = dbs4_.fetchall("""SELECT distinct name,concat(substring(u.path,6),"/",u.name)
+                                  from i3filter.urlpath u
+                                 where u.dataset_id=1883 and
+                                 concat(substring(u.path,6),"/",u.name) in (%s) or \
+                                 concat(substring(u.path,6),u.name) in (%s) """%\
+                                 (Files2CheckS,Files2CheckS))
+    
+    FilesInDb = [f[1].replace('//','/') for f in FilesInDb]
+
+    if len(Files2Check) != len(FilesInDb):
+        logger.warning("Some file records don't exist for run=%s, production_version=%s" %(str(r['run_id']),str(r['production_version'])))
+        PrintVerboseDifference(Files2Check,FilesInDb,logger) 
+        return 1
+    
+    # make symlink to latest output dir
+    baseDir = ICECUBE_DATADIR(r["tStart"].year) + "/%s%s"%\
+              (str(r['tStart'].month).zfill(2),str(r['tStart'].day).zfill(2))
+    OutDirs = [g.split("_")[-1] for g in glob.glob(os.path.join(baseDir,"Run00%s_*"%r['run_id']))]
+    OutDirs.sort(key=int)
+    LatestDir = os.path.join(baseDir,"Run00%s_%s"%(r['run_id'],OutDirs[-1]))
+    
+    LinkDir = os.path.join(baseDir,"Run00%s"%r['run_id'])
+    
+    if os.path.lexists(LinkDir):
+        if not dryrun: sub.call(["rm","%s"%LinkDir])
+    if not dryrun: ln_ret = sub.call(["ln","-s","%s"%LatestDir,"%s"%LinkDir])
+    if dryrun: ln_ret = False
+    if ln_ret:
+        logger.warning("Could not make symlink to latest production for run=%s"%\
+               (str(r['run_id'])))
+        return 1
+    
+    # all checks passed
+    return 0
+    
+
+def PrintVerboseDifference(FList1,FList2,logger):
+    """
+    Compare two lists and prints the differences
+
+    Args:
+        FList1 (list): ..
+        FList2 (list): ..
+        logger (logging.Logger): logger instance to use
+    Returns:
+        None
+    """
+    tmp_diff = list(set(FList1) - set(FList2))
+    if len(tmp_diff):
+        tmp_diff.sort()
+        logger.warning("entries on disk but not in db")
+        for t_d in tmp_diff:
+            logger.info( t_d.__repr__())
+    tmp_diff = list(set(FList2) - set(FList1))
+    if len(tmp_diff):
+        tmp_diff.sort()
+        logger.warning("entries in db but not on disk")
+        for t_d in tmp_diff:
+            logger.info(t_d.__repr__())
+
+###################################################
 
 def pffilt_size_and_permission(runId, year, month, day, logger, verbose = True):
     """

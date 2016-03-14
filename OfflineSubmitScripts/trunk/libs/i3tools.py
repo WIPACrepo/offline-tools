@@ -58,7 +58,7 @@ class TrimFileClass(icetray.I3PacketModule):
             self.logger.debug("GoodStart: %s" %self.GoodStart.__repr__())
             self.logger.debug("GoodEnd: %s" %self.GoodEnd.__repr__())
             self.logger.debug("Frame start time: %s"  %frames[0]["I3EventHeader"].start_time.__repr__())
-            if dryrun:
+            if self.dryrun:
                 for fr in frames:
                     self.PushFrame(fr)
 

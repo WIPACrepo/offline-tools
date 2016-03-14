@@ -14,6 +14,153 @@ try:
 except:
     warn("No env-shell loaded")
 
+import SQLClient_i3live as live
+import SQLClient_dbs4 as dbs4
+import SQLClient_dbs2 as dbs2
+
+m_live = live.MySQL()    
+dbs4_ = dbs4.MySQL()   
+dbs2_ = dbs2.MySQL()    
+
+
+RUNINFODIR = lambda year : "/data/exp/IceCube/%s/filtered/level2/RunInfo/" %str(year)
+LEVEL2_DIR = lambda year : "/data/exp/IceCube/%s/filtered/level2/" 
+
+def MakeRunInfoFile(dryrun=False):
+    """
+    Write the 'goodrun list': start stop and string information for every run
+
+    Keyword Args:
+        dryrun (bool): Do not do anything serious if set
+
+    Returns:
+        None
+    """
+    RunInfo = dbs4_.fetchall("""SELECT * FROM i3filter.grl_snapshot_info g
+                                 join i3filter.run_info_summary r on r.run_id=g.run_id
+                                 join i3filter.run jr on jr.run_id=r.run_id
+                                 where jr.dataset_id=1883 and (g.good_i3 or g.good_it) and g.submitted
+                                 group by jr.run_id
+                                 order by g.run_id,g.production_version""",UseDict=True)
+    
+    RunInfoDict = {}
+    for r in RunInfo:
+        RunInfoDict[r['run_id']] = r
+    keys_ = RunInfoDict.keys()
+    keys_.sort()
+    
+    ProductionYear = str(RunInfoDict[keys_[0]]['tStart'].year)
+    
+    LatestProductionVersion = str(RunInfoDict[keys_[-1]]['production_version'])
+    
+    RunInfoFile = RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_"%(ProductionYear,LatestProductionVersion)+time.strftime("%Y_%m_%d-%H_%M_%S",time.localtime()) + ".txt"
+    
+    RunInfoFileV = RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_Versioned_"%(ProductionYear,LatestProductionVersion)+time.strftime("%Y_%m_%d-%H_%M_%S",time.localtime()) + ".txt"
+    if dryrun: RunInfoFile  = get_tmpdir() + "runinfo"
+    if dryrun: RunInfoFileV = get_tmpdir() + "runinfoV"
+    RI_File = open(RunInfoFile,'w')
+    RI_FileV = open(RunInfoFileV,'w')
+    
+    RI_File.write("RunNum  Good_i3  Good_it  LiveTime(s) ActiveStrings   ActiveDoms     ActiveInIce        OutDir                                                  Comment(s)")
+    RI_File.write("\n         (1=good 0=bad)  ")
+    
+    RI_FileV.write("RunNum  Good_i3  Good_it  LiveTime(s) ActiveStrings   ActiveDoms        ActiveInIce       OutDir                                                 Comments(s)")
+    RI_FileV.write("\n         (1=good 0=bad)  ")
+    
+    for k in keys_:
+
+        if not RunInfoDict[k]['validated']:
+            RI_File.write("\n%s  **Incomplete Processing or Not Validated**"%k)
+            RI_FileV.write("\n%s  **Incomplete Processing or Not Validated**"%k)
+            continue
+    
+        StartTime = RunInfoDict[k]['tStart'] 
+
+        LT = RunInfoDict[k]['good_tstop'] - RunInfoDict[k]['good_tstart']
+        LiveTime = (LT.microseconds + (LT.seconds + LT.days *24 *3600) * 10**6) / 10**6
+        
+        Comments = ""
+        if int(k) >= 126289 and int(k) <= 126291 : Comments = "IC86_2015 24hr test run"
+        
+        ActiveStrings = "  "
+        if RunInfoDict[k]['ActiveStrings'] is not None :  ActiveStrings = str(RunInfoDict[k]['ActiveStrings'])
+        ActiveDOMs = "    "
+        if RunInfoDict[k]['ActiveDOMs'] is not None :  ActiveDOMs = str(RunInfoDict[k]['ActiveDOMs'])
+        ActiveInIceDOMs = "    "
+        if RunInfoDict[k]['ActiveInIceDOMs'] is not None :  ActiveInIceDOMs = str(RunInfoDict[k]['ActiveInIceDOMs'])
+
+        OutDir = LEVEL2_DIR(StartTime.year) + "/%s%s/Run00%s/"%\
+                 (str(StartTime.month).zfill(2),\
+                  str(StartTime.day).zfill(2),k)
+    
+        RI_File.write("\n%s     %s        %s        %s           %s          %s         %s          %s    %s"%\
+                    (k,RunInfoDict[k]['good_i3'],RunInfoDict[k]['good_it'],\
+                     LiveTime,ActiveStrings,ActiveDOMs,ActiveInIceDOMs, OutDir, Comments))
+    
+        RI_FileV.write("\n%s     %s        %s        %s           %s          %s            %s          %s   %s"%\
+                    (k,RunInfoDict[k]['good_i3'],RunInfoDict[k]['good_it'],\
+                     LiveTime,ActiveStrings,ActiveDOMs,ActiveInIceDOMs, os.path.realpath(OutDir), Comments)) 
+        
+    
+    RI_File.close()
+    RI_FileV.close()
+    
+    LatestGoodRunInfo = glob.glob(RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_2*"%(ProductionYear,LatestProductionVersion))
+    LatestGoodRunInfo.sort(key=lambda x: os.path.getmtime(x))
+    LatestGoodRunInfo = LatestGoodRunInfo[-1]
+    if os.path.lexists(LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt"%(ProductionYear)):
+        if not dryrun: sub.call(["rm",LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt"%(ProductionYear)])
+    if not dryrun: sub.call(["ln","-s","%s"%LatestGoodRunInfo, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt"%(ProductionYear)])
+       
+    LatestGoodRunInfoV = glob.glob(RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_Versioned*"%(LatestProductionVersion))
+    LatestGoodRunInfoV.sort(key=lambda x: os.path.getmtime(x))
+    LatestGoodRunInfoV = LatestGoodRunInfoV[-1]
+    if os.path.lexists(LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt"%(ProductionYear)):
+        if not dryrun: sub.call(["rm",LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt"%(ProductionYear)])
+    if not dryrun: sub.call(["ln","-s","%s"%LatestGoodRunInfoV, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt"%(ProductionYear)])
+    return
+
+def MakeTarGapsTxtFile(StartTime,RunId,dryrun=False,datasetid=1883):
+    """
+    Tar the gaps files together and update the urlpath table with 
+    the newly created file
+
+    Args:
+        StartTime (datetimd.datetime): Good start time
+        RunId (int): run number
+    
+    Keyword Args:
+        dryrun (bool): Don't do anything if set
+        datasetid (int): dataet number
+    
+    Returns:
+        None
+
+    """
+    OutDir = LEVEL2_DIR(str(StartTime.year)) + "%s%s/Run00%s/"%(str(StartTime.month).zfill(2), str(StartTime.day).zfill(2),RunId)
+    
+    OutTar = os.path.join(OutDir,"Run00"+str(RunId)+"_GapsTxt.tar")
+    
+    gapsFiles = glob.glob(os.path.join(OutDir,"*_gaps.txt"))
+    gapsFiles = [os.path.basename(g) for g in gapsFiles]
+    gapsFiles.sort()
+    if not dryrun: sub.check_call(["tar","cf",OutTar,"-C",OutDir,gapsFiles[0]])
+    for g in gapsFiles[1:]:
+        if not dryrun: sub.check_call(["tar","rf",OutTar,"-C",OutDir,g])
+    
+    maxQId = dbs4_.fetchall("""SELECT max(u.queue_id) FROM i3filter.urlpath u join i3filter.run r on u.queue_id=r.queue_id
+                 where r.dataset_id=1883 and u.dataset_id=1883 and r.run_id=%s"""%RunId)
+    
+    if not dryrun:
+        dbs4_.execute(""" update i3filter.urlpath u join i3filter.run r on u.queue_id=r.queue_id set u.transferstate="IGNORED"
+              where r.dataset_id=1883 and u.dataset_id=1883 and r.run_id=%s and u.name like "%%_gaps.txt" """%RunId)
+    
+        dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","PERMANENT","%s","%s")\
+                   on duplicate key update dataset_id="%s",queue_id="%s",name="%s",path="%s",type="PERMANENT",md5sum="%s",size="%s",transferstate="WAITING"  """% \
+                             (str(datasetid),str(maxQId[0][0]),os.path.basename(OutTar),"file:"+os.path.dirname(OutTar)+"/",str(FileTools(OutTar).md5sum()),str(os.path.getsize(OutTar)),\
+                              str(datasetid),str(maxQId[0][0]),os.path.basename(OutTar),"file:"+os.path.dirname(OutTar)+"/",str(FileTools(OutTar).md5sum()),str(os.path.getsize(OutTar))))
+    return 
+
 ########################################################
 
 def GetSubRunStartStop(FileName,logger=DummyLogger(),fromgapsfile=True):
