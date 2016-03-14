@@ -7,6 +7,7 @@ Functions to perform checks.
 import glob
 import os
 import stat
+import subprocess as sub
 
 import SQLClient_i3live as live
 import SQLClient_dbs4 as dbs4

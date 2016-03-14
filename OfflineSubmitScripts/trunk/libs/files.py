@@ -9,6 +9,7 @@ from warnings import warn
 from logger import DummyLogger
 from i3tools import TrimFileClass
 
+from FileTools import FileTools
 
 try:
     from I3Tray import I3Tray
