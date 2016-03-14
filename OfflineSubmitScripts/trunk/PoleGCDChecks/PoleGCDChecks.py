@@ -38,7 +38,14 @@ VERIFIEDGCD = "filtered/level2/VerifiedGCD/"
 
 CMPGCD = "CmpGCDFiles.py"
 SENDER = "jan.oertlin"
-RECEIVERS = ['drwilliams3@ua.edu','john.kelley@icecube.wisc.edu','matt.kauer@icecube.wisc.edu','tomas.j.palczewski@ua.edu','david.schultz@icecube.wisc.edu','achim.stoessl@icecube.wisc.edu','jan.oertlin@icecube.wisc.edu']
+RECEIVERS = ['drwilliams3@ua.edu',\
+             'john.kelley@icecube.wisc.edu',\
+             'matt.kauer@icecube.wisc.edu',\
+             'tomas.j.palczewski@ua.edu',\
+             'david.schultz@icecube.wisc.edu',\
+             'achim.stoessl@icecube.wisc.edu',\
+             'jan.oertlin@icecube.wisc.edu']
+
 DOMAIN = '@icecube.wisc.edu'
 LOGFILEPATH = get_logdir(sublogpath="PoleGCDChecks")
 LOGFILE = os.path.join(LOGFILEPATH,"PoleGCDChecks_")
