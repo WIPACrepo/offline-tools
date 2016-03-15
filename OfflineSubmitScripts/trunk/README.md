@@ -1,7 +1,8 @@
 
 Files which have paths which need to be changed for a new season
 
-* PoleGCDChecks
+* PoleGCDChecks/PoleGCDChecks.py
+* TemplateGCDChecks/TemplateGCDChecks.py
 * CacheChksums_2015.py
 * GCDGenerator_2015.py, function MakeGCD
 * SubmitGCDJobs_2015.py

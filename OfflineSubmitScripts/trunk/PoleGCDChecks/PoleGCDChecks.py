@@ -29,6 +29,7 @@ import SQLClient_dbs4 as dbs4
 dbs4_ = dbs4.MySQL()
 
 #FIXME: adjust paths for season
+DEFAULT_START_RUN = 126445
 INDIR_2015 = "/data/exp/IceCube/2015/internal-system/sps-gcd"
 INDIR_2016 = "/data/exp/IceCube/2016/internal-system/sps-gcd"
 ENVSHELL   = "/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-05/./env-shell.sh"    
@@ -50,7 +51,7 @@ DOMAIN = '@icecube.wisc.edu'
 LOGFILEPATH = get_logdir(sublogpath="PoleGCDChecks")
 LOGFILE = os.path.join(LOGFILEPATH,"PoleGCDChecks_")
 
-def main(logger,StartRun = 126445,dryrun=False):
+def main(logger, StartRun = DEFAULT_START_RUN, dryrun=False):
     # default run number to start checks, this can be over-written by supplying an
     # no valid GCD files between season start (126378) and 126444
     # run when 'good' GCD files started flowing again from Pole (126445)
@@ -155,9 +156,10 @@ def main(logger,StartRun = 126445,dryrun=False):
                 os.remove(run_)
             
 if __name__ == '__main__':
-    
     parser = get_defaultparser(__doc__,dryrun=True)
-    parser.add_argument("StartRun",type=int)
+    parser.add_argument('-s', '--startrun', type = int, default = DEFAULT_START_RUN,
+                        dest = "STARTRUN",
+                        help = "Start run check from this run")
     args = parser.parse_args()
     logger = get_logger(args.loglevel, LOGFILE)   
     logger.info( "Attempting PoleGCDChecks @ %s"%datetime.datetime.now().isoformat().replace("T"," "))    
@@ -165,6 +167,6 @@ if __name__ == '__main__':
     lock = libs.process.Lock(os.path.basename(__file__), logger)
     lock.lock()
 
-    main(logger,StartRun = args.StartRun,dryrun=args.dryrun)
+    main(logger,StartRun = args.STARTRUN,dryrun=args.dryrun)
     
     lock.unlock()

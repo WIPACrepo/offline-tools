@@ -7,6 +7,10 @@ import datetime
 import glob
 import json
 import subprocess as sub
+from libs.logger import get_logger
+from libs.argparser import get_defaultparser
+from libs.files import get_logdir, get_rootdir
+import libs.process
 
 sys.path.append("/data/user/i3filter/SQLServers_n_Clients/")
 sys.path.append('/data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools')
@@ -25,8 +29,28 @@ try:
 except Exception, err:
     raise Exception("Error: %s "%str(err))
 
+#FIXME: adjust paths for season
+DEFAULT_START_RUN = 126378
+ENVSHELL = "/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-02/./env-shell.sh"
+OFFLINEPRODUCTIONTOOLS = "/data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/"
 
-def parseLogs(logFile):
+CMPGCD = "CmpGCDFiles.py"
+
+SENDER = "jan.oertlin"
+RECEIVERS = ['drwilliams3@ua.edu',
+             'john.kelley@icecube.wisc.edu',
+             'matt.kauer@icecube.wisc.edu',
+             'tomas.j.palczewski@ua.edu',
+             'david.schultz@icecube.wisc.edu',
+             'david.delventhal@icecube.wisc.edu',
+             'achim.stoessl@icecube.wisc.edu',
+             'jan.oertlin@icecube.wisc.edu']
+DOMAIN = '@icecube.wisc.edu'
+
+LOGFILEPATH = get_logdir(sublogpath = "TemplateGCDChecks")
+LOGFILE = os.path.join(LOGFILEPATH, "TemplateGCDChecks_")
+
+def parse_logs(logFile, logger):
     lFile = open(logFile,"r")
 
     lines = lFile.readlines()
@@ -36,8 +60,7 @@ def parseLogs(logFile):
     for ad in aDOMS:
         if ad.split(",")[1] not in ('61','62','63','64'): notIceTop.append(ad)
     
-    print "None IceTop DOMs with changes are: \n",notIceTop
-
+    logger.info("None IceTop DOMs with changes are: %s"%notIceTop)
 
     rLines = [l for l in lines if "OMKey" in l]
 
@@ -52,16 +75,11 @@ def parseLogs(logFile):
     changedVariables.extend(cValues)
     changedVariables = list(set(changedVariables))
     changedVariables.sort()
-    print "Union of all changed values: \n",changedVariables
+    logger.info("Union of all changed values: %s"%changedVariables)
     
     return " , ".join(notIceTop),",".join(changedVariables)
 
-
-    
-
-
-def main_cmp(fileDict,sRuns):
-    
+def main_cmp(fileDict, sRuns, dryrun):
     for sRun in sRuns:
         if sRun <= 126378: continue # first template
         
@@ -69,49 +87,45 @@ def main_cmp(fileDict,sRuns):
         #if sRun not in [124799,124859,124891,125057,125171]: continue
         #if sRun !=126007: continue
         
-        if fileDict[sRun][1] is not None: continue
+        if fileDict[sRun][1] is not None:
+            logger.info("Run %s is already checked"%sRun)
+            continue
 
         currentFile = fileDict[sRun][0]
         templateFile = fileDict[sRuns[sRuns.index(sRun)-1]][0]
     
-        print 'current File: ',currentFile
-        print 'template File: ',templateFile
+        logger.info("current File: %s"%currentFile)
+        logger.info("template File: "%templateFile)
     
         sub.check_call(["cp",currentFile,"."])
         sub.check_call(["cp",templateFile,"."])
                 
-                
-        outLog = "/data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/TemplateGCDChecks/logs/Run%s.logs"%sRun
-                
+        outLog = os.path.join(LOGFILEPATH, "Run%s.logs"%sRun)
+        logger.debug("Log file for run %s: %s"%(sRun, outLog))
+        
         with open (outLog,"w") as oL:
-            
-            print "Attempting to compare %s to template: %s\n"%(currentFile,templateFile)
+            logger.info("Attempting to compare %s to template: %s"%(currentFile,templateFile))
             
             try:
-                RV = sub.call(["/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-02/./env-shell.sh",
-                                "python", "/data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/CmpGCDFiles.py",
+                RV = sub.call([ENVSHELL, "python", os.path.join(OFFLINEPRODUCTIONTOOLS, CMPGCD),
                                         "-f", "%s %s"%(currentFile,templateFile),"-v","-t"],stdout=oL, stderr=oL)
-                        
-                dbs4_.execute("""update i3filter.grl_snapshot_info g
-                                set TemplateGCDCheck=%s where run_id=%s"""%(RV,sRun))
+                
+                if not dryrun:
+                    dbs4_.execute("""update i3filter.grl_snapshot_info g
+                                    set TemplateGCDCheck=%s where run_id=%s"""%(RV,sRun))
                 
                 if RV:
                     
-                    [notIceTop,changedVariables] = parseLogs(outLog)
+                    [notIceTop,changedVariables] = parse_logs(outLog, logger)
                     
                     message = ""
-                    sender = 'ofadiran'
-                    receivers = ['drwilliams3@ua.edu','john.kelley@icecube.wisc.edu','matt.kauer@icecube.wisc.edu','tomas.j.palczewski@ua.edu','david.schultz@icecube.wisc.edu','david.delventhal@icecube.wisc.edu','achim.stoessl@icecube.wisc.edu','jan.oertlin@icecube.wisc.edu']
-                    #receivers = ['ofadiran@icecube.wisc.edu']
-                    
-                    domain = '@icecube.wisc.edu'
                     subject = " Template change for Run%s"%sRun
                     messageBody = ""
-    
+                    
                     # only necessary for html emails
                     mimeVersion="1.0"
                     contentType="text/html"
-    
+                    
                     messageBody += """
                                 *** This is an automated message generated by the *** <br>
                                 ***        GCD Template Checking System   *** <br><br>
@@ -126,89 +140,57 @@ def main_cmp(fileDict,sRuns):
                                 <b>Union of affected values</b>: [%s]
                                 """%(sRun,RV,currentFile,templateFile,notIceTop,changedVariables)
     
-                    message = SN.CreateMsg(domain, sender, receivers, subject,messageBody,mimeVersion,contentType)
+                    message = SN.CreateMsg(DOMAIN, SENDER, RECEIVERS, subject,messageBody,mimeVersion,contentType)
     
-                    if len(message):
+                    if len(message) and not dryrun:
                         SN.SendMsg(sender,receivers,message)
     
                 
             except Exception, err:
                 oL.write("\ncompare error for run %s"%sRun)
                 oL.write(str(err))
-    
-                
+        
         #clean up 
         os.system("rm *%s*"%sRun)
         os.system("rm *%s*"%sRuns[sRuns.index(sRun)-1])
-                
-        #break
-    
-            
-    #
-
 
 if __name__ == '__main__':
-    
-    
-    print "Attempting TemplateGCDChecks @ %s"%datetime.datetime.now().isoformat().replace("T"," ")
-    
-    
-    if os.path.isfile("/data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/TemplateGCDChecks/TemplateGCDCheck_SubmitLock.txt"):
-        f = open("/data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/TemplateGCDChecks/TemplateGCDCheck_SubmitLock.txt",'r')
-        pid = f.readline() # PID of the previous process
-        # Check if a process with this pid is still running, just printing the command w/o the ps header (so, no line if no process with PID is running)
-        sub_proc = sub.Popen(['ps', '-p', str(pid), '-o', 'command='], shell=False, stdout=sub.PIPE)
-        for line in sub_proc.stdout:
-            # Check if the running process is still a TemplateGCDCheck (is required since the PIDs are recycled)
-            if 'TemplateGCDChecks.py' in line:
-                print "Another instance of the TemplateGCDCheck script is running @ %s ... exiting"%datetime.datetime.now().isoformat().replace("T"," ")
-                exit(0)
+    argparser = get_defaultparser(__doc__, dryrun = True)
+    argparser.add_argument('-s', '--startrun', type = int, default = DEFAULT_START_RUN,
+                        dest = "STARTRUN",
+                        help = "Start run check from this run")
 
-        print "removing stale lock file"
-        os.system("rm -f /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/TemplateGCDChecks/TemplateGCDCheck_SubmitLock.txt")
+    args = argparser.parse_args()
 
-    with open("/data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/TemplateGCDChecks/TemplateGCDCheck_SubmitLock.txt",'w') as f:
-        f.write(str(os.getpid()))
+    logger = get_logger(args.loglevel, LOGFILE)
     
+    logger.info("Attempting TemplateGCDChecks @ %s"%datetime.datetime.now().isoformat().replace("T"," "))
 
-    # default run number to start checks, this can be over-written by supplying an
-    StartRun = 126378
-    try:
-        StartRun = int(sys.argv[1])
-    except:
-        pass
+    lock = libs.process.Lock(os.path.basename(__file__), logger)
+    lock.lock()
     
-    
-    
+    StartRun = args.STARTRUN
+
     notChecked = dbs4_.fetchall(""" SELECT * FROM i3filter.grl_snapshot_info g where (GCDCheck and BadDOMsCheck)
                                and run_id>=%s order by run_id"""%StartRun,UseDict=True)
 
-
     fileDict = {}
     for n in notChecked:
-    #if n['TemplateGCDCheck'] is not None: continue
-
         currentFile = glob.glob("/data/exp/IceCube/%s/filtered/level2/AllGCD/*%s*"%(n['good_tstart'].year,n['run_id']))
     
         if len(currentFile):
             if os.path.isfile(currentFile[0]):
                 fileDict[n['run_id']] = [currentFile[0],n['TemplateGCDCheck']]
-        #else:
-        #    fileDict[n['run_id']] = ""
     
     if not len(fileDict):
-        print "No GCD file meet criteria for Template testing .... exiting"
+        logger.info("No GCD file meet criteria for Template testing .... exiting")
         exit(0)
         
     sRuns = fileDict.keys()
     sRuns.sort()
 
-    print sRuns
+    logger.info("Check the following runs: %s"%sRuns)
 
-    main_cmp(fileDict,sRuns)
+    main_cmp(fileDict, sRuns, args.dryrun)
     
-    
-    
-    if os.path.isfile("/data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/TemplateGCDChecks/TemplateGCDCheck_SubmitLock.txt"):
-        print "removing TemplateGCDCheck chksum submission lock file"
-        os.system("rm -f /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/TemplateGCDChecks/TemplateGCDCheck_SubmitLock.txt")
+    lock.unlock()
