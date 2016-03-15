@@ -9,6 +9,11 @@ import os
 import stat
 import subprocess as sub
 
+try:
+    from icecube import icetray,dataclasses,dataio
+except:
+    warn("No env-shell loaded")
+
 import SQLClient_i3live as live
 import SQLClient_dbs4 as dbs4
 import SQLClient_dbs2 as dbs2
@@ -18,6 +23,8 @@ dbs4_ = dbs4.MySQL()
 dbs2_ = dbs2.MySQL()    
 
 from RunTools import RunTools
+
+from libs.files import GetSubRunStartStop,GetGoodSubruns
 
 ICECUBE_GCDDIR = lambda x : "/data/exp/IceCube/%s/filtered/level2/VerifiedGCD" %str(x)
 ICECUBE_DATADIR = lambda x : "/data/exp/IceCube/%s/filtered/level2/" %str(x)
@@ -270,8 +277,103 @@ def has_sps_gcd_file(runId, year, month, day, logger):
     if day < 10:
         day = '0' + str(day)
 
-    path = '/data/exp/IceCube/' + str(year) + '/internal-system/sps-gcd/' + str(month) + str(day) + '/SPS-GCD_Run*' + str(runId) + '*.i3.tar.gz';
+    path = '/data/exp/IceCube/' + str(year) + '/internal-system/sps-gcd/' + str(month) + str(day) + '/SPS-GCD_Run*' + str(runId) + '*.i3.tar.gz'
 
     files = glob.glob(path)
 
-    return len(files) > 0;
+    return len(files) > 0
+
+def leap_second_affected_subruns(run_id, good_tstart, good_tstop, production_version, season, logger):
+    """
+    Checks if the first and the last subrun is affected by the leap second bug.
+
+    Args:
+        run_id (int): The run id
+        good_tstart (I3Time): The `good_tstart`
+        good_tstop (I3Time): The `good_tstop`
+        production_version (int): The production version of the run
+        season (int): The season of the run (e.g. 2015)
+        logger (logging.Logger): the logger.
+
+    Returns:
+        list: Returns a list. If the list is empty, no issues are found. If the list contains `start`, an issue
+              with the first subrun is found. It it contains `end`, an issue with the last subrun is found.
+    """
+    run_tools = RunTools(run_id)
+    out_files = run_tools.GetRunFiles(good_tstart.date_time, 'L')
+
+    version = "%s_%s"%(str(run_id),str(production_version))
+
+    first_good, last_good, L2_files = GetGoodSubruns(out_files, good_tstart, good_tstop, version)
+
+    first_good_start_time, first_good_stop_time = GetSubRunStartStop(first_good, logger)
+    last_good_start_time, last_good_stop_time = GetSubRunStartStop(last_good, logger)
+
+    result = []
+
+    if first_good_start_time < good_tstart:
+        result.append('start')
+        logger.error("Start time of first good subrun is smaller than time in database:")
+        logger.error("    file start time: %s"%first_good_start_time)
+        logger.error("    db start time  : %s"%good_tstart)
+        logger.error("    file           : %s"%first_good)
+
+    if last_good_stop_time.date_time.second + 1 == good_tstop.date_time.second:
+        result.append('end')
+        logger.error("End time of last good subrun around 1 sec smaller than end time in database:")
+        logger.error("    file end time  : %s"%last_good_stop_time)
+        logger.error("    db end time    : %s"%good_tstop)
+        logger.error("    file           : %s"%last_good)
+
+    return result
+
+def leap_second_affected_gcd(run_id, time, season, logger):
+    """
+    Checks if the GCD file of this run contains leap second affected times.
+
+    *WARNING: It only works correctly if you know that `GoodRunStartTime` is wrong! Is `GoodRunStartTime` correct,
+    it will give you false positives!!!!111!!!1*
+
+    In fact, it checks the `GoodRunStartTime` and the I3DetectorStatus `start_time`.
+    It compares the seconds of both times with the second of the `time` argument.
+
+    Args:
+        run_id (int) the run id
+        time (I3Time): The time from the database
+
+    Returns:
+        int: It returns `1` if a time mismatch is found. Otherwise, `0` is returned.
+    """
+
+    # Get the datetime object
+    time = time.date_time
+
+    path = "/data/exp/IceCube/%s/filtered/level2/AllGCD/Level2_IC86.%s_data_Run%s_*_GCD.i3.gz"%(time.year, season, str(run_id).zfill(8))
+
+    logger.debug("Looking for files: %s"%path)
+
+    files = glob.glob(path)
+
+    for file in files:
+        logger.info("Check file %s"%file)
+
+        i3file = dataio.I3File(file)
+        
+        # Skip G and D frame
+        i3file.pop_frame()
+        i3file.pop_frame()
+
+        # Get D frame
+        frame = i3file.pop_frame()
+
+        status = frame['I3DetectorStatus']
+        goodstarttime = frame['GoodRunStartTime']
+
+        if status.start_time.date_time.second == goodstarttime.date_time.second or status.start_time.date_time.second != time.second:
+            logger.error("Time mismatch: I3DetectorStatus.start_time = %s"%status.start_time)
+            logger.error("               GoodRunStartTime            = %s"%goodstarttime)
+            logger.error("               good_tstart                 = %s"%time)
+            return 1
+        else:
+            return 0
+
