@@ -34,7 +34,6 @@ class DbTools(object):
                 print 'No records for %s, probably not submitted yet'%self.RunNumber
                 return 1
 
-            print result
             return int(result[0][0])
         except Exception, err:
             raise Exception("Error: %s "%str(err))

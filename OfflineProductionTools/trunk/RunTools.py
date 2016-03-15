@@ -1,34 +1,27 @@
 #!/usr/bin/env python
 
 import os, sys
+import subprocess
 import glob
-from optparse import OptionParser
 import datetime
 import string
 import re
 from dateutil.parser import parse
 from dateutil.relativedelta import *
 from math import *
-#from lxml import etree as et
 import xml.etree.ElementTree as ET
-#import libxml2
 
-#try:
-#    from I3Tray import *
-#    from icecube import icetray
-#except Exception, err:
-#    raise Exception("Error: %s "%str(err))
+from dummylogger import DummyLogger
 
 class RunTools(object):
     """
     Get files and dates for a run
     """
 
-    def __init__(self,RunNumber):
+    def __init__(self,RunNumber,logger=DummyLogger()):
         self.RunNumber = RunNumber
+        self.logger = logger
         
-    #def GetActiveDoms(self,startDate=GetRunTimes()['grl_start_time'],UpdateDB=False):
-    #def GetActiveStringsAndDoms(self,startDate,UpdateDB=False):
     def GetActiveStringsAndDoms(self,Season,UpdateDB=False):
 
         try:
@@ -38,7 +31,7 @@ class RunTools(object):
             GCDFile = glob.glob("/data/exp/IceCube/%s/filtered/level2/VerifiedGCD/Level2_IC86.%s*%s*"%(startDate.year,Season,self.RunNumber))
             
             if not len(GCDFile):
-                print "No GCD file for run %s in Verified GCD Directory ... exiting"%self.RunNumber
+                self.logger.warning("No GCD file for run %s in Verified GCD Directory ... exiting"%self.RunNumber)
                 return 1
             
             GCDFile.sort(key=lambda x: os.path.getmtime(x))
@@ -55,7 +48,7 @@ class RunTools(object):
                     break
         
             if not BDL:
-                print "No BadDomsList object in GCD file ... exiting"
+                self.logger.warning("No BadDomsList object in GCD file ... exiting")
                 return 1
 
             
@@ -118,7 +111,7 @@ class RunTools(object):
                                     from live.livedata_run r
                                     where runNumber=%s"""%(self.RunNumber),UseDict=True)
             if not len(times_):
-                print "No time information for run = %s"%self.RunNumber
+                self.logger.warning("No time information for run = %s"%self.RunNumber)
                 return []
             else:
                 #print times_[0]
@@ -157,8 +150,8 @@ class RunTools(object):
                                     runnumber,str(Type).upper(),self.RunNumber)))
                 
             else:
-                print """File type must be of type 'P' for PFFilt and 'L' for Level2,
-                        argument type %s not recognized, returning empty list"""%str(Type)
+                self.logger.warning("""File type must be of type 'P' for PFFilt and 'L' for Level2,
+                        argument type %s not recognized, returning empty list"""%str(Type))
                 return Files
 
             if len(Files):
@@ -172,29 +165,30 @@ class RunTools(object):
     def FilesComplete(self,InFiles,RunTimes):
         try:
             if not len(InFiles):
-                print "Input file list is empty, maybe failed/short run"
+                self.logger.warning( "Input file list is empty, maybe failed/short run")
                 return 0
             
             InFiles.sort()
             FileParts = [int(re.sub("[^0-9]","",i.split("Subrun")[1].split(".bz2")[0])) for i in InFiles]
             if not len(FileParts) or max(FileParts)>1000:
-                print "Could not resolve number of files from file names ... file names probably do not follow expected naming convention"
+                self.logger.warning( "Could not resolve number of files from file names ... file names probably do not follow expected naming convention")
                 return 0
             
             if len(InFiles) != FileParts[-1] + 1:
-                print "Looks like we don't have all the files for this run"
+                self.logger.warning( "Looks like we don't have all the files for this run")
                 MissingParts = (set(range(0,FileParts[-1] + 1))).difference(set(FileParts))
-                print "There are %s Missing Part(s):"%len(MissingParts)
+                warnstring =  "There are %s Missing Part(s): \n"%len(MissingParts)
                 MissingParts = list(MissingParts)
                 MissingParts.sort()
                 for m in MissingParts:
-                    print m
-                
+                    warnstring += m + '\n'
+                self.logger.warning(warnstring)
                 return 0
             
             StartCheck = 0
-            os.system("""tar xvf %s --exclude="*.i3*" -O > tmp.xml"""%InFiles[0])
-            
+            processoutput = subprocess.check_output("""tar xvf %s --exclude="*.i3*" -O > tmp.xml"""%InFiles[0], shell = True, stderr=subprocess.STDOUT)
+            self.logger.info(processoutput.strip())
+
             #tree = et.parse("tmp.xml")
             #sTime = tree.find("Plus").find("Start_DateTime").text
             #fs_time = parse(sTime)
@@ -214,10 +208,11 @@ class RunTools(object):
             
             StartCheck = fs_time<=RunStart
             if not StartCheck:
-                print "mismatch in start time reported by i3Live:%s and file metadata:%s"%(RunStart, fs_time)        
+                self.logger.warning( "mismatch in start time reported by i3Live:%s and file metadata:%s"%(RunStart, fs_time)) 
         
             EndCheck = 0
-            os.system("""tar xvf %s --exclude="*.i3*" -O > tmp.xml"""%InFiles[-1])
+            processoutput = subprocess.check_output("""tar xvf %s --exclude="*.i3*" -O > tmp.xml"""%InFiles[-1], shell = True, stderr=subprocess.STDOUT)
+            self.logger.info(processoutput.strip())
             
             #tree = et.parse("tmp.xml")
             #eTime = tree.find("Plus").find("End_DateTime").text
@@ -241,10 +236,10 @@ class RunTools(object):
             #EndCheck = int(t_diff_s < 1.0)
             EndCheck = fe_time >= RunStop
             if not EndCheck:
-                print "mismatch in end time reported by i3Live:%s and file metadata:%s"%(RunStop, fe_time)        
+                self.logger.warning( "mismatch in end time reported by i3Live:%s and file metadata:%s"%(RunStop, fe_time))        
         
             return StartCheck * EndCheck
           
         except Exception, err:
-            print("FilesComplete Error: %s\n"%str(err))
+            self.logger.error("FilesComplete Error: %s\n"%str(err))
             return 0
