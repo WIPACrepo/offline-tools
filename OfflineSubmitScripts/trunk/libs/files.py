@@ -11,6 +11,8 @@ from i3tools import TrimFileClass
 
 from FileTools import FileTools
 
+import cPickle
+
 try:
     from I3Tray import I3Tray
     from icecube import icetray,dataclasses,dataio
@@ -24,7 +26,6 @@ import SQLClient_dbs2 as dbs2
 m_live = live.MySQL()    
 dbs4_ = dbs4.MySQL()   
 dbs2_ = dbs2.MySQL()    
-
 
 RUNINFODIR = lambda year : "/data/exp/IceCube/%s/filtered/level2/RunInfo/" %str(year)
 LEVEL2_DIR = lambda year : "/data/exp/IceCube/%s/filtered/level2/" %str(year)
@@ -456,6 +457,36 @@ def get_tmpdir():
 
     root_dir = get_rootdir()
     return os.path.join(root_dir,"tmp")
+
+#############################################
+
+# FIXME: adjust paths for season
+CHECK_SUM_CACHE_FILE = os.path.join(get_rootdir(), "IC86_2015.dat")
+
+def get_existing_check_sums(logger, ChkSumFile = CHECK_SUM_CACHE_FILE):    
+    """
+    Get dictionary of precalculated check sums for PFFilt files. Caching makes submission faster.
+
+    Args:
+        logger (logging.Logger): The logger
+        ChkSumFile (str): Path to file with check sums
+
+    Returns:
+        dict: Dictionary of files and MD5 check sums. If the file is not found or cannot be opened
+              an empty directory is returned, an error is logged, and an exception is logged.
+    """
+
+    logger.debug("Path to cached check sums: %s"%ChkSumFile)
+
+    ExistingChkSums = {}
+    try:
+        ExistingChkSums = cPickle.load(open(ChkSumFile,"rb"))
+        return ExistingChkSums
+    except Exception,err:
+        logger.error('Cannot retrieve cached check sums')
+        logger.error('Return empty dict: {}')
+        logger.exception(Exception)
+        return ExistingChkSums
 
 #############################################
 

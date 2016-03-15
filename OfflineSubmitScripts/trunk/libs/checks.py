@@ -22,6 +22,38 @@ from RunTools import RunTools
 ICECUBE_GCDDIR = lambda x : "/data/exp/IceCube/%s/filtered/level2/VerifiedGCD" %str(x)
 ICECUBE_DATADIR = lambda x : "/data/exp/IceCube/%s/filtered/level2/" %str(x)
 
+def runs_already_submitted(dbs4_, StartRun, EndRun, logger, dryrun):
+    """
+    Checks if all runs have already been submitted. In fact, it checks if the `submitted` flag in
+    `grl_snapshot_info` is set to `1`.
+    
+    Args:
+        dbs4_ (SQLClient_dbs4): The SQL client for dbs4.
+        StartRun (int): First run that has to be checked
+        EndRun (int): Last run that has to be checked
+        logger (logging.Logger): The logger
+        dryrun (bool): Is it a dryrun?
+
+    Returns:
+        bool: Returns `True` if the runs passed this check.
+    """
+    
+    logger.info('Check runs for resubmission.')
+
+    Runs = dbs4_.fetchall("""SELECT run_id, submitted FROM i3filter.grl_snapshot_info
+                                    WHERE run_id BETWEEN %s AND %s AND (good_i3=1 OR good_it=1)"""%(StartRun, EndRun),UseDict=True)
+
+    Abort = False
+    for Run in Runs:
+        if not Run['submitted']:
+            logger.error("""Run %s has not been submitted yet."""%(Run['run_id']))
+            Abort = True
+
+    if not Abort:
+        logger.info('Passed resubmission check. All runs are subject to be resubmitted.')
+
+    return not Abort
+
 def CheckFiles(r,logger,dryrun=False):
     """
     Check if there are as many L2 files as there are PFFilt files. 
