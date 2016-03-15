@@ -17,7 +17,7 @@ import subprocess as sub
 import datetime
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
-from libs.files import get_logdir
+from libs.files import get_logdir, get_rootdir
 import libs.process
 
 sys.path.append('/data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools')
@@ -26,7 +26,9 @@ from FileTools import *
 
 def main(logger, dryrun):
     # FIXME: adjust paths for season
-    ChkSumCacheFile = os.path.join(os.path.split(__file__)[0], "IC86_2015.dat")
+    ChkSumCacheFile = os.path.join(get_rootdir(), "IC86_2015.dat")
+
+    logger.debug("Cache file for check sums: %s"%ChkSumCacheFile)
 
     logger.info("Attempting Update @ %s"%datetime.datetime.now().isoformat().replace("T"," "))
 
