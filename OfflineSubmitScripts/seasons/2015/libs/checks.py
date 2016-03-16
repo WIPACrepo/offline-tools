@@ -283,7 +283,7 @@ def has_sps_gcd_file(runId, year, month, day, logger):
 
     return len(files) > 0
 
-def leap_second_affected_subruns(run_id, good_tstart, good_tstop, production_version, season, logger):
+def leap_second_affected_subruns(run_id, good_tstart, good_tstop, production_version, logger):
     """
     Checks if the first and the last subrun is affected by the leap second bug.
 
@@ -292,7 +292,6 @@ def leap_second_affected_subruns(run_id, good_tstart, good_tstop, production_ver
         good_tstart (I3Time): The `good_tstart`
         good_tstop (I3Time): The `good_tstop`
         production_version (int): The production version of the run
-        season (int): The season of the run (e.g. 2015)
         logger (logging.Logger): the logger.
 
     Returns:
@@ -327,7 +326,7 @@ def leap_second_affected_subruns(run_id, good_tstart, good_tstop, production_ver
 
     return result
 
-def leap_second_affected_gcd(run_id, time, season, logger):
+def leap_second_affected_gcd(run_id, stime, etime, onlygcd, logger):
     """
     Checks if the GCD file of this run contains leap second affected times.
 
@@ -340,15 +339,18 @@ def leap_second_affected_gcd(run_id, time, season, logger):
     Args:
         run_id (int) the run id
         time (I3Time): The time from the database
+        onlygcd (bool): Check only the GCD for times bug, not leap second bug
+        logger (logging.Logger): The logger
 
     Returns:
         int: It returns `1` if a time mismatch is found. Otherwise, `0` is returned.
     """
 
     # Get the datetime object
-    time = time.date_time
+    stime = stime.date_time
+    etime = etime.date_time
 
-    path = "/data/exp/IceCube/%s/filtered/level2/AllGCD/Level2_IC86.%s_data_Run%s_*_GCD.i3.gz"%(time.year, season, str(run_id).zfill(8))
+    path = "/data/exp/IceCube/%s/filtered/level2/AllGCD/Level2_IC86.*_data_Run%s_*_GCD.i3.gz"%(stime.year, str(run_id).zfill(8))
 
     logger.debug("Looking for files: %s"%path)
 
@@ -369,11 +371,28 @@ def leap_second_affected_gcd(run_id, time, season, logger):
         status = frame['I3DetectorStatus']
         goodstarttime = frame['GoodRunStartTime']
 
-        if status.start_time.date_time.second == goodstarttime.date_time.second or status.start_time.date_time.second != time.second:
-            logger.error("Time mismatch: I3DetectorStatus.start_time = %s"%status.start_time)
-            logger.error("               GoodRunStartTime            = %s"%goodstarttime)
-            logger.error("               good_tstart                 = %s"%time)
-            return 1
+        if onlygcd:
+            if status.start_time.date_time.hour != stime.hour or \
+               status.start_time.date_time.minute != stime.minute or \
+               status.start_time.date_time.second != stime.second or \
+               status.end_time.date_time.hour != etime.hour or \
+               status.end_time.date_time.minute != etime.minute or \
+               status.end_time.date_time.second != etime.second:
+                logger.error("Time mismatch: I3DetectorStatus.start_time = %s"%status.start_time)
+                logger.error("               I3DetectorStatus.end_time   = %s"%status.end_time)
+                logger.error("               good_tstart                 = %s"%stime)
+                logger.error("               good_tstop                  = %s"%etime)
+                return 1
+            else:
+                return 0
         else:
-            return 0
+            if status.start_time.date_time.second == goodstarttime.date_time.second or status.start_time.date_time.second != stime.second:
+                logger.error("Time mismatch: I3DetectorStatus.start_time = %s"%status.start_time)
+                logger.error("               GoodRunStartTime            = %s"%goodstarttime)
+                logger.error("               good_tstart                 = %s"%stime)
+                return 1
+            else:
+                return 0
+
+    return 0
 
