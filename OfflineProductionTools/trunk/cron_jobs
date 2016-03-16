@@ -1,16 +1,12 @@
 
 # running on cobalt02 as i3filter
 20 * * * * python /data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/ProdTools/DiskStatus.py >> /data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/ProdTools/DiskStatus.log
-
-28 14 * * * python /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/TemplateGCDChecks/TemplateGCDChecks.py >> /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/TemplateGCDChecks/TemplateGCDChecks.logs
-
-9 16 * * * python /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/PoleGCDChecks/PoleGCDChecks.py >> /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/PoleGCDChecks/PoleGCDChecks.logs
+28 14 * * * /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/crons/TemplateGCDChecks.sh
+9 16 * * * /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/crons/PoleGCDChecks.sh
 
 # running on cobalt04 as i3filter
-39 */3 * * * python /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/CacheChksums_2015.py >> /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/CacheChksums_2015.log
-
 6 1,7 * * * python /data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/ProdTools/parseCondorUsageFiles.py >> /data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/ProdTools/parseCondorUsageFiles.log
-
+39 */3 * * * /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/crons/CacheCheckSums.sh
 2 7 2-30/2 * * python /data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/ProdTools/copySysChkLogs.py >> /data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/ProdTools/copySysChkLogs.log
-
+0 22 * * * python /data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/getDroppedDomsFromLive.py --source="A" --mons --update-i3omdb --insert-in-db
 
