@@ -26,9 +26,9 @@ if __name__ == '__main__':
                         dest = "ENDRUN",
                         help = "Stop file check at this run")
     
-    parser.add_argument("--season", type = int, required = True,
-                        dest = "season",
-                        help = "Season (e.g. 2015)")
+    parser.add_argument("--checkonlygcd", action="store_const", const=True, default = False,
+                        dest = "checkonlygcd",
+                        help = "Check only GCD files")
     
     args = parser.parse_args()
  
@@ -38,6 +38,8 @@ if __name__ == '__main__':
 	
     # Main script
     dbs4_ = dbs4.MySQL()
+
+    logger.debug("args.checkonlygcd = %s"%args.checkonlygcd)
 
     if args.STARTRUN > args.ENDRUN:
         logger.error('The end run id must be equal or bigger than the start run id.')
@@ -70,21 +72,22 @@ if __name__ == '__main__':
         gtstop = dataclasses.I3Time(good_tstop.year,ComputeTenthOfNanosec(good_tstop, good_tstop_frac))
 
         # Check GCDs
-        affected = leap_second_affected_gcd(runId, gtstart, args.season, logger)
+        affected = leap_second_affected_gcd(runId, gtstart, gtstop, args.checkonlygcd, logger)
         bad_gcds += affected
         if affected:
             affected_gcds.append(runId)
 
-        # Check subruns
-        affected = leap_second_affected_subruns(runId, gtstart, gtstop, production_version, args.season, logger)
+        if not args.checkonlygcd:
+            # Check subruns
+            affected = leap_second_affected_subruns(runId, gtstart, gtstop, production_version, logger)
 
-        if 'start' in affected:
-            bad_start += 1
-            affected_start.append(runId)
+            if 'start' in affected:
+                bad_start += 1
+                affected_start.append(runId)
 
-        if 'end' in affected:
-            bad_end += 1
-            affected_end.append(runId)
+            if 'end' in affected:
+                bad_end += 1
+                affected_end.append(runId)
 
         counter += 1
 
