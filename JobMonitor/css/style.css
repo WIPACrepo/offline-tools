@@ -1,0 +1,87 @@
+
+body {
+    background-color: white;
+    margin: 0;
+    font-family: Sans-Serif;
+    font-size: 15px;
+    color: #444444;
+}
+
+#header {
+    color: white;
+    position: fixed;
+    top: 0;
+    z-index: 999;
+    background: linear-gradient(#B3997E, white);
+    width: 100%;
+    box-shadow: 0 5px 5px #aaaaaa;
+}
+
+div div.wrapper {
+    padding: 30px 30px 10px 30px;
+}
+
+div div.wrapper#nav {
+    color: black;
+    background: linear-gradient(white, #B3997E);
+    padding: 10px 30px 10px 30px;
+    border-top: 1px solid #B3997E;
+}
+
+#header h1 {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    padding-bottom: 10px;
+}
+
+#last_update, #update_interval, #dataset_id {
+    display: inline-block;
+    margin-right: 40px;
+    font-weight: bold;
+    line-height: 33px;
+}
+
+#update_now {
+    position: relative;
+    top: 2px;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+#last_update span {
+    font-weight: normal;
+}
+
+#last_update img {
+    position: relative;
+    top: 6px;
+    margin-left: 5px;
+    padding: 2px;
+    background-color: white;
+    border-radius: 2px;
+    border: 1px solid #B3997E;
+}
+
+#frame {
+    margin: 30px;
+    margin-top: 175px;
+}
+
+tr.failed td {
+    color: white;
+}
+
+tr.failed.odd td {
+    background-color: #FB3939 !important;
+}
+
+tr.failed.even td {
+    background-color: #F12020 !important;
+}
+
+tr.failed:hover td {
+    background-color: #F36161 !important;
+}
+
