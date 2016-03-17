@@ -50,7 +50,7 @@ def main(params, logger, DryRun):
         exit(0)
 
     if Resubmission:
-        if not runs_already_submitted(dbs4_, START_RUN, END_RUN, logger):
+        if not runs_already_submitted(dbs4_, START_RUN, END_RUN, logger, DryRun):
             logger.critical('At least one run has not been submitted before. Do not use the resubmission flag to submit runs for the first time.')
             logger.critical('Exit')
             exit(1)
@@ -78,7 +78,7 @@ def main(params, logger, DryRun):
             for g in GRLInfo:
                 status = get_run_status(g)
                
-                clean_run(dbs4_,params.DATASETID,Run,params.CLEANDW,g)
+                clean_run(dbs4_,params.DATASETID,Run,params.CLEANDW,g, logger, DryRun)
             
                 QId = max_queue_id(dbs4_,params.DATASETID)
                 
@@ -90,7 +90,7 @@ def main(params, logger, DryRun):
                                      where run_id=%s and production_version=%s"""%\
                                      (g['run_id'],g['production_version']))
 
-                logger.write("**************")
+                logger.info("**************")
 
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__, dryrun = True)
