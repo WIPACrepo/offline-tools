@@ -10,7 +10,9 @@ var update_enabled = true;
 
 $(document).ready(function() {
     $(document).tooltip();
-    $('#extended_data').dialog({'resizable': true, 'autoOpen': false, 'modal': true});
+    var dwidth = $(document).width();
+    var dheight = $(document).height();
+    $('#extended_data').dialog({'resizable': true, 'autoOpen': false, 'modal': true, 'width': dwidth * .8, 'height': dheight * .8});
     $('#extended_data #tabs').tabs();
 
     // Create HTML for tables
@@ -166,15 +168,31 @@ function fill_extended_data(dialog, row) {
 
         for(var i = 0; i < jobdata['log_tails'].length; ++i) {
             var filename = jobdata['log_tails'][i]['file'].split('/').pop();
+            if('' === filename) {
+                filename = '(LOG)';
+            }
+
             $(ul).append($('<li></li>').html('<a href="#file-' + i + '">' + filename + '</a>'));
         }
 
        for(var i = 0; i < jobdata['log_tails'].length; ++i) {
-            if(jobdata['log_tails'][i]['error']) {
-                $(tabs).append('<div id="file-' + i + '">File does not exist anymore :(</div>');
-            } else {
-                $(tabs).append('<div id="file-' + i + '">' + jobdata['log_tails'][i]['content'] + '</div>');
+            var filename = jobdata['log_tails'][i]['file'].split('/').pop();
+            var html = '<div id="file-' + i + '">';
+
+            if(filename !== '' && filename !== 'stdout' && filename !== 'stderr' && filename !== 'log4cplus') {
+                html += '<div class="filepath"><input type="text" value="' + jobdata['submitdir'] + '/' + jobdata['log_tails'][i]['file'] + '" readonly /></div>';
             }
+
+            if(jobdata['log_tails'][i]['content'] === '') {
+                html += '<div class="log-empty">Empty Log</div>'
+            } else {
+                html += '<div class="log">' + jobdata['log_tails'][i]['content'] + '</div>';
+            }
+
+            $(tabs).append(html);
+            $('.filepath input', tabs).click(function() {
+                $(this).select();
+            });
         }
 
         $(tabs).tabs(); 
@@ -248,64 +266,11 @@ function update_view(data) {
     var container = $('#current_jobs');
     var table = $('table', container);
 
-    console.log(1);
     update_table(datatable, data['data']['current']);
-    console.log(2);
     update_table(datatable_completed, data['data']['completed']);
 
     var last_updated = $('#last_update span');
 
-/*
-    var runs_in_table = [];
-
-    datatable.rows().iterator('row', function (context, index) {
-        var run_id = $('td', this.row(index).node()).eq(0).text();
-
-        // RunId, row index, inducator if entry is still in server response
-        runs_in_table.push([run_id, index, false]);
-    });
-
-    for(var i = 0; i < data['data'].length; ++i) {
-        var r = data['data'][i];
-
-        var row = runs_in_table.filter(function(e, i) {
-            if(e[0] == r['run_id']) {
-                runs_in_table[i][2] = true;
-                return true;
-            } else {
-                return false;
-            }
-        });
-
-        if(row.length > 0) {
-            row = row[0][1];
-        } else {
-            row = undefined;
-        }
-
-        var rowdata = [r['run_id'], r['num_status_ok'], r['num_status_failed'], r['num_status_processing'], r['num_of_jobs'], r['status'], r['prev_state'], r['failures'], r['date']];
-
-        if(row !== undefined) {
-            datatable.row(row).data(rowdata).draw();
-            row = datatable.row(row).node();
-        } else {
-            row = datatable.row.add(rowdata).draw(false).node();
-        }
-
-        if(r['num_status_failed'] + r['num_status_error'] > 0) {
-            $(row).addClass('failed');
-        }
-
-        add_extended_info(row, r);
-    }
-
-    datatable.rows(runs_in_table.filter(function(e, i) {
-            return !e[2];
-        }).map(function(e, i) {
-            return e[1];
-        })
-    ).remove().draw();
-*/
     last_update_time = new Date();
     $(last_updated).html(last_update_time.toLocaleString());
     update_last_update();

@@ -129,11 +129,38 @@ class ProcessingJobs {
         return $this->mysql->query($sql);
     }
 
+    private function parse_errormessage($msg) {
+        $msg = str_replace('<br>', '', $msg);
+        $parts =  preg_split('/----([_0-9a-z\.\ ]+)----[\:]{0,1}/i', $msg, -1,  PREG_SPLIT_DELIM_CAPTURE);
+
+        #print_r($parts);
+        
+        $msgs = array();
+
+        $file = null;
+        for($i = 0; $i < count($parts); ++$i) {
+            $part = $parts[$i];
+
+            if(0 == $i) {
+                $msgs[] = array('file' => '',
+                                'content' => $part);
+            } elseif($i & 1 == 1) {
+                $file = trim($part);
+            } else {
+                $msgs[] = array('file' => $file,
+                                'content' => trim($part));
+            }
+        }
+
+        return $msgs;
+    }
+
     private function get_error_jobs_and_msgs($run) {
        $sql = " SELECT  submitdir,
                         job_id,
                         status,
-                        j.queue_id 
+                        j.queue_id,
+                        errormessage 
                 FROM    i3filter.job j
                 JOIN    i3filter.run r 
                         ON j.queue_id = r.queue_id
@@ -147,23 +174,7 @@ class ProcessingJobs {
         $result = array('ERROR' => array(), 'FAILED' => array());
 
         while($job = $query->fetch_assoc()) {
-            $logs = array();
-
-            // Get tails of logfiles
-            $files = @scandir($job['submitdir'] . '/');
-            if(false !== $files) {
-                foreach($files as $file) {
-                    // check file extensions
-                    $pinfo = pathinfo($file);
-                    if(in_array($pinfo['extension'], $this->logfile_extensions)) {
-                        // If the file doesn't exists or something went wrong tail returns false
-                        $tail = $this->tail($path);
-                        $logs[] = array('file' => $path,
-                                        'error' => $tail === false,
-                                        'content' => $tail);
-                    }
-                }
-            }
+            $logs = $this->parse_errormessage($job['errormessage']);
 
             $result[$job['status']][] = array('job_id' => $job['job_id'],
                                               'submitdir' => $job['submitdir'],
