@@ -27,38 +27,42 @@ $dataset_list = $pjobs->get_dataset_ids();
         <script type="text/javascript" src="./js/jquery.min.js"></script>
         <script type="text/javascript" src="./js/jquery-ui/jquery-ui.min.js"></script>
         <script type="text/javascript" src="./js/jquery.dataTables.js"></script>
+        <script type="text/javascript" src="./js/class.jobmonitor.js"></script>
         <script type="text/javascript" src="./js/jobmonitor.js"></script>
     </head>
     <body>
         <div id="header">
             <div class="wrapper">
-            <h1>Offline Processing Job Monitor</h1>
+                <h1>Offline Processing Job Monitor</h1>
             </div>
             <div class="wrapper" id="nav">
-            <div id="error"></div>
-            <div id="last_update">Last Update: <span>never</span> <strong style="display: none;"></strong><img src="./images/loading.gif" style="display: none;" /></div>
-            <div id="update_interval">
-                Update Interval:
-                <select></select>
-                <img src="./images/update.png" id="update_now" />
-            </div>
-            <div id="dataset_id">
-                Dataset:
-                <select>
-                <?php
-                
-                foreach($dataset_list as $id) {
-                    $selected = '';
-                    if($id['dataset_id'] == $CONFIG['default_dataset_id']) {
-                        $selected = ' selected';
-                    }
+                <div id="error"></div>
+                <div id="preferences">
+                    <img src="./images/preferences.png" title="Personal Preferences" />
+                </div>
+                <div id="last_update">Last Update: <span>never</span> <strong style="display: none;"></strong><img src="./images/loading.gif" style="display: none;" /></div>
+                <div id="update_interval">
+                    Update Interval:
+                    <select></select>
+                    <img src="./images/update.png" id="update_now" title="Update Now" />
+                </div>
+                <div id="dataset_id">
+                    Dataset:
+                    <select>
+                    <?php
+                    
+                    foreach($dataset_list as $id) {
+                        $selected = '';
+                        if($id['dataset_id'] == $CONFIG['default_dataset_id']) {
+                            $selected = ' selected';
+                        }
 
-                    print("<option value=\"{$id['dataset_id']}\"$selected>{$id['dataset_id']}: {$id['description']}</option>\n");
-                }
-                
-                ?>
-                </select>
-            </div>
+                        print("<option value=\"{$id['dataset_id']}\"$selected>{$id['dataset_id']}: {$id['description']}</option>\n");
+                    }
+                    
+                    ?>
+                    </select>
+                </div>
             </div>
         </div>
         <div id="extended_data" title="Tails of log files"><b>Select Job ID:</b> <select></select><div id="tabs"></div></div>

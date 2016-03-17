@@ -35,7 +35,7 @@ div div.wrapper#nav {
     padding-bottom: 10px;
 }
 
-#last_update, #update_interval, #dataset_id {
+#last_update, #preferences, #update_interval, #dataset_id {
     display: inline-block;
     margin-right: 40px;
     font-weight: bold;
@@ -62,6 +62,14 @@ div div.wrapper#nav {
     background-color: white;
     border-radius: 2px;
     border: 1px solid #B3997E;
+}
+
+#preferences img {
+    position: relative;
+    top: 2px;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
 }
 
 #frame {
