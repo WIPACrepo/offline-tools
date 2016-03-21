@@ -9,6 +9,8 @@ import os
 import stat
 import subprocess as sub
 
+from warnings import warn
+
 try:
     from icecube import icetray,dataclasses,dataio
 except:

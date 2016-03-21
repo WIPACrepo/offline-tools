@@ -7,13 +7,13 @@ import subprocess as sub
 
 from warnings import warn
 from logger import DummyLogger
-from i3tools import TrimFileClass
 
 from FileTools import FileTools
 
 import cPickle
 
 try:
+    from i3tools import TrimFileClass
     from I3Tray import I3Tray
     from icecube import icetray,dataclasses,dataio
 except:
