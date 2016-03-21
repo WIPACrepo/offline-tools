@@ -12,8 +12,20 @@ function JobMonitor(params) {
     /** @private */ this.datatable_completed = undefined;
     /** @private */ this.last_update_time = undefined;
     /** @private */ this.update_enabled = true;
+    /** @private */ this.update_list = {'calendar': true, 'current_jobs': false, 'completed_jobs': false};
     /** @private */ this.container = $('#current_jobs');
     /** @private */ this.completed_jobs = $('#completed_jobs');
+
+    /** @private */ this.calendar = $('#calendar');
+    /** @private */ this.weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    /** @private */ this.months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    /** @private */ this.legends = {'Processed': 'day-ok',
+                                    'Processed w/ Errors': 'day-error',
+                                    'Processing': 'day-proc',
+                                    'Processing w/ Errors': 'day-proc-error',
+                                    'Not All Runs Submitted Yet': 'day-not-all-submitted',
+                                    'L2 Not Validated Yet': 'day-not-validated'};
 
     /** @private */ this.extended_data = $('#extended_data');
     /** @private */ this.extended_data_tabs = $('#tabs', this.extended_data)
@@ -23,7 +35,7 @@ function JobMonitor(params) {
     /** @private */ this.cj_length = $('select[name="completed_job_length"]');
 
     /** @private */ this.update_interval_selection = 'up_inter' in params ? params['up_inter'] : [1, 5, 10, 20, 30, 60, 90, 120, -1];
-    /** @private */ this.update_interval_default = 'up_inter_default' in params ? params['up_inter_default'] : 10;
+    /** @private */ this.update_interval_default = 'up_inter_default' in params ? params['up_inter_default'] : -1;
     /** @private */ this.update_interval = $('#update_interval select');
     /** @private */ this.last_update_text = $('#last_update strong');
     /** @private */ this.last_update_loading = $('#last_update img');
@@ -31,21 +43,59 @@ function JobMonitor(params) {
 
     /** @private */ this.datasets = $('#dataset_id select');
     /** @private */ this.update_now = $('#update_now');
+    /** @private */ this.dataset_default = 'dataset_default' in params ? params['dataset_default'] : 1883;
 
     /** @private */ this.data_url = 'query.php';
 
     /** @private */ this.errors = $('#error span');
 
-    // Initialize
-    this._init();
+    /** @private */ this.tooltips = {};
+
+    /** @private */ this.cookie_pref = {'expires': 365 * 10};
 }
 
 /**
- * Initializes the JobMonitor.
+ * Tries to get the cookie value. If the value is undefined, default_value is returned.
  *
  * @private
+ * @param {string} name The cookie key
+ * @param {string} default_value The default value
+ * @returns {string} The cookie or default value
  */
-JobMonitor.prototype._init = function() {
+JobMonitor.prototype._get_cookie = function(name, default_value) {
+    var value = Cookies.get(name);
+
+    if(typeof value === 'undefined') {
+        return default_value;
+    } else {
+        if(value === 'true') {
+            return true;
+        } else if(value === 'false') {
+            return false;
+        }
+
+        return value;
+    }
+}
+
+/**
+ * Initializes and starts the JobMonitor.
+ */
+JobMonitor.prototype.run = function() {
+    // Set default values
+    // Sections
+    for(var section in this.update_list) {
+        this.update_list[section] = this._get_cookie(section, this.update_list[section]);
+    }
+
+    console.log(this.update_list);
+
+    // Update interval
+    this.update_interval_default = this._get_cookie('update_interval', this.update_interval_default);
+
+    // Dataset
+    this.dataset_default = this._get_cookie('dataset', this.dataset_default);
+
     // Create HTML for tables
     var html = '<table class="display" cellspacing="0" width="100%">';
     html += this._table_x('thead');
@@ -103,6 +153,49 @@ JobMonitor.prototype._init = function() {
         $(iam.update_interval).append($('<option></option>').attr('value', n).text(text));
     });
 
+    // Enable toggle
+    $('.toggle').each(function () {
+        $(this).append('<div class="toggle-indicator open"></div>');
+
+        var indicator = $('.toggle-indicator', $(this));
+        var content = $('.toggle-content', $(this));
+
+        var action = function() {
+            $(content).slideToggle('slow', function() {
+                var open = false;
+
+                if($(content).css('display') === 'none') {
+                    $(indicator).removeClass('open').addClass('close');
+                } else {
+                    open = true;
+                    $(indicator).removeClass('close').addClass('open');
+                }
+
+                iam.update_list[$(content).attr('id')] = open;
+
+                // Store status in cookie
+                Cookies.set($(content).attr('id'), open, iam.cookie_pref);
+                console.log('(Cookie) Set section ' + $(content).attr('id') + ' = ' + open);
+
+                // If section is opened, reload
+                if(open) {
+                    iam.update_data(true);
+                }
+            });
+        };
+
+        // Set default
+        if(iam.update_list[$(content).attr('id')]) {
+            $(content).show();
+        } else {
+            $(content).hide();
+        }
+
+        // Add action
+        $('.captain', $(this)).click(action);
+        $(indicator).click(action);
+    });
+
     // Invoke updates
     $(this.cj_length).change(function() {
        iam.update_data(true); 
@@ -110,12 +203,14 @@ JobMonitor.prototype._init = function() {
 
 
     $(this.update_interval).change(function() {
-       iam.update_data(false); 
+        iam.update_data(false);
+        Cookies.set('update_interval', $(this).val(), iam.cookie_pref);
     });
 
     // If a new dataset is selected, reload data
     $(this.datasets).change(function() {
         iam.update_data(true);
+        Cookies.set('dataset', $(this).val(), iam.cookie_pref);
     });
 
     // Give the update_now button the power...
@@ -126,15 +221,36 @@ JobMonitor.prototype._init = function() {
     // Set defaults
     $(this.update_interval).val(this.update_interval_default);
     $(this.cj_length).val(this.cj_length_default);
+    $(this.datasets).val(this.dataset_default);
 
     // Load data for the first time
     this.update_data(true);
 
     // Enable tool tips
-    $(document).tooltip();
+    $(document).tooltip({
+        'content': function() {
+            var title = $(this).attr('title');
+            if(title in iam.tooltips) {
+                return iam.tooltips[title];
+            } else {
+                return title;
+            }
+        }
+    });
 
     // Timer for updateing the elapsed time
-    setInterval(this._update_last_update, 1000 * 60); // Update it every minute
+    setInterval(function() {iam._update_last_update();}, 1000 * 60); // Update it every minute
+
+    // Navigation
+    var navigation = $('div div.wrapper#nav');
+    var header_height = $(navigation).position().top;
+    $(window).scroll(function () {
+        if($(window).scrollTop() >= header_height) {
+            $(navigation).addClass('fixed');
+        } else if($(navigation).hasClass('fixed')) {
+            $(navigation).removeClass('fixed');
+        }
+    });
 }
 
 /**
@@ -189,6 +305,8 @@ JobMonitor.prototype._table_x = function(x) {
 JobMonitor.prototype.update_data = function(force) {
     force = typeof force !== 'undefined' ? force : false;
 
+    var iam = this;
+
     if(this.update_enabled) {
         var time = $(this.update_interval).val();
     
@@ -203,8 +321,8 @@ JobMonitor.prototype.update_data = function(force) {
         }
  
         if(time >= 1) {
-            console.log('Set Interval to ' + time.toString())
-            this.timer = setInterval(this.run_update, time * 60 * 1000);
+            console.log('Set Interval to ' + time.toString() + ' min')
+            this.timer = setInterval(function () {iam._run_update();}, time * 60 * 1000);
         }
     }
 }
@@ -220,9 +338,27 @@ JobMonitor.prototype._run_update = function() {
     var dataset_id = $(this.datasets).val();
     var completed_job_length = $(this.cj_length).val();
 
+    console.log('Run update: ' + (new Date()));
+
+    var options = '';
+    for(var key in this.update_list) {
+        var value = this.update_list[key];
+
+        if(value) {
+            if(options.length > 0) {
+                options += ',';
+            }
+
+            options += key;
+        }
+    }
+
+    console.log('Options: ' + options);
+
     this._loading(true);
     $.getJSON(this.data_url, {'dataset_id': dataset_id,
-                              'completed_job_length': completed_job_length}, 
+                              'completed_job_length': completed_job_length,
+                              'options': options}, 
         function(data) {
         iam._update_view(data)
     })
@@ -428,12 +564,259 @@ JobMonitor.prototype._update_view = function(data) {
         return;
     }
 
-    this._update_table(this.datatable, data['data']['current']);
-    this._update_table(this.datatable_completed, data['data']['completed']);
+    if('current' in data['data']) {
+        this._update_table(this.datatable, data['data']['current']);
+    }
+    
+    if('completed' in data['data']) {
+        this._update_table(this.datatable_completed, data['data']['completed']);
+    }
+
+    if('calendar' in data['data']) {
+        this._update_calendar(data['data']['calendar']);
+    }
+
+    console.log('Run _update_view: ' + (new Date()));
 
     this.last_update_time = new Date();
-    $(this.last_updated).html(this.last_update_time.toLocaleString());
+    $(this.last_updated).html(this.last_update_time.toLocaleString('en-US'));
     this._update_last_update();
+}
+
+/**
+ * Creates the calendar view.
+ *
+ * @private
+ */
+JobMonitor.prototype._update_calendar = function(data) {
+    var iam = this;
+
+    var create_legend = function() {
+        var html = '<div id="legend">';
+
+        for(var label in iam.legends) {
+            html += '<span class="label"><span class="icon ' + iam.legends[label] + '"></span>' + label + '</span>';
+        }
+
+        html += '</div>';
+
+        return html;
+    };
+
+    var get_day_status = function(data) {
+        if(typeof data === 'undefined') {
+            return '';
+        }
+
+        var ok = data['OK'] + data['IDLEShortRun'] + data['IDLENoFiles']
+                + data['IDLETestRun'] + data['IDLELid'] + data['BadRun']
+                + data['FailedRun'];
+
+        var failed = ok + data['FAILED'];
+
+        //console.log(ok + ' == ' + data['jobs']);
+
+        if(ok == data['jobs']) {
+            return 'day-ok';
+        } else if(failed == data['jobs']) {
+            return 'day-error';
+        } else if(data['FAILED'] + data['ERROR'] > 0) {
+            return 'day-proc-error';
+        } else if(data['jobs'] > 0) {
+            return 'day-proc';
+        } else {
+            return '';
+        }
+    };
+
+    var create_tooltip = function(year, month, day, data, raw_data) {
+        if(typeof data === 'undefined') {
+            return '';
+        }
+
+        var html = '<table>';
+        html += '<thead>';
+        html += '<tr>';
+        html += '<td colspan="4">';
+        html += 'Runs from ' + iam.months[month - 1] + ' ' + day + ', ' + year + ':';
+        html += '</td>';
+        html += '</tr>';
+        html += '<tr>';
+        html += '<td>';
+        html += 'Run';
+        html += '</td>';
+        html += '<td>';
+        html += 'Subm.';
+        html += '</td>';
+        html += '<td>';
+        html += 'Val.';
+        html += '</td>';
+        html += '<td>';
+        html += 'Proc.';
+        html += '</td>';
+        html += '</tr>';
+        html += '</thead>';
+        html += '<tbody>';
+
+        data['grl'].forEach(function(run) {
+            html += '<tr>';
+            html += '<td>';
+            html += run;
+            html += '</td>';
+
+            if($.inArray(run, data['submitted_runs']) !== -1) {
+                html += '<td class="run-ok">';
+                html += '&#10003;';
+            } else {
+                html += '<td class="run-bad">';
+                html += '&#10007;';
+            }
+
+            html += '</td>';
+            
+            if($.inArray(run, raw_data['not_validated']) !== -1) {
+                html += '<td class="run-bad">';
+                html += '&#10007;';
+            } else {
+                html += '<td class="run-ok">';
+                html += '&#10003;';
+            }
+
+            html += '</td>';
+
+            if($.inArray(run, raw_data['proc_error']) !== -1) {
+                html += '<td class="run-bad">';
+                html += 'ERROR';
+            } else if($.inArray(run, raw_data['proc']) !== -1) {
+                html += '<td>';
+                html += 'PROC/IDLE';
+            } else {
+                html += '<td class="run-ok">';
+                html += 'OK';
+            }
+
+            html += '</td>';
+            html += '</tr>';
+        });
+
+        html += '</tbody>';
+        html += '</table>';
+        return html;
+    };
+
+    /**
+     * Creates the HTML for a month.
+     *
+     * @param {string} year The year
+     * @param {string} month The Month
+     * @param {string} day The day
+     * @param {object} data The data of this month
+     * @param {object} raw_data All calendar data
+     */
+    var create_month = function(year, month, data, raw_data) {
+        // Month starts at 0!
+        var first_week_day = (new Date(year, month - 1, 1)).getDay();
+
+        // Get last day of month, therefore no -1!
+        var days_of_month = (new Date(year, month, 0)).getDate();
+
+        var html = '<table class="highlight">';
+        html += '<thead>';
+        html += '<tr>';
+        html += '<td colspan="7">';
+        html +=  iam.months[month - 1]+ ' ' + year;
+        html += '</td>';
+        html += '</tr>';
+        html += '<tr>';
+
+        for(var i = 0; i < iam.weekdays.length; ++i) {
+            html += '<td>';
+            html += iam.weekdays[i];
+            html += '</td>';
+        }
+
+        html += '</tr>';
+        html += '</thead>';
+        html += '<tbody>';
+
+        var day = -1;
+        while(day <= days_of_month) {
+            html += '<tr>';
+
+            for(var dow = 0; dow < 7; ++dow) {
+                if(day < 0 && dow == first_week_day) {
+                    day = 1;
+                }
+
+                if(day < 0 || day > days_of_month) {
+                    html += '<td></td>';
+                } else {
+                    var tooltip = create_tooltip(year, month, day, data[day], raw_data);
+
+                    var classes = ' class="';
+                    classes += get_day_status(data[day]);
+
+                    if(typeof data[day] !== 'undefined') {
+                        // Don't compare it for equal numbers since failed runs can be submitted that aren't in the GRL!
+                        if(data[day]['submitted_runs'].length < data[day]['grl'].length) {
+                            classes += ' day-not-all-submitted';
+                        }
+
+                        var validated = true;
+                        data[day]['grl'].some(function(run) {
+                            if($.inArray(run, raw_data['not_validated']) !== -1) {
+                                validated = false;
+                                // stop loop
+                                return true;
+                            } else {
+                                return false;
+                            }
+                        });
+
+                        if(!validated) {
+                            classes += ' day-not-validated';
+                        }
+                    }
+
+                    classes += '"';
+
+                    if(tooltip !== '') {
+                        var tt_key = 'tt_key-' + year + '-' + month + '-' + day + '';
+                        iam.tooltips[tt_key] = tooltip;
+                        html += '<td' + classes + ' title="' + tt_key + '">' + day + '</td>';
+                    } else {
+                        html += '<td>' + day + '</td>';
+                    }
+
+                    ++day;
+                }
+            }
+
+            html += '</tr>';
+        }
+
+        html += '</tbody>';
+        html += '</table>';
+
+        return html;
+    };
+
+    var html = '';
+
+    $.each(data, function(year, months) {
+        if(year === 'not_validated' || year === 'proc_error' || year === 'proc') {
+            // Skip no year vars
+            return;
+        }
+
+        $.each(months, function(month, days) {
+            html += create_month(year, month, days, data);
+        });
+    });
+
+    html += create_legend();
+
+    this.calendar.html(html);
 }
 
 /**
@@ -450,8 +833,8 @@ JobMonitor.prototype._update_last_update = function() {
     var diff = (new Date()) - this.last_update_time;
 
     // convert into minutes
-    diff = diff / 1000. / 60;
-    
+    diff = Math.round(diff / 1000. / 60);
+
     if(diff < 1) {
         diff_text = 'just this minute';
     } else {

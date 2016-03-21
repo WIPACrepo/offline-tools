@@ -25,6 +25,7 @@ $dataset_list = $pjobs->get_dataset_ids();
         <link type="text/css" rel="stylesheet" href="./css/jquery.dataTables.min.css" media="all" />
         <link type="text/css" rel="stylesheet" href="./css/style.css" media="all" />
         <script type="text/javascript" src="./js/jquery.min.js"></script>
+        <script type="text/javascript" src="./js/js.cookie.js"></script>
         <script type="text/javascript" src="./js/jquery-ui/jquery-ui.min.js"></script>
         <script type="text/javascript" src="./js/jquery.dataTables.js"></script>
         <script type="text/javascript" src="./js/class.jobmonitor.js"></script>
@@ -52,12 +53,7 @@ $dataset_list = $pjobs->get_dataset_ids();
                     <?php
                     
                     foreach($dataset_list as $id) {
-                        $selected = '';
-                        if($id['dataset_id'] == $CONFIG['default_dataset_id']) {
-                            $selected = ' selected';
-                        }
-
-                        print("<option value=\"{$id['dataset_id']}\"$selected>{$id['dataset_id']}: {$id['description']}</option>\n");
+                        print("<option value=\"{$id['dataset_id']}\">{$id['dataset_id']}: {$id['description']}</option>\n");
                     }
                     
                     ?>
@@ -68,11 +64,20 @@ $dataset_list = $pjobs->get_dataset_ids();
         <div id="extended_data" title="Tails of log files"><b>Select Job ID:</b> <select></select><div id="tabs"></div></div>
 
         <div id="frame">
-            <h2>Currently Processing Or Failed Jobs:</h2>
-            <div id="current_jobs" class="jobtable"></div>
+            <div class="toggle highlight">
+                <h2 class="captain">Job Calendar:</h2>
+                <div id="calendar" class="toggle-content"><div style="text-align: center;"><img src="./images/loading.gif" /></div></div>
+            </div>
 
-            <h2>Recently Successfully Completed Jobs (<select name="completed_job_length"><select>):</h2>
-            <div id="completed_jobs" class="jobtable"></div>
+            <div class="toggle highlight">
+                <h2 class="captain">Currently Processing Or Failed Jobs:</h2>
+                <div id="current_jobs" class="jobtable toggle-content"></div>
+            </div>
+
+            <div class="toggle highlight">
+                <h2><span class="captain">Recently Successfully Completed Jobs</span> (<select name="completed_job_length"><select>):</h2>
+                <div id="completed_jobs" class="jobtable toggle-content"></div>
+            </div>
         </div>
     </body>
-<html>
+</html>

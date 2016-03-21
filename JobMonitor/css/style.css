@@ -9,11 +9,14 @@ body {
 
 #header {
     color: white;
-    position: fixed;
+    position: absolute;
     top: 0;
     z-index: 99;
     background: linear-gradient(#B3997E, white);
     width: 100%;
+}
+
+.highlight:hover {
     box-shadow: 0 5px 5px #aaaaaa;
 }
 
@@ -26,6 +29,14 @@ div div.wrapper#nav {
     background: linear-gradient(white, #B3997E);
     padding: 10px 30px 10px 30px;
     border-top: 1px solid #B3997E;
+    box-shadow: 0 5px 5px #aaaaaa;
+}
+
+div div.wrapper#nav.fixed {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
 }
 
 #header h1 {
@@ -77,6 +88,57 @@ div div.wrapper#nav {
     margin-top: 175px;
 }
 
+#frame h2 {
+    margin-top: 2px;
+    margin-bottom: 0;
+    border-bottom: 1px solid #ddd;
+    display: block;
+}
+
+.toggle {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 10px;
+    margin-top: 5px;
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.toggle:hover {
+    border-color: #888;
+}
+
+.toggle .captain {
+    cursor: pointer;
+}
+
+.toggle-content {
+    margin-top: 30px;
+}
+
+div.toggle-indicator {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 20px;
+    height: 20px;
+    background-size: 100% 100%;
+    opacity: 0.5;
+    cursor: pointer;
+}
+
+.toggle:hover div.toggle-indicator {
+    opacity: 1.0;
+}
+
+.toggle-indicator.open {
+    background-image: url('../images/triangle_down.png');
+}
+
+.toggle-indicator.close {
+    background-image: url('../images/triangle_up.png');
+}
+
 tr.failed td {
     color: white;
 }
@@ -125,5 +187,143 @@ tr.failed:hover td {
     width: 97%;
     background: transparent;
     border: none;
+}
+
+#calendar table {
+    border: 1px solid #eee;
+    border-radius: 5px;
+    display: inline-block;
+    margin-bottom: 10px;
+    margin-right: 10px;
+    padding: 5px;
+    vertical-align: top;
+}
+
+#calendar table:hover {
+    border-color: #ddd;
+}
+
+#calendar table thead tr:first-child td {
+    font-weight: bold;
+    padding-bottom: 2px;
+    text-align: center;
+}
+
+#calendar table thead tr:last-child td {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 2px;
+    text-align: center;
+}
+
+#calendar table tbody tr td {
+    padding: 5px;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    text-align: right;
+}
+
+#calendar table tbody tr td:hover {
+   border-color: #ddd;
+}
+
+#calendar .day-ok {
+    cursor: pointer;
+    background-color: green;
+    color: white;
+}
+
+#calendar table tbody tr td.day-ok:hover {
+    border-color: #014100;
+}
+
+#calendar .day-proc {
+    cursor: pointer;
+    background-color: #FFE400;
+}
+
+#calendar .day-proc-error {
+    cursor: pointer;
+    background-color: orange;
+}
+
+#calendar .day-error {
+    cursor: pointer;
+    background-color: red;
+    color: white;
+}
+
+#calendar .day-not-all-submitted {
+    background-image: url("../images/triangle_top-left.png");
+    background-position: left top;
+    background-repeat: no-repeat;
+}
+
+#calendar #legend .day-not-all-submitted {
+    background-color: gray;
+}
+
+#calendar .day-not-validated {
+    background-image: url('../images/not_validated.png');
+    background-position: left bottom;
+    background-repeat: no-repeat;
+}
+
+#calendar .day-not-all-submitted.day-not-validated {
+    background-image: url("../images/triangle_top-left.png"), url('../images/not_validated.png');
+    background-position: left top, left bottom;
+}
+
+#calendar #legend .day-not-validated {
+    background-color: gray;
+}
+
+#calendar table tbody tr td.day-error:hover {
+    border-color: #870000;
+}
+
+#calendar #legend {
+    margin-top: 20px;
+}
+
+#calendar #legend .label {
+    border: 1px solid #eee;
+    border-radius: 5px;
+    margin-right: 10px;
+    padding: 5px;
+}
+
+#calendar #legend .label .icon {
+    border-radius: 2px;
+    display: inline-block;
+    height: 15px;
+    margin-right: 5px;
+    vertical-align: middle;
+    width: 15px;
+    border: 1px solid #444;
+}
+
+.ui-tooltip table thead td {
+    font-weight: bold;
+}
+
+.ui-tooltip table thead tr:first-child td {
+    border-bottom: 1px solid #ddd;
+    font-size: 1.1em;
+}
+
+.ui-tooltip table tbody tr td {
+    text-align: center;
+}
+
+.ui-tooltip table tbody tr td:first-child {
+    text-align: left;
+}
+
+.ui-tooltip .run-ok {
+    color: green;
+}
+
+.ui-tooltip .run-bad {
+    color: red;
 }
 
