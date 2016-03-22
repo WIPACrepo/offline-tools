@@ -243,10 +243,14 @@ JobMonitor.prototype.run = function() {
     });
 
     // Hook for click in document to catch an user action
-    $(document).click(function() {
+    
+    var change_seen = function() {
         iam.changes = false;
         iam._handle_change_indicator();
-    });
+    };
+
+    $(document).click(change_seen);
+    $(document).scroll(change_seen);
 
     // Timer for updateing the elapsed time
     setInterval(function() {iam._update_last_update();}, 1000 * 60); // Update it every minute
