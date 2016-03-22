@@ -130,7 +130,7 @@ def clean_run(dbs4_,DatasetId,Run,CLEAN_DW,g, logger, dryrun):
                     filename = t[0][5:]+"/"+t[1]
                     if os.path.isfile(filename):
                         logger.info("deleting ", filename)
-                        os.system("rm -f %s"%filename)
+                        if not dryrun: os.system("rm -f %s"%filename)
     
     
                      #end: optional delete files in data warehouse
