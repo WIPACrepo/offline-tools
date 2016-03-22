@@ -33,14 +33,9 @@ $dataset_list = $pjobs->get_dataset_ids();
     </head>
     <body>
         <div id="header">
-            <div class="wrapper">
-                <h1>Offline Processing Job Monitor</h1>
-            </div>
             <div class="wrapper" id="nav">
                 <div id="error"></div>
-                <div id="preferences">
-                    <img src="./images/preferences.png" title="Personal Preferences" />
-                </div>
+                <div id="title">Offline Processing Job Monitor</div>
                 <div id="last_update">Last Update: <span>never</span> <strong style="display: none;"></strong><img src="./images/loading.gif" style="display: none;" /></div>
                 <div id="update_interval">
                     Update Interval:
@@ -59,6 +54,7 @@ $dataset_list = $pjobs->get_dataset_ids();
                     ?>
                     </select>
                 </div>
+                <div id="change_indicator" title="Data Changed Recently"></div>
             </div>
         </div>
         <div id="extended_data" title="Tails of log files"><b>Select Job ID:</b> <select></select><div id="tabs"></div></div>
@@ -78,6 +74,10 @@ $dataset_list = $pjobs->get_dataset_ids();
                 <h2><span class="captain">Recently Successfully Completed Jobs</span> (<select name="completed_job_length"><select>):</h2>
                 <div id="completed_jobs" class="jobtable toggle-content"></div>
             </div>
+        </div>
+
+        <div class="wrapper" id="footer">
+            Inofficial Offline Processing Job Monitor. Created by Jan Oertlin. If you've found bugs or you need another feature, write me an <a href="mailto:jan.oertlin@icecube.wisc.edu">email</a>.
         </div>
     </body>
 </html>

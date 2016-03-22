@@ -8,45 +8,60 @@ body {
 }
 
 #header {
-    color: white;
-    position: absolute;
-    top: 0;
-    z-index: 99;
-    background: linear-gradient(#B3997E, white);
-    width: 100%;
+
+}
+
+#footer {
+    color: #aaa;
+    font-size: 0.7em;
+}
+
+#footer a {
+    color: #aaa;
+}
+
+#footer a:hover {
+    text-decoration: none;
 }
 
 .highlight:hover {
     box-shadow: 0 5px 5px #aaaaaa;
 }
 
-div div.wrapper {
+.wrapper {
     padding: 30px 30px 10px 30px;
 }
 
 div div.wrapper#nav {
-    color: black;
-    background: linear-gradient(white, #B3997E);
-    padding: 10px 30px 10px 30px;
-    border-top: 1px solid #B3997E;
+    background-color: #181a30;
+    border-top: 1px solid #2e325b;
     box-shadow: 0 5px 5px #aaaaaa;
-}
-
-div div.wrapper#nav.fixed {
+    color: white;
+    padding: 10px 30px;
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
+    z-index: 50;
 }
 
-#header h1 {
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    padding-bottom: 10px;
+#change_indicator {
+    box-shadow: 0 0 15px white;
+    background-color: white;
+    background-image: url("../images/bell.png");
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-size: 80% 80%;
+    border-radius: 50%;
+    display: inline-block;
+    height: 20px;
+    line-height: 33px;
+    position: relative;
+    top: 2px;
+    width: 20px;
 }
 
-#last_update, #preferences, #update_interval, #dataset_id {
+#last_update, #preferences, #update_interval, #dataset_id, #title {
     display: inline-block;
     margin-right: 40px;
     font-weight: bold;
@@ -85,7 +100,7 @@ div div.wrapper#nav.fixed {
 
 #frame {
     margin: 30px;
-    margin-top: 175px;
+    margin-top: 110px;
 }
 
 #frame h2 {

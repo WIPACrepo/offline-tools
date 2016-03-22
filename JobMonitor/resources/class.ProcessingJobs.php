@@ -14,7 +14,7 @@ class ProcessingJobs {
 
     public function __construct($host, $user, $password, $db, $tail_use_lines = 10) {
         $this->mysql = @new mysqli($host, $user, $password, $db);
-        $this->result = array('error' => 0, 'error_msg' => '', 'data' => array());
+        $this->result = array('error' => 0, 'error_msg' => '', 'data' => array(), 'md5' => array());
         $this->tail_use_lines = $tail_use_lines;
         $this->dataset_id = 1883; // default
         $this->completed_job_length = 10; // default
@@ -267,6 +267,8 @@ class ProcessingJobs {
         $this->result['data']['calendar']['not_validated'] = $this->calendar_get_not_validated_runs($start_date);
         $this->result['data']['calendar']['proc_error'] = $this->calendar_get_proc_error_runs();
         $this->result['data']['calendar']['proc'] = $this->calendar_get_proc_runs();
+
+        $this->result['md5']['calendar'] = md5(json_encode($this->result['data']['calendar'])); 
     }
 
     private function add_entry($row, $type) {
@@ -286,6 +288,7 @@ class ProcessingJobs {
         $row['prev_state'] = explode(',', $row['prev_state']);
 
         $this->result['data'][$type][] = $row;
+        $this->result['md5'][$type] = md5(json_encode($this->result['data'][$type]));
     }
 
     private function query_jobs($completed_jobs = false) {

@@ -52,6 +52,12 @@ function JobMonitor(params) {
     /** @private */ this.tooltips = {};
 
     /** @private */ this.cookie_pref = {'expires': 365 * 10};
+
+    /** @private */ this.md5sums = {};
+    /** @private */ this.changes = false;
+    /** @private */ this.change_indicator = $('#change_indicator');
+
+    /** @private */ this.page_title = document.title;
 }
 
 /**
@@ -87,8 +93,6 @@ JobMonitor.prototype.run = function() {
     for(var section in this.update_list) {
         this.update_list[section] = this._get_cookie(section, this.update_list[section]);
     }
-
-    console.log(this.update_list);
 
     // Update interval
     this.update_interval_default = this._get_cookie('update_interval', this.update_interval_default);
@@ -238,19 +242,14 @@ JobMonitor.prototype.run = function() {
         }
     });
 
+    // Hook for click in document to catch an user action
+    $(document).click(function() {
+        iam.changes = false;
+        iam._handle_change_indicator();
+    });
+
     // Timer for updateing the elapsed time
     setInterval(function() {iam._update_last_update();}, 1000 * 60); // Update it every minute
-
-    // Navigation
-    var navigation = $('div div.wrapper#nav');
-    var header_height = $(navigation).position().top;
-    $(window).scroll(function () {
-        if($(window).scrollTop() >= header_height) {
-            $(navigation).addClass('fixed');
-        } else if($(navigation).hasClass('fixed')) {
-            $(navigation).removeClass('fixed');
-        }
-    });
 }
 
 /**
@@ -261,7 +260,7 @@ JobMonitor.prototype.run = function() {
  */
 JobMonitor.prototype.get_doc_width = function(p) {
     p = typeof p !== 'undefined' ? p : 1.0;
-    return Math.round($(document).width() * p);
+    return Math.round($(window).width() * p);
 }
 
 /**
@@ -272,7 +271,7 @@ JobMonitor.prototype.get_doc_width = function(p) {
  */
 JobMonitor.prototype.get_doc_height = function(p) {
     p = typeof p !== 'undefined' ? p : 1.0;
-    return Math.round($(document).height() * p);
+    return Math.round($(window).height() * p);
 }
 
 /**
@@ -360,7 +359,7 @@ JobMonitor.prototype._run_update = function() {
                               'completed_job_length': completed_job_length,
                               'options': options}, 
         function(data) {
-        iam._update_view(data)
+            iam._update_view(data);
     })
     .fail(function() {
             $(iam.errors).html('Receiving information failed.');
@@ -411,6 +410,8 @@ JobMonitor.prototype._add_extended_info = function(row, data) {
         $('td', row).eq(5).attr('title', 'FAILED: ' + data['num_status_failed'] + ', ERROR: ' + data['num_status_error']);
         $(row).click(function() {
             iam._fill_extended_data(this);
+            $(iam.extended_data).dialog('option', 'height', iam.get_doc_height(.8));
+            $(iam.extended_data).dialog('option', 'width', iam.get_doc_width(.8));
             $(iam.extended_data).dialog('open');
         });
     }
@@ -564,23 +565,68 @@ JobMonitor.prototype._update_view = function(data) {
         return;
     }
 
-    if('current' in data['data']) {
+    if('current' in data['data'] && this._data_changed('current', data)) {
+        console.log('New data found for current jobs');
+        this.changes = true;
         this._update_table(this.datatable, data['data']['current']);
     }
     
-    if('completed' in data['data']) {
+    if('completed' in data['data'] && this._data_changed('completed', data)) {
+        console.log('New data found for completed jobs');
+        this.changes = true;
         this._update_table(this.datatable_completed, data['data']['completed']);
     }
 
-    if('calendar' in data['data']) {
+    if('calendar' in data['data'] && this._data_changed('calendar', data)) {
+        console.log('New data found for the calendar');
+        this.changes = true;
         this._update_calendar(data['data']['calendar']);
+    }
+
+    for(var type in data['md5']) {
+        this.md5sums[type] = data['md5'][type];
     }
 
     console.log('Run _update_view: ' + (new Date()));
 
+    this._handle_change_indicator();
+
     this.last_update_time = new Date();
     $(this.last_updated).html(this.last_update_time.toLocaleString('en-US'));
     this._update_last_update();
+}
+
+/**
+ * Sets the change indicator visible or hides it depending on the variable this.changes.
+ */
+JobMonitor.prototype._handle_change_indicator = function() {
+    if(this.changes) {
+        $(this.change_indicator).show();
+
+        document.title = '! ' + this.page_title;
+    } else {
+        $(this.change_indicator).hide();
+
+        document.title = this.page_title;
+    }
+}
+
+/**
+ * Compares two md5 sums if they exist. If they are equl, false is returned. Otherwise, true.
+ * If no md5 sum is stored at the client side or no md5 sum is provided by the server, always true is returned.
+ *
+ * @private
+ * @param {string} type 'calendar', 'current', or 'completed'
+ * @param {object} data The received data
+ *
+ * @returns {bool} True if new data is available.
+ */
+JobMonitor.prototype._data_changed = function(type, data) {
+    if(type in this.md5sums && type in data['md5']) {
+        return this.md5sums[type] !== data['md5'][type];
+    } else {
+        return true;
+    }
 }
 
 /**
@@ -820,6 +866,73 @@ JobMonitor.prototype._update_calendar = function(data) {
 }
 
 /**
+ * Converts seconds into '#d ##h ##m ##s'.
+ *
+ * @param {int} seconds Time in seconds
+ * @param {bool} leading_zero If true, it adds a leading zero to each number (except for days). Default is true.
+ * @param {bool} show_seconds If true, it adds the seconds to the string. Otherwise, only days, hours and minutes. Default is true.
+ *
+ * @returns {string} The converted time.
+ */
+JobMonitor.prototype.convert_seconds_to_string = function(seconds, leading_zero, show_seconds) {
+    show_seconds = typeof show_seconds === 'undefined' ? true : show_seconds;
+    leading_zero = typeof leading_zero === 'undefined' ? true : leading_zero;
+
+    var days = 0;
+    var hours = 0;
+    var minutes = 0;
+
+    if(seconds >  59) {
+        minutes = Math.floor(seconds / 60.);
+        seconds -= minutes * 60;
+    }
+
+    if(minutes > 59) {
+        hours = Math.floor(minutes / 60.);
+        minutes -= hours * 60;
+    }
+
+    if(hours > 23) {
+        days = Math.floor(hours / 24.);
+        hours -= hours * 24;
+    }
+
+    if(leading_zero) {
+        var add_zero = function(num) {
+            if(num < 10) {
+                return '0' + num.toString();
+            } else {
+                return num;
+            }
+        };
+
+        hours = add_zero(hours);
+        minutes = add_zero(minutes);
+        seconds = add_zero(seconds);
+    }
+
+    // Build string
+    var str = '';
+    if(days > 0) {
+        str += days.toString() + 'd ';
+    }
+
+    if(hours > 0) {
+        str += hours.toString() + 'h ';
+    }
+
+    if(minutes > 0) {
+        str += minutes.toString() + 'm ';
+    }
+
+    if(show_seconds) {
+        str += seconds.toString() + 's';
+    }
+
+    return str.trim();
+}
+
+/**
  * Updates the 'Last Update' time in the view.
  *
  * @private
@@ -838,7 +951,7 @@ JobMonitor.prototype._update_last_update = function() {
     if(diff < 1) {
         diff_text = 'just this minute';
     } else {
-        diff_text = Math.round(diff).toString() + ' min ago';
+        diff_text = this.convert_seconds_to_string(diff * 60, false, false) + ' ago';
     }
 
     $(this.last_update_text).html('(' + diff_text + ')');
