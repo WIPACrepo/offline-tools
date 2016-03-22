@@ -182,5 +182,5 @@ if __name__ == '__main__':
         if not dryrun:
             logger.debug("Execute `condor_submit %s`"%CONDOR_SUBMIT_FILE)
             processoutput = subprocess.check_output("condor_submit %s"%CONDOR_SUBMIT_FILE, shell = True, stderr=subprocess.STDOUT)
-            self.logger.info(processoutput.strip())
+            logger.info(processoutput.strip())
         
