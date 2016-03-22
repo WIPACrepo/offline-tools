@@ -28,6 +28,7 @@ import datetime
 from dateutil.relativedelta import *
 import time
 import cPickle
+import subprocess
 from libs.argparser import get_defaultparser
 from libs.logger import get_logger
 from libs.files import get_logdir, get_rootdir, get_tmpdir
@@ -180,5 +181,6 @@ if __name__ == '__main__':
         ##
         if not dryrun:
             logger.debug("Execute `condor_submit %s`"%CONDOR_SUBMIT_FILE)
-            os.system("condor_submit "%CONDOR_SUBMIT_FILE)
+            processoutput = subprocess.check_output("condor_submit %s"%CONDOR_SUBMIT_FILE, shell = True, stderr=subprocess.STDOUT)
+            self.logger.info(processoutput.strip())
         
