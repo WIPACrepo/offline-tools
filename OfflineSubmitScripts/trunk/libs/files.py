@@ -289,7 +289,9 @@ def TrimFile(InFile,GoodStart,GoodEnd,logger=DummyLogger(),dryrun=False):
         
     for InFile_ in InFiles :
         logger.debug("Attempting to trim file %s" %InFile_)
-    
+   
+        # bzip2 -f of a zero-sized file results in a 
+        # 14 byte large file 
         if (os.path.getsize(InFile_)) <= 14:
             logger.warning("skipping file=%s because it seems empty"%InFile_)
             continue
