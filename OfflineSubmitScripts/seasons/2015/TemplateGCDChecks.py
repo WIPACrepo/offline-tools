@@ -95,7 +95,7 @@ def main_cmp(fileDict, sRuns, dryrun):
         templateFile = fileDict[sRuns[sRuns.index(sRun)-1]][0]
     
         logger.info("current File: %s"%currentFile)
-        logger.info("template File: "%templateFile)
+        logger.info("template File: %s "%templateFile)
     
         sub.check_call(["cp",currentFile,"."])
         sub.check_call(["cp",templateFile,"."])

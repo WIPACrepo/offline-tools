@@ -152,9 +152,12 @@ def main(logger, StartRun = DEFAULT_START_RUN, dryrun=False):
                     except Exception, err:
                         oL.write("\n Error for run %s"%run_)
                         oL.write(str(err))
-                #clean up 
-                os.remove(run_)
-            
+                #clean up
+                try: 
+                    os.system("rm *%s*" %run_)
+                except OSError as e:
+                    logger.exception("Problems removing *%s*, exception %s" %(run, e.__repr__()))              
+
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__,dryrun=True)
     parser.add_argument('-s', '--startrun', type = int, default = DEFAULT_START_RUN,
