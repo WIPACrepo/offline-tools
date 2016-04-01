@@ -41,7 +41,6 @@ RECEIVERS = ['drwilliams3@ua.edu',
              'john.kelley@icecube.wisc.edu',
              'matt.kauer@icecube.wisc.edu',
              'tomas.j.palczewski@ua.edu',
-             'david.schultz@icecube.wisc.edu',
              'david.delventhal@icecube.wisc.edu',
              'achim.stoessl@icecube.wisc.edu',
              'jan.oertlin@icecube.wisc.edu']
