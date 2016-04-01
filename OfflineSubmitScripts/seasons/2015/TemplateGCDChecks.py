@@ -31,7 +31,7 @@ except Exception, err:
 
 #FIXME: adjust paths for season
 DEFAULT_START_RUN = 126378
-ENVSHELL = "/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-02/./env-shell.sh"
+ENVSHELL = "/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-05/./env-shell.sh"
 OFFLINEPRODUCTIONTOOLS = "/data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/"
 
 CMPGCD = "CmpGCDFiles.py"
