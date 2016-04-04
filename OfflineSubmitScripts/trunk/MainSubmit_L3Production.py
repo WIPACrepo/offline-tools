@@ -99,13 +99,7 @@ def SubmitRunL3(DDatasetId,SDatasetId,Run,QId,OUTDIR,AGGREGATE,logger,dryrun=Fal
     """
     assert AGGREGATE > 0
         
-    runInfo = dbs4_.fetchall("""select r.date,r.sub_run,u.* from i3filter.job j
-                                join i3filter.run r on r.queue_id=j.queue_id
-                                join i3filter.urlpath u on u.queue_id=j.queue_id
-                                where j.dataset_id=%s and r.dataset_id=%s and u.dataset_id=%s
-                                and (u.type="PERMANENT" or name like "%%GCD%%" ) and r.run_id=%s and j.status !="BadRun"
-                                order by r.sub_run
-                                """%(SDatasetId,SDatasetId,SDatasetId,str(Run)),UseDict=True)
+    runInfo = dbs4_.fetchall("""select r.date,r.sub_run,u.* from i3filter.job j join i3filter.run r on r.queue_id=j.queue_id join i3filter.urlpath u on u.queue_id=j.queue_id where j.dataset_id=%s and r.dataset_id=%s and u.dataset_id=%s and (u.type="PERMANENT" or name like "%%GCD%%" ) and r.run_id=%s and j.status !="BadRun" order by r.sub_run"""%(SDatasetId,SDatasetId,SDatasetId,str(Run)),UseDict=True)
 
 
     if not len(runInfo):
@@ -130,6 +124,8 @@ def SubmitRunL3(DDatasetId,SDatasetId,Run,QId,OUTDIR,AGGREGATE,logger,dryrun=Fal
     # FIXME: we need something to find the gcd for a run    
     # This seems to be fixed, however 
     GCDEntry = [g for g in runInfo if "GCD" in g['name']][0]
+    print GCDEntry
+    raise
     #GCDEntry = [g for g in runInfo if g['sub_run']==1 and "GCD" in g['name']][0]
     GCDFile = os.path.join(GCDEntry['path'][5:],GCDEntry['name'])
     lnCmd = "ln -sf %s %s"%(GCDFile,os.path.join(OutDir,os.path.basename(GCDFile)))
@@ -201,7 +197,6 @@ if __name__ == '__main__':
     parser = get_defaultparser(__doc__,dryrun=True)
     parser.add_argument("--sourcedatasetid", type=int, dest="SDatasetId", help="Dataset ID to read from, usually L2 dataset")
     parser.add_argument("--destinationdatasetid", type=int, dest="DDatasetId", help="Dataset ID to write to, usually L3 dataset")
-    parser.add_argument("-r", "--run", type=int, default=0, dest="run_id", help="process only this run_id")
     parser.add_argument("-s", "--startrun", type=int, default=0, dest="START_RUN", help="start submission from this run")
     parser.add_argument("-e", "--endrun", type=int, default=0,dest="END_RUN", help="end submission at this run")
     parser.add_argument("--outdir", type=str, default="/data/ana/Muon/level3/", dest="OUTDIR", help="main output directory")
@@ -215,10 +210,8 @@ if __name__ == '__main__':
     if not args.SDatasetId or not args.DDatasetId:
         logger.exception( "you must enter source and destination dataset_ids for submission")
         exit(1)
-    if args.run_id:
-        if args.START_RUN or args.END_RUN:
-            logger.info( "Will only process run %i!" %args.run_id)
-        args.START_RUN = args.run_id
-        args.END_RUN = args.run_id
+    if args.START_RUN and not args.END_RUN:
+        logger.info( "Will only process run %i!" %args.START_RUN)
+        args.END_RUN = args.START_RUN
         
     main(args,logger,dryrun=args.dryrun)
