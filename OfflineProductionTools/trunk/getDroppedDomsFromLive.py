@@ -94,9 +94,6 @@ class DroppedDom:
         else:
             return False
 
-    def __ne__(self,other):
-        return not self.__eq__
-
     def __lt__(self,other):
         if self == other:
             if self.DropTime < other.DropTime:
