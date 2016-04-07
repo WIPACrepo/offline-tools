@@ -62,7 +62,7 @@ def get_logger(loglevel,logfile):
     formatter = logging.Formatter(LOGFORMAT)
     ch.setFormatter(formatter)
     today = datetime.now()
-    today = today.strftime("%Y-%m-%d_%H-%M")
+    today = today.strftime("%Y_%m_%d_%H_%M")
     logend = ".log"
     if "--dryrun" in sys.argv[1:]:
         logend = ".DRYRUN.log"

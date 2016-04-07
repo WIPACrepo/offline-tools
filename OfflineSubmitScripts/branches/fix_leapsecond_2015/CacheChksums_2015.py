@@ -72,12 +72,12 @@ def main(logger, dryrun):
                         logger.error("File: %s"%(File))
                         logger.error(str(err))
 
-                        if not dryrun and dump_count>=dump_interval:
-                            with open(ChkSumCacheFile,mode="r+") as f:
-                                cPickle.dump(ChkSums,f)
-                            dump_count = 0
+                    if not dryrun and dump_count>=dump_interval:
+                        with open(ChkSumCacheFile,mode="r+") as f:
+                            cPickle.dump(ChkSums,f)
+                        dump_count = 0
 
-                        dump_count+=1
+                    dump_count+=1
         
         look_back+=timedelta(days=1)
 
