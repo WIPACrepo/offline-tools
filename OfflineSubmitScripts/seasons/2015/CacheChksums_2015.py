@@ -64,15 +64,23 @@ def main(logger, dryrun):
             InFiles.sort()
             
             for File in InFiles:
+                logger.debug("Current file: %s"%File)
+
                 if not File in ChkSums.keys():
+                    logger.debug("File has no MD5 sum in cache")
+
                     try:
-                        ChkSums[File] = str(FileTools(File).md5sum())
+                        ChkSums[File] = str(FileTools(File, logger).md5sum())
                         logger.info("md5sum('%s'): %s"%(File, ChkSums[File]))
                     except Exception, err:
                         logger.error("File: %s"%(File))
                         logger.error(str(err))
 
+                    logger.debug("Calculated MD5 sum")
+
                     if not dryrun and dump_count>=dump_interval:
+                        logger.debug("Write cache")
+
                         with open(ChkSumCacheFile,mode="r+") as f:
                             cPickle.dump(ChkSums,f)
                         dump_count = 0
@@ -81,7 +89,8 @@ def main(logger, dryrun):
         
         look_back+=timedelta(days=1)
 
-    if not dryrun:    
+    if not dryrun:
+        logger.debug("Write last MD% sums")
         with open(ChkSumCacheFile,mode="r+") as f:
             cPickle.dump(ChkSums,f)
 
