@@ -6,7 +6,7 @@ from dateutil.relativedelta import relativedelta
 import cPickle
 import json
 import smtplib
-
+from email.utils import formatdate
 
 def CreateMsg(domain,sender,receivers, subject,messageBody, mimeVersion="",contentType=""):
     try:
@@ -16,6 +16,8 @@ def CreateMsg(domain,sender,receivers, subject,messageBody, mimeVersion="",conte
 
         if len(mimeVersion) : message += "MIME-Version: "+ mimeVersion +"\n"
         if len(contentType) : message += "Content-type: " + contentType +"\n"
+
+        message += "Date: %s\n"%formatdate()
 
         message += "Subject: " + subject + "\n\n"
 
