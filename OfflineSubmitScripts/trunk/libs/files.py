@@ -225,7 +225,7 @@ def GetGoodSubruns(OutFiles,GoodStartTime,GoodStopTime,ProdVersion):
         OutFiles (list): L2 run files
         GoodStartTime (I3Time): good run start time
         GoodStopTime (I3Time): good stop time
-        ProdVersion (int): current production version of this run
+        ProdVersion (int): current production version of this run. WARNING: You need to pass "<RUN ID>_<PPRODUCTION VERSION>"!
 
     """
 
