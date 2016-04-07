@@ -246,7 +246,7 @@ def BadDOMAudit(GCDName,RNames):
         ##tray.AddModule('I3BadDOMAuditor', 'audit', BadDOMList="BadDomsListSLC", Pulses=['OfflinePulses', 'OfflineIceTopHLCTankPulses'])
         tray.AddModule('I3BadDOMAuditor', 'BadDOMAuditor',
                         BadDOMList="BadDomsListSLC",
-                        Pulses=['InIcePulses','IceTopPulses']),
+                        Pulses=['InIcePulses','IceTopPulses'],
                         IgnoreOMs = [OMKey(12, 65), OMKey(12, 66), OMKey(62, 65), OMKey(62, 66)])
 
         tray.AddModule('TrashCan', 'can')

@@ -32,7 +32,7 @@ dbs4_ = dbs4.MySQL()
 DEFAULT_START_RUN = 126445
 INDIR_2015 = "/data/exp/IceCube/2015/internal-system/sps-gcd"
 INDIR_2016 = "/data/exp/IceCube/2016/internal-system/sps-gcd"
-ENVSHELL   = "/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-05/./env-shell.sh"    
+ENVSHELL   = "/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-06/./env-shell.sh"    
 OFFLINEPRODUCTIONTOOLS = "/data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/"
 DATAPATH = "/data/exp/IceCube/"
 VERIFIEDGCD = "filtered/level2/VerifiedGCD/"
@@ -43,7 +43,6 @@ RECEIVERS = ['drwilliams3@ua.edu',\
              'john.kelley@icecube.wisc.edu',\
              'matt.kauer@icecube.wisc.edu',\
              'tomas.j.palczewski@ua.edu',\
-             'david.schultz@icecube.wisc.edu',\
              'achim.stoessl@icecube.wisc.edu',\
              'jan.oertlin@icecube.wisc.edu']
 
@@ -152,9 +151,12 @@ def main(logger, StartRun = DEFAULT_START_RUN, dryrun=False):
                     except Exception, err:
                         oL.write("\n Error for run %s"%run_)
                         oL.write(str(err))
-                #clean up 
-                os.remove(run_)
-            
+                #clean up
+                try: 
+                    os.system("rm *%s*" %run_)
+                except OSError as e:
+                    logger.exception("Problems removing *%s*, exception %s" %(run, e.__repr__()))              
+
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__,dryrun=True)
     parser.add_argument('-s', '--startrun', type = int, default = DEFAULT_START_RUN,

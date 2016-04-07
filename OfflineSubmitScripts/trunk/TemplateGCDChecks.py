@@ -31,7 +31,7 @@ except Exception, err:
 
 #FIXME: adjust paths for season
 DEFAULT_START_RUN = 126378
-ENVSHELL = "/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-02/./env-shell.sh"
+ENVSHELL = "/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-05/./env-shell.sh"
 OFFLINEPRODUCTIONTOOLS = "/data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/"
 
 CMPGCD = "CmpGCDFiles.py"
@@ -41,7 +41,6 @@ RECEIVERS = ['drwilliams3@ua.edu',
              'john.kelley@icecube.wisc.edu',
              'matt.kauer@icecube.wisc.edu',
              'tomas.j.palczewski@ua.edu',
-             'david.schultz@icecube.wisc.edu',
              'david.delventhal@icecube.wisc.edu',
              'achim.stoessl@icecube.wisc.edu',
              'jan.oertlin@icecube.wisc.edu']
@@ -95,7 +94,7 @@ def main_cmp(fileDict, sRuns, dryrun):
         templateFile = fileDict[sRuns[sRuns.index(sRun)-1]][0]
     
         logger.info("current File: %s"%currentFile)
-        logger.info("template File: "%templateFile)
+        logger.info("template File: %s "%templateFile)
     
         sub.check_call(["cp",currentFile,"."])
         sub.check_call(["cp",templateFile,"."])

@@ -1,3 +1,3 @@
-#! /bin/zsh
+#! /bin/bash
 
-$I_ENV python /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/TemplateGCDChecks/TemplateGCDChecks.py >> /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/TemplateGCDChecks/TemplateGCDChecks.logs
+$I_ENV python /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/TemplateGCDChecks.py 
