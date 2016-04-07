@@ -13,7 +13,6 @@ import subprocess as sub
 
 sys.path.append("/data/user/i3filter/SQLServers_n_Clients/")
 sys.path.append('/data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools')
-sys.path.append("/data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_trunk")
 
 import SendNotification as SN
 
