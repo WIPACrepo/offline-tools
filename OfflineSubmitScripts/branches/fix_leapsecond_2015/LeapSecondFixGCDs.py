@@ -1,4 +1,11 @@
 
+"""
+Script to fix the wrong GoodRunStartTime and GoodRunEndTime in the D frame that are caused
+by the leap second bug of 2015.
+It fixes only the GCDs of good runs by gathering the correct good*times from the database and
+update the GoodRun*Times. The old GCD file is renamed to `leap_second_affected_*`.
+"""
+
 import os
 import sys
 from libs.logger import get_logger
@@ -107,7 +114,7 @@ if __name__ == "__main__":
                       dest="ENDRUN", help="End fixing GCD files at this run")
     
     args = parser.parse_args()
-    LOGFILE=os.path.join(get_logdir(), 'FixLeapSecondGCDs_')
+    LOGFILE=os.path.join(get_logdir(), 'LeapSecondFixGCDs_')
     logger = get_logger(args.loglevel,LOGFILE)
 
     if args.STARTRUN > args.ENDRUN:
