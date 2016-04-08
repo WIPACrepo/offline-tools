@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+"""
+Updates the urlpath table if you reprocessed already in urlpath inserted GCD files.
+"""
+
 import SQLClient_dbs4
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
@@ -31,8 +35,7 @@ if __name__ == "__main__":
     sql = """SELECT path, name, run_id, md5sum, date, urlpath_id, transferstate
              FROM urlpath u 
              JOIN run r ON r.queue_id = u.queue_id AND u.dataset_id = r.dataset_id 
-             WHERE run_id BETWEEN %s AND %s 
-                AND transferstate = 'TRANSFERRED' 
+             WHERE run_id BETWEEN %s AND %s
                 AND path LIKE 'file:/data/exp/IceCube/____/filtered/level2/VerifiedGCD/'"""%(args.STARTRUN, args.ENDRUN)
     
     dbs4 = SQLClient_dbs4.MySQL()
@@ -65,6 +68,8 @@ if __name__ == "__main__":
                 md5sum = FileTools(file).md5sum()
                 sumcache[file] = md5sum
 
+            size = os.path.getsize(file)
+    
             logger.debug("File %s"%file)
             logger.debug("    MD5: %s"%md5sum)
 
@@ -72,7 +77,7 @@ if __name__ == "__main__":
                 logger.warning("MD5 sum didn't change for run %s"%run['run_id'])
                 logger.warning('No update will be performed for this run')
             else:
-                sql = "UPDATE urlpath SET transferstate = 'WAITING', md5sum = '%s' WHERE urlpath_id = %s"%(md5sum, str(run['urlpath_id']))
+                sql = "UPDATE urlpath SET transferstate = 'WAITING', md5sum = '%s', size = %s, verify = 0 WHERE urlpath_id = %s"%(md5sum, size, str(run['urlpath_id']))
                 logger.debug("Execute sql update: %s"%sql)
 
                 if not args.dryrun:
