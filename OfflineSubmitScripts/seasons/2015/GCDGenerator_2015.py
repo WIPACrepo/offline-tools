@@ -21,20 +21,7 @@ from icecube import I3Db
 from RunTools import *
 from FileTools import *
 
-
-def ComputTenthOfNanosec(time_,time_frac):
-    try:
-        if time_frac is None : time_frac = 0
-        return ((datetime.date(int(time_.year),int(time_.month),int(time_.day)) - \
-                    datetime.date(int(time_.year),1,1)).days * 86400 + \
-                    int(time_.hour) * 3600 + \
-                    int(time_.minute)  * 60 + \
-                    int(time_.second)) * 10000000000  + \
-                    int(time_frac)
-        
-    except Exception, err:
-        print "ComputTenthOfNanosec Error: " + str(err)
-        exit(1)
+from libs.times import ComputeTenthOfNanosec
 
 def GetGoodRunTimes(dbs4_,RunNum,SnapshotId):
     
@@ -47,11 +34,11 @@ def GetGoodRunTimes(dbs4_,RunNum,SnapshotId):
         print GRLInfo
         
         goodStartTime = dataclasses.I3Time()
-        tNanoSec = ComputTenthOfNanosec(GRLInfo[0]['good_tstart'],GRLInfo[0]['good_tstart_frac'])
+        tNanoSec = ComputeTenthOfNanosec(GRLInfo[0]['good_tstart'],GRLInfo[0]['good_tstart_frac'])
         goodStartTime = dataclasses.I3Time(int(GRLInfo[0]['good_tstart'].year),tNanoSec)
         
         goodEndTime = dataclasses.I3Time()
-        tNanoSec = ComputTenthOfNanosec(GRLInfo[0]['good_tstop'],GRLInfo[0]['good_tstop_frac'])
+        tNanoSec = ComputeTenthOfNanosec(GRLInfo[0]['good_tstop'],GRLInfo[0]['good_tstop_frac'])
         goodEndTime = dataclasses.I3Time(int(GRLInfo[0]['good_tstop'].year),tNanoSec)
         
         
@@ -89,7 +76,7 @@ def AdjustDSTime(frame,RunNum):
         print "DS Start Time Needed Adjustment"
         print "Original Start Time is: ",frame['I3DetectorStatus'].start_time.date_time
         print "Replaced with Start Time from i3live: ",tStart
-        tNanoSec = ComputTenthOfNanosec(tStart,None)
+        tNanoSec = ComputeTenthOfNanosec(tStart,None)
         StartTime = dataclasses.I3Time(tStart.year,tNanoSec)
         frame['I3DetectorStatus'].start_time = StartTime
         
@@ -98,7 +85,7 @@ def AdjustDSTime(frame,RunNum):
         print "DS End Time Needed Adjustment"
         print "Original End Time is: ",frame['I3DetectorStatus'].end_time.date_time
         print "Replaced with End Time from i3live: ",tStop
-        tNanoSec = ComputTenthOfNanosec(tStop,None)
+        tNanoSec = ComputeTenthOfNanosec(tStop,None)
         StopTime = dataclasses.I3Time(tStop.year,tNanoSec)
         frame['I3DetectorStatus'].end_time = StopTime
         
