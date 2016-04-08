@@ -25,6 +25,16 @@ import SQLClient_dbs4 as dbs4
 
 dbs4_ = dbs4.MySQL()
 
+def read_runs_from_file(file):
+    runs = []
+
+    with open(file, 'r') as f:
+        runs = f.readlines()
+        runs = map(lambda s: s.strip(), runs)
+        runs = [r for r in runs if len(r)]
+
+    return runs
+
 if __name__ == "__main__":
     parser = get_defaultparser(__doc__,dryrun=True)
 
@@ -50,8 +60,21 @@ if __name__ == "__main__":
             AND (good_i3 = 1 OR good_it = 1)"""%(args.STARTRUN, args.ENDRUN)
 
     info = dbs4_.fetchall(sql, UseDict = True)
-   
+  
+    aff_last_subruns = read_runs_from_file('LeapSecondLastSubRunAffectedRuns.txt')
+    logger.info("%s runs are affected by leap second for the last subrun"%len(aff_last_subruns))
+
+    aff_first_subruns = read_runs_from_file('LeapSecondFirstSubRunAffectedRuns.txt')
+    logger.info("%s runs are affected by leap second for the first subrun"%len(aff_first_subruns))
+ 
+    logger.debug("First subrun affected runs: %s"%str(aff_first_subruns)) 
+    logger.debug("Last subrun affected runs: %s"%str(aff_last_subruns)) 
+ 
     for run in info:
+        if str(run['run_id']) not in aff_last_subruns and str(run['run_id']) not in aff_first_subruns:
+            logger.info("Skip run %s since it is not affected"%run['run_id'])
+            continue
+
         logger.info('=========================================')
         logger.info("Copy bad subruns for run %s"%run['run_id'])
 
@@ -66,6 +89,9 @@ if __name__ == "__main__":
         logger.info("Run directory is %s"%rundir)
         logger.info("Bad sub run directory is %s"%bad_subrun_dir)
 
+        # Needs to be executed before the new folder is created
+        all_run_files = RunTools.RunTools(run['run_id']).GetRunFiles(date, 'L')
+
         try:
             if not dryrun:
                 os.mkdir(bad_subrun_dir)
@@ -75,39 +101,45 @@ if __name__ == "__main__":
             logger.exception(e)
             continue
 
-        # New folder is created. Lets copy files
-        first_subrun = glob.glob(os.path.join(rundir, "Level2_IC86.*_data_Run%s_Subrun00000000*"%str(run['run_id']).zfill(8)))
-        logger.info("Found %s files for first subrun"%(len(first_subrun)))
-
-        for file in first_subrun:
-            dest = os.path.join(bad_subrun_dir, os.path.basename(file))
-
-            logger.info("Copy %s"%(file))
-            logger.info("  to %s"%(dest))
-            
-            if not dryrun:
-                shutil.copyfile(file, dest)
-
         # find last subrun
-        all_run_files = RunTools.RunTools(run['run_id']).GetRunFiles(date, 'L')
+        if str(run['run_id']) in aff_last_subruns:
+            logger.info("Last subrun is affected")
+            if not len(all_run_files):
+                logger.error("No file sfound for run %s"%run['run_id'])
 
-        if not len(all_run_files):
-            logger.error("No file sfound for run %s"%run['run_id'])
-            continue
-
-        last_subrun_path = [file for file in all_run_files if '_IT.i3.bz2' in file][-1][:-10] + '*'
-        
-        logger.info("Searching for last sub run: %s"%last_subrun_path)
-
-        last_subrun = glob.glob(last_subrun_path)
-        logger.info("Found %s files for last subrun"%(len(last_subrun)))
-
-        for file in last_subrun:
-            dest = os.path.join(bad_subrun_dir, os.path.basename(file))
-
-            logger.info("Copy %s"%(file))
-            logger.info("  to %s"%(dest))
+            last_subrun_path = [file for file in all_run_files if '_IT.i3.bz2' in file][-1][:-10] + '*'
             
-            if not dryrun:
-                shutil.copyfile(file, dest)
+            logger.info("Searching for last sub run: %s"%last_subrun_path)
+
+            last_subrun = glob.glob(last_subrun_path)
+            logger.info("Found %s files for last subrun"%(len(last_subrun)))
+
+            for file in last_subrun:
+                dest = os.path.join(bad_subrun_dir, os.path.basename(file))
+
+                logger.info("Copy %s"%(file))
+                logger.info("  to %s"%(dest))
+                
+                if not dryrun:
+                    shutil.copyfile(file, dest)
+
+        # New folder is created. Lets copy files
+        if str(run['run_id']) in aff_first_subruns:
+            logger.info("First subrun is affected")
+            first_subrun_path = [file for file in all_run_files if '_IT.i3.bz2' in file][0][:-10] + '*'
+            
+            logger.info("Searching for first sub run: %s"%first_subrun_path)
+
+            first_subrun = glob.glob(first_subrun_path)
+            logger.info("Found %s files for first subrun"%(len(first_subrun)))
+
+            for file in first_subrun:
+                dest = os.path.join(bad_subrun_dir, os.path.basename(file))
+
+                logger.info("Copy %s"%(file))
+                logger.info("  to %s"%(dest))
+                
+                if not dryrun:
+                    shutil.copyfile(file, dest)
+
 
