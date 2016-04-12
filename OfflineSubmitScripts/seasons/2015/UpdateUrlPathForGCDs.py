@@ -56,11 +56,11 @@ if __name__ == "__main__":
                 logger.error("No GCD file found for run %s"%str(run['run_id']))
                 continue
 
-            if len(file) > 1:
-                logger.error("Too manu GCD files found for run %s"%str(run['run_id']))
-                continue
+            logger.info("Found %s GCD files for run %s."%(len(file), run['run_id']))
+            
+            file.sort()
 
-            file = file[0];
+            file = file[-1];
 
             if file in sumcache:
                 md5sum = sumcache[file]

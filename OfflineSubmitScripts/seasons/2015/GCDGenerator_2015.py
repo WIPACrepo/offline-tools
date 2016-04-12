@@ -23,6 +23,8 @@ from FileTools import *
 
 from libs.times import ComputeTenthOfNanosec
 
+import traceback
+
 def GetGoodRunTimes(dbs4_,RunNum,SnapshotId):
     
     try:
@@ -76,7 +78,7 @@ def AdjustDSTime(frame,RunNum):
         print "DS Start Time Needed Adjustment"
         print "Original Start Time is: ",frame['I3DetectorStatus'].start_time.date_time
         print "Replaced with Start Time from i3live: ",tStart
-        tNanoSec = ComputeTenthOfNanosec(tStart,None)
+        tNanoSec = ComputeTenthOfNanosec(tStart,0)
         StartTime = dataclasses.I3Time(tStart.year,tNanoSec)
         frame['I3DetectorStatus'].start_time = StartTime
         
@@ -85,7 +87,7 @@ def AdjustDSTime(frame,RunNum):
         print "DS End Time Needed Adjustment"
         print "Original End Time is: ",frame['I3DetectorStatus'].end_time.date_time
         print "Replaced with End Time from i3live: ",tStop
-        tNanoSec = ComputeTenthOfNanosec(tStop,None)
+        tNanoSec = ComputeTenthOfNanosec(tStop,0)
         StopTime = dataclasses.I3Time(tStop.year,tNanoSec)
         frame['I3DetectorStatus'].end_time = StopTime
         
@@ -96,7 +98,6 @@ def MakeGCD(RunNum,FName,GCDName,ProductionVersion,SnapshotId,effectiveStartTime
         
         from icecube.BadDomList.BadDomsList_TraySegment import BadDomList as BDList
         from icecube.phys_services.spe_fit_injector import I3SPEFitInjector
-        import traceback
           
         tray = I3Tray()
            
@@ -160,10 +161,8 @@ def MakeGCD(RunNum,FName,GCDName,ProductionVersion,SnapshotId,effectiveStartTime
         return 0
         #return ""
     except Exception, err:
+        traceback.print_exc()
         print " MakeGCD Error: " + str(err)
-        print Exception
-        ex_type, ex, tb = sys.exc_info()
-        traceback.print_tb(tb)
         del tray
         return 1
         #return str(err)
@@ -218,6 +217,7 @@ def Rehydrate(GCDName,FName,RunNum,RName):
         del tray
         #return str(err)
         print "Rehydrate Error: " + str(err)
+        traceback.print_exc()
 
 def BadDOMAudit(GCDName,RNames):
     try:
