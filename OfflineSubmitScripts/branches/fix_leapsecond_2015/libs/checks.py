@@ -312,12 +312,16 @@ def leap_second_affected_subruns(run_id, good_tstart, good_tstop, production_ver
 
     result = []
 
+    logger.info("Check file %s"%first_good)
+
     if first_good_start_time < good_tstart:
         result.append('start')
         logger.error("Start time of first good subrun is smaller than time in database:")
         logger.error("    file start time: %s"%first_good_start_time)
         logger.error("    db start time  : %s"%good_tstart)
         logger.error("    file           : %s"%first_good)
+
+    logger.info("Check file %s"%last_good)
 
     if last_good_stop_time.date_time.second + 1 == good_tstop.date_time.second:
         result.append('end')
@@ -358,6 +362,12 @@ def leap_second_affected_gcd(run_id, stime, etime, onlygcd, logger):
 
     files = glob.glob(path)
 
+    # Check only newest file
+    files.sort();
+
+    if len(files):
+        files = [files[-1]]
+
     for file in files:
         logger.info("Check file %s"%file)
 
@@ -388,7 +398,7 @@ def leap_second_affected_gcd(run_id, stime, etime, onlygcd, logger):
             else:
                 return 0
         else:
-            if status.start_time.date_time.second == goodstarttime.date_time.second or status.start_time.date_time.second != stime.second:
+            if goodstarttime.date_time.second != stime.second:
                 logger.error("Time mismatch: I3DetectorStatus.start_time = %s"%status.start_time)
                 logger.error("               GoodRunStartTime            = %s"%goodstarttime)
                 logger.error("               good_tstart                 = %s"%stime)
