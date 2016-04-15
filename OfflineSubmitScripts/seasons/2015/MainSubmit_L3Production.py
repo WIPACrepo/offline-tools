@@ -163,13 +163,13 @@ def SubmitRunL3(DDatasetId,SDatasetId,Run,QId,OUTDIR,AGGREGATE,logger,dryrun=Fal
         
     if not dryrun: dbs4_.execute("""insert into i3filter.run (run_id,dataset_id,queue_id,sub_run,date) values (%s,%s,%s,%s,"%s")"""%(Run,DDatasetId,QId,p[0]['sub_run'],q['date']))
 
-def main(params,logger,dryrun=False):
+def main(params, outdir, logger,dryrun=False):
     
     SDatasetId = params.SDatasetId
     DDatasetId = params.DDatasetId
     START_RUN  = params.START_RUN
     END_RUN    = params.END_RUN
-    OUTDIR     = params.OUTDIR
+    OUTDIR     = outdir
     AGGREGATE  = params.AGGREGATE
     CLEAN_DW   = params.CLEAN_DW
     DryRun     = dryrun
@@ -203,7 +203,6 @@ if __name__ == '__main__':
     parser.add_argument("--destinationdatasetid", type=int, dest="DDatasetId", help="Dataset ID to write to, usually L3 dataset")
     parser.add_argument("-s", "--startrun", type=int, default=0, dest="START_RUN", help="start submission from this run")
     parser.add_argument("-e", "--endrun", type=int, default=0,dest="END_RUN", help="end submission at this run")
-    parser.add_argument("--outdir", type=str, default="/data/ana/Muon/level3/", dest="OUTDIR", help="main output directory")
     parser.add_argument("-a", "--aggregate", type=int, default=1,dest="AGGREGATE", help="number of subruns to aggregate to form one job, needed when processing 1 subrun is really short")
     parser.add_argument("-c", "--cleandatawarehouse", action="store_true", default=False,dest="CLEAN_DW", help="clean output files in datawarehouse as part of (re)submission process")
     #parser.add_option("-r", "--dryrun", action="store_true", default=False,
@@ -218,6 +217,14 @@ if __name__ == '__main__':
     if args.START_RUN and not args.END_RUN:
         logger.info( "Will only process run %i!" %args.START_RUN)
         args.END_RUN = args.START_RUN
-       
- 
-    main(args,logger,dryrun=args.dryrun)
+    
+    # FIXME
+    outdir_mapping = {
+        1885: '/data/ana/Muon/level3/exp/'
+    }
+   
+    if args.DDatasetId not in outdir_mapping:
+        logger.critical("No outdir mapped for destination dataset %s" % args.DDatasetId)
+        exit(1)
+
+    main(args, outdir_mapping[args.DDatasetId], logger,dryrun=args.dryrun)
