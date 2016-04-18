@@ -11,11 +11,6 @@ import glob
 import json
 import subprocess as sub
 
-sys.path.append("/data/user/i3filter/SQLServers_n_Clients/")
-sys.path.append('/data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools')
-
-import SendNotification as SN
-
 from libs.files import get_tmpdir, get_logdir
 from RunTools import *
 from FileTools import *
@@ -23,29 +18,32 @@ from DbTools import *
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
 import libs.process
+import libs.config
+
+CONFIG = libs.config.get_config()
+
+sys.path.append(CONFIG.get('DEFAULT', 'SQLClientPath'))
+sys.path.append(CONFIG.get('DEFAULT', 'ProductionToolsPath'))
+
+import SendNotification as SN
 
 import SQLClient_dbs4 as dbs4
 dbs4_ = dbs4.MySQL()
 
-#FIXME: adjust paths for season
-DEFAULT_START_RUN = 126445
-INDIR_2015 = "/data/exp/IceCube/2015/internal-system/sps-gcd"
-INDIR_2016 = "/data/exp/IceCube/2016/internal-system/sps-gcd"
-ENVSHELL   = "/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-06/./env-shell.sh"    
-OFFLINEPRODUCTIONTOOLS = "/data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/"
-DATAPATH = "/data/exp/IceCube/"
-VERIFIEDGCD = "filtered/level2/VerifiedGCD/"
+SEASON = CONFIG.getint('DEFAULT', 'Season')
+DEFAULT_START_RUN = CONFIG.get('PoleGCDChecks', 'DefaultStartRun')
+INDIR_FIRST = "/data/exp/IceCube/%s/internal-system/sps-gcd" % SEASON
+INDIR_SECOND = "/data/exp/IceCube/%s/internal-system/sps-gcd" % (SEASON + 1)
+ENVSHELL   = "%s/./env-shell.sh" % CONFIG.get('DEFAULT', 'I3_BUILD')
+OFFLINEPRODUCTIONTOOLS = CONFIG.get('DEFAULT', 'ProductionToolsPath')
+DATAPATH = '/data/exp/IceCube'
+VERIFIEDGCD = CONFIG.get('PoleGCDChecks', 'VerifiedGCDsPath')
 
-CMPGCD = "CmpGCDFiles.py"
-SENDER = "jan.oertlin"
-RECEIVERS = ['drwilliams3@ua.edu',\
-             'john.kelley@icecube.wisc.edu',\
-             'matt.kauer@icecube.wisc.edu',\
-             'tomas.j.palczewski@ua.edu',\
-             'achim.stoessl@icecube.wisc.edu',\
-             'jan.oertlin@icecube.wisc.edu']
+CMPGCD = CONFIG.get('PoleGCDChecks', 'CmpGCDScriptName')
+SENDER = CONFIG.get('Notifications', 'eMailSender')
+RECEIVERS = json.loads(CONFIG.get('PoleGCDChecks', 'NotificationReceivers'))
 
-DOMAIN = '@icecube.wisc.edu'
+DOMAIN = CONFIG.get('Notifications', 'eMailDomain')
 LOGFILEPATH = get_logdir(sublogpath="PoleGCDChecks")
 LOGFILE = os.path.join(LOGFILEPATH,"PoleGCDChecks_")
 
@@ -59,10 +57,10 @@ def main(logger, StartRun = DEFAULT_START_RUN, dryrun=False):
     
     run_id = [r['run_id'] for r in runs_]
     
-    inDir = INDIR_2015
-    inDirs = glob.glob(INDIR_2015 + "/*")
-    if os.path.isdir(INDIR_2016):
-        inDirs.extend(glob.glob(INDIR_2016 + "/*"))
+    inDir = INDIR_FIRST
+    inDirs = glob.glob(INDIR_FIRST + "/*")
+    if os.path.isdir(INDIR_SECOND):
+        inDirs.extend(glob.glob(INDIR_SECOND + "/*"))
     
     if not len(inDirs):
         logger.info("No GCD file meet criteria for testing .... exiting")
@@ -97,7 +95,7 @@ def main(logger, StartRun = DEFAULT_START_RUN, dryrun=False):
                     logger.warning( " could not get run number from Pole file name ...")
                     continue
                 
-                northFile = glob.glob(DATAPATH + str(year_) + "/" + VERIFIEDGCD + "*" + str(run_) + "*")
+                northFile = glob.glob(DATAPATH + str(year_) + "/" + VERIFIEDGCD + "/*" + str(run_) + "*")
                 if not len(northFile):
                     logger.warning(" **** no Verified GCD file in the north for run %s ****"%run_)
                     #clean up
@@ -163,6 +161,10 @@ if __name__ == '__main__':
                         help = "Start run check from this run")
     args = parser.parse_args()
     logger = get_logger(args.loglevel, LOGFILE)   
+
+    logger.debug("INDIR_FIRST = %s" % INDIR_FIRST)
+    logger.debug("INDIR_SECOND = %s" % INDIR_SECOND)
+
     logger.info( "Attempting PoleGCDChecks @ %s"%datetime.datetime.now().isoformat().replace("T"," "))    
    
     lock = libs.process.Lock(os.path.basename(__file__), logger)

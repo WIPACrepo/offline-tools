@@ -11,40 +11,31 @@ from libs.logger import get_logger
 from libs.argparser import get_defaultparser
 from libs.files import get_logdir, get_rootdir
 import libs.process
+import libs.config
 
-sys.path.append("/data/user/i3filter/SQLServers_n_Clients/")
-sys.path.append('/data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools')
+CONFIG = libs.config.get_config()
+
+sys.path.append(CONFIG.get('DEFAULT', 'SQLClientPath'))
+sys.path.append(CONFIG.get('DEFAULT', 'ProductionToolsPath'))
 
 import SendNotification as SN
-
 
 from RunTools import *
 from FileTools import *
 from DbTools import *
 
-try:
-    import SQLClient_dbs4 as dbs4
-    dbs4_ = dbs4.MySQL()
+import SQLClient_dbs4 as dbs4
+dbs4_ = dbs4.MySQL()
 
-except Exception, err:
-    raise Exception("Error: %s "%str(err))
+DEFAULT_START_RUN = CONFIG.get('TemplateGCDChecks', 'DefaultStartRun')
+ENVSHELL   = "%s/./env-shell.sh" % CONFIG.get('DEFAULT', 'I3_BUILD')
+OFFLINEPRODUCTIONTOOLS = CONFIG.get('DEFAULT', 'ProductionToolsPath')
 
-#FIXME: adjust paths for season
-DEFAULT_START_RUN = 126378
-ENVSHELL = "/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-05/./env-shell.sh"
-OFFLINEPRODUCTIONTOOLS = "/data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools/"
+CMPGCD = CONFIG.get('PoleGCDChecks', 'CmpGCDScriptName')
 
-CMPGCD = "CmpGCDFiles.py"
-
-SENDER = "jan.oertlin"
-RECEIVERS = ['drwilliams3@ua.edu',
-             'john.kelley@icecube.wisc.edu',
-             'matt.kauer@icecube.wisc.edu',
-             'tomas.j.palczewski@ua.edu',
-             'david.delventhal@icecube.wisc.edu',
-             'achim.stoessl@icecube.wisc.edu',
-             'jan.oertlin@icecube.wisc.edu']
-DOMAIN = '@icecube.wisc.edu'
+SENDER = CONFIG.get('Notifications', 'eMailSender')
+RECEIVERS = json.loads(CONFIG.get('TemplateGCDChecks', 'NotificationReceivers'))
+DOMAIN = CONFIG.get('Notifications', 'eMailDomain')
 
 LOGFILEPATH = get_logdir(sublogpath = "TemplateGCDChecks")
 LOGFILE = os.path.join(LOGFILEPATH, "TemplateGCDChecks_")

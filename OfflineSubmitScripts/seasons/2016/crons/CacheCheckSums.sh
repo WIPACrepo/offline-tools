@@ -1,3 +1,4 @@
-#! /bin/zsh
+#! /bin/bash
 
-$I_ENV python /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/CacheChksums_2015.py --debug > /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/logs/PreProcessing/CacheCheckSumsOutput.log 2>&1
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+$I_ENV python "$DIR/CacheChksums.py --dryrun --debug"

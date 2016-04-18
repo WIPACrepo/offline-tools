@@ -8,14 +8,17 @@ import SQLClient_dbs4
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
 from libs.files import get_logdir
+import libs.config
 import glob
 import os
 import sys
 
-sys.path.append('/data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools')
-from FileTools import *
-
 if __name__ == "__main__":
+    config = libs.config.get_config()
+
+    sys.path.append(config.get('DEFAULT', 'ProductionToolsPath'))
+    from FileTools import *
+
     parser = get_defaultparser(__doc__,dryrun=True)
 
     parser.add_argument("-s", "--startrun", type=int, required = True, default=-1,

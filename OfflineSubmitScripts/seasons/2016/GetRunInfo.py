@@ -18,19 +18,21 @@ from libs.argparser import get_defaultparser
 from libs.files import get_logdir
 import libs.checks
 from RunTools import RunTools
+import libs.config
 
 import sys
-sys.path.append('/data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools')
-import SendNotification as SN
 
 dbs4_ = dbs4.MySQL()
 m_live = live.MySQL()
 dbs2_ = dbs2.MySQL()
 
-def send_check_notification():
-    SENDER = "jan.oertlin"
-    RECEIVERS = ['jan.oertlin@icecube.wisc.edu']
-    DOMAIN = '@icecube.wisc.edu'
+def send_check_notification(config):
+    sys.path.append(config.get('DEFAULT', 'ProductionToolsPath'))
+    import SendNotification as SN
+
+    SENDER = config.get('Notifications', 'eMailSender')
+    RECEIVERS = json.loads(config.get('GetRunInfo', 'NotificationReceivers'))
+    DOMAIN = config.get('Notifications', 'eMailDomain')
     
     message = ""
     subject = " New snapshot available"
@@ -53,7 +55,7 @@ def send_check_notification():
         SN.SendMsg(SENDER,RECEIVERS,message)
 
     
-def main(logger,dryrun = False, check = False):
+def main(config, logger,dryrun = False, check = False):
     if check:
         logger.info('Only in check mode. Just checking if an update is available.')
 
@@ -69,8 +71,8 @@ def main(logger,dryrun = False, check = False):
     ss_ref = int(CurrentInfo[0]['max_ss_ref']) + 1
     logger.debug("Got current max production_version %i and ss_ref %i from grl_snapshot_info table" %(CurrentMaxSnapshot,CurrentProductionVersion)) 
     
-    IC86_5_FirstRun = "126378"  # 
-    IC86_5_LastRun = "999999"   # change this when IC85_2015 season ends
+    IC86_5_FirstRun = config.get('DEFAULT', 'FirstRun')  # 
+    IC86_5_LastRun = config.get('DEFAULT', 'LastRun')   # change this when IC85_2015 season ends
     # including IC86_2015_24hr test runs taken during the IC86_2014 season
     #IC86_2015_24hr_TestRuns = (126289,126290,126291)
 
@@ -143,7 +145,7 @@ def main(logger,dryrun = False, check = False):
 
     if check:
         logger.info("New records available. This was only a check. Do nothing. Exit.")
-        send_check_notification()
+        send_check_notification(config)
         exit(0)
     
     for r in RunNums_:
@@ -213,6 +215,8 @@ def main(logger,dryrun = False, check = False):
 
 
 if __name__ == "__main__":
+    config = libs.config.get_config()
+
     parser = get_defaultparser(__doc__,dryrun=True)
 
     parser.add_argument('--check', help="Only check for updates. Do nothing else",dest="check",action="store_true",default=False)  
@@ -220,6 +224,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     LOGFILE=os.path.join(get_logdir(sublogpath = 'PreProcessing'), 'GetRunInfo_')
     logger = get_logger(args.loglevel,LOGFILE)
-    main(logger, dryrun=args.dryrun, check = args.check)    
+    main(logger = logger, dryrun=args.dryrun, check = args.check, config = config)    
 
 

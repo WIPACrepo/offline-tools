@@ -19,7 +19,7 @@ from libs.logger import get_logger
 from libs.argparser import get_defaultparser
 from libs.files import get_logdir,MakeTarGapsTxtFile,MakeRunInfoFile
 from libs.checks import CheckFiles
-from GoodRuntimeAdjust_2015 import main as GoodRuntimeAdjust
+from GoodRuntimeAdjust import main as GoodRuntimeAdjust
 
 import SQLClient_i3live as live
 import SQLClient_dbs4 as dbs4

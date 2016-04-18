@@ -19,14 +19,31 @@ from libs.logger import get_logger
 from libs.argparser import get_defaultparser
 from libs.files import get_logdir, get_rootdir
 import libs.process
+import libs.config
 
-sys.path.append('/data/user/i3filter/IC86_OfflineProcessing/OfflineProductionTools')
-from RunTools import *
-from FileTools import *
 
 def main(logger, dryrun):
-    # FIXME: adjust paths for season
-    ChkSumCacheFile = os.path.join(get_rootdir(), "IC86_2015.dat")
+    config = libs.config.get_config()
+
+    sys.path.append(config.get('DEFAULT', 'ProductionToolsPath'))
+    import RunTools
+    import FileTools
+
+    ChkSumCacheFile = config.get('CacheCheckSums', 'CacheFile')
+
+    look_back_in_days = config.getint('CacheCheckSums', 'LookBack')
+    dump_interval = config.getint('CacheCheckSums', 'DumpInterval')
+
+    logger.debug("LookBack in days: %s" % look_back_in_days)
+    logger.debug("DumpInterval: %s" % dump_interval)
+
+    if look_back_in_days < 0:
+        logger.critical("Invalid value for LookBack: %s" % look_back_in_days)
+        exit(1)
+
+    if dump_interval < 1:
+        logger.critical("Invalid value for DumpInterval: %s" % dump_interval)
+        exit(1)
 
     logger.debug("Cache file for check sums: %s"%ChkSumCacheFile)
 
@@ -49,8 +66,7 @@ def main(logger, dryrun):
         logger.warn("could not open existing or new ChkSum cache file %s"%ChkSumCacheFile)
     
     current_day = date.today()
-    look_back = current_day + timedelta(days=-14)
-    dump_interval = 20
+    look_back = current_day + timedelta(days=-look_back_in_days)
     dump_count = 0
     
     while look_back <= current_day:
@@ -70,7 +86,7 @@ def main(logger, dryrun):
                     logger.debug("File has no MD5 sum in cache")
 
                     try:
-                        ChkSums[File] = str(FileTools(File, logger).md5sum())
+                        ChkSums[File] = str(FileTools.FileTools(File, logger).md5sum())
                         logger.info("md5sum('%s'): %s"%(File, ChkSums[File]))
                     except Exception, err:
                         logger.error("File: %s"%(File))

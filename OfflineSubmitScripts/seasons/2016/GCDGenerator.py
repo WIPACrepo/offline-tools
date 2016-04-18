@@ -22,6 +22,7 @@ from RunTools import *
 from FileTools import *
 
 from libs.times import ComputeTenthOfNanosec
+import libs.config
 
 import traceback
 
@@ -94,6 +95,9 @@ def AdjustDSTime(frame,RunNum):
 
 def MakeGCD(RunNum,FName,GCDName,ProductionVersion,SnapshotId,effectiveStartTime,effectiveEndTime):
     print RunNum,FName,GCDName,ProductionVersion,SnapshotId,effectiveStartTime,effectiveEndTime
+
+    config = libs.config.get_config()
+
     try:
         
         from icecube.BadDomList.BadDomsList_TraySegment import BadDomList as BDList
@@ -114,11 +118,9 @@ def MakeGCD(RunNum,FName,GCDName,ProductionVersion,SnapshotId,effectiveStartTime
                         #Database = 'I3OmDb'
                         )
         
-        #FIXME: adjust paths for season
-        #spe_correction_file = os.path.expandvars("$I3_SRC") + "/filterscripts/resources/data/final-spe-fits-pole-run2015.json"
-        spe_correction_file = os.path.expandvars("$I3_SRC") + "/filterscripts/resources/data/spe-fits-IC86-2015-05-11-2015-V1.json"
-        tray.AddModule(I3SPEFitInjector, "fixspe", Filename = spe_correction_file)
+        spe_correction_file = config.get('GCDGeneration', 'SpeCorrectionFile')
 
+        tray.AddModule(I3SPEFitInjector, "fixspe", Filename = spe_correction_file)
 
         tray.AddModule(SetGRLInfo,"SetGRLInfo",
                         StartTime = effectiveStartTime,
@@ -282,6 +284,7 @@ def main(RunNum, ProductionVersion, SnapshotId):
         # IC86_2015 24hr test runs (126289>=x<=126191) and IC86_2015 runs (>=126378)
         if int(RunNum)==126289 or int(RunNum)==126290 or int(RunNum)==126291 or int(RunNum)>=126378:    
             Season="IC86.2015_"
+        # FIXME: Add new Season
     except Exception, err:
         raise Exception("Error: %s "%str(err))
 

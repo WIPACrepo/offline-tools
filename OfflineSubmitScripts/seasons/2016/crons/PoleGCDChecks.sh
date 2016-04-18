@@ -1,3 +1,4 @@
 #! /bin/bash
 
-$I_ENV python /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/PoleGCDChecks.py  
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+$I_ENV python "$DIR/PoleGCDChecks.py"

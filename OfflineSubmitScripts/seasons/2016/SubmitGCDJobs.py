@@ -32,7 +32,7 @@ import subprocess
 from libs.argparser import get_defaultparser
 from libs.logger import get_logger
 from libs.files import get_logdir, get_rootdir, get_tmpdir
-
+import libs.config
 
 ##-----------------------------------------------------------------
 ## setup DB
@@ -46,9 +46,10 @@ dbs4_ = dbs4.MySQL()
 
 
 if __name__ == '__main__':
-    #FIXME: adjust paths for season
-    CONDOR_SUBMIT_FILE = os.path.join(get_tmpdir(), 'submit_GCD_2015.condor')
-    I3BUILD_DIR = '/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-06/'
+    config = libs.config.get_config()
+
+    CONDOR_SUBMIT_FILE = config.get('GCDGeneration', 'TmpCondorSubmitFile')
+    I3BUILD_DIR = config.get('DEFAULT', 'I3_BUILD')
 
     #------------------------------------------------------------------
 
@@ -63,22 +64,9 @@ if __name__ == '__main__':
     parser.add_argument("-r", "--reproduce", action="store_true", default=False,
                   dest="REPRODUCE", help="Regenerate GCD file even if already attempted")
     
-    #parser.add_option("-b", "--i3build", default='/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2014-L2_V14-02-00_NewCVMFS/',
-    #                  dest="I3BUILD_", help="icerec build directory")
-    #parser.add_option("-b", "--i3build", default='/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-01/',
-    #                  dest="I3BUILD_", help="icerec build directory")
-    #parser.add_option("-b", "--i3build", default='/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-02/',
-    #                  dest="I3BUILD_", help="icerec build directory")
-    #parser.add_option("-b", "--i3build", default='/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-03/',
-    #                  dest="I3BUILD_", help="icerec build directory")
-    #parser.add_option("-b", "--i3build", default='/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-04/',
-    #                  dest="I3BUILD_", help="icerec build directory")
     parser.add_argument("-b", "--i3build", default=I3BUILD_DIR,
                       dest="I3BUILD", help="Icerec build directory")
     
-    
-    #parser.add_argument("-p", "--pythonscriptdir", default='/data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/',
-    #                  dest="PythonScriptDir", help="directory containing python scripts to be used for GCD generation and auditing")
     
     parser.add_argument("-p", "--pythonscriptdir", default=get_rootdir(),
                       dest="PythonScriptDir", help="directory containing python scripts to be used for GCD generation and auditing")
@@ -164,7 +152,7 @@ if __name__ == '__main__':
         SUBMITFILE = open(CONDOR_SUBMIT_FILE,"w")
         SUBMITFILE.write("Universe = vanilla ")
         SUBMITFILE.write('\nExecutable = %s/./env-shell.sh'%I3BUILD)
-        SUBMITFILE.write("\narguments =  python -u %s/GCDGenerator_2015.py %s %s %s "%(PYTHONSCRIPTDIR,r,PV,SId))
+        SUBMITFILE.write("\narguments =  python -u %s/GCDGenerator.py %s %s %s "%(PYTHONSCRIPTDIR,r,PV,SId))
         SUBMITFILE.write("\nLog = %s/Run00%s_%s_%s.log"%(Clog,str(r),PV,SId))
         SUBMITFILE.write("\nError = %s/Run00%s_%s_%s.err"%(Cerr,str(r),PV,SId))
         SUBMITFILE.write("\nOutput = %s/Run00%s_%s_%s.out"%(Olog,str(r),PV,SId))

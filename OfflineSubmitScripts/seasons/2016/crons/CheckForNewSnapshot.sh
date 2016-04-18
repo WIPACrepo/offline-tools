@@ -1,3 +1,4 @@
-#! /bin/zsh
+#! /bin/bash
 
-$I_ENV python /data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2015/GetRunInfo_2015.py --check
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+$I_ENV python "$DIR/GetRunInfo_2015.py --check"

@@ -8,6 +8,8 @@ import subprocess as sub
 from warnings import warn
 from logger import DummyLogger
 
+import config
+
 from FileTools import FileTools
 
 import cPickle
@@ -462,10 +464,7 @@ def get_tmpdir():
 
 #############################################
 
-# FIXME: adjust paths for season
-CHECK_SUM_CACHE_FILE = os.path.join(get_rootdir(), "IC86_2015.dat")
-
-def get_existing_check_sums(logger, ChkSumFile = CHECK_SUM_CACHE_FILE):    
+def get_existing_check_sums(logger, ChkSumFile = config.get_config().get('CacheCheckSums', 'CacheFile')):    
     """
     Get dictionary of precalculated check sums for PFFilt files. Caching makes submission faster.
 
