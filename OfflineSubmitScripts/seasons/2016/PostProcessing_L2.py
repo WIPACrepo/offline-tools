@@ -52,7 +52,7 @@ def main_run(r,logger,dryrun=False):
     logger.debug( "GoodRunTimeAdjust   .... passed")
 
     logger.debug("--Attempting to tar _gaps.txt files ...")
-    MakeTarGapsTxtFile(r['tStart'],r['run_id'],dryrun=dryrun)
+    MakeTarGapsTxtFile(r['tStart'],r['run_id'],dryrun=dryrun, logger = logger)
     logger.debug("MakeTarGapsFile              .... passed")
     logger.info( "--Attempting to collect Active Strings/DOMs information from verified GCD file ...")
     R = RunTools(r['run_id'])

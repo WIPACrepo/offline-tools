@@ -126,7 +126,7 @@ def MakeRunInfoFile(dryrun=False):
     if not dryrun: sub.call(["ln","-s","%s"%LatestGoodRunInfoV, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt"%(ProductionYear)])
     return
 
-def MakeTarGapsTxtFile(StartTime,RunId,dryrun=False,datasetid=1883):
+def MakeTarGapsTxtFile(StartTime,RunId,dryrun=False,datasetid=1883, logger = DummyLogger()):
     """
     Tar the gaps files together and update the urlpath table with 
     the newly created file
@@ -163,8 +163,8 @@ def MakeTarGapsTxtFile(StartTime,RunId,dryrun=False,datasetid=1883):
     
         dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","PERMANENT","%s","%s")\
                    on duplicate key update dataset_id="%s",queue_id="%s",name="%s",path="%s",type="PERMANENT",md5sum="%s",size="%s",transferstate="WAITING"  """% \
-                             (str(datasetid),str(maxQId[0][0]),os.path.basename(OutTar),"file:"+os.path.dirname(OutTar)+"/",str(FileTools(OutTar).md5sum()),str(os.path.getsize(OutTar)),\
-                              str(datasetid),str(maxQId[0][0]),os.path.basename(OutTar),"file:"+os.path.dirname(OutTar)+"/",str(FileTools(OutTar).md5sum()),str(os.path.getsize(OutTar))))
+                             (str(datasetid),str(maxQId[0][0]),os.path.basename(OutTar),"file:"+os.path.dirname(OutTar)+"/",str(FileTools(OutTar, logger).md5sum()),str(os.path.getsize(OutTar)),\
+                              str(datasetid),str(maxQId[0][0]),os.path.basename(OutTar),"file:"+os.path.dirname(OutTar)+"/",str(FileTools(OutTar, logger).md5sum()),str(os.path.getsize(OutTar))))
     return 
 
 ########################################################
@@ -324,7 +324,7 @@ def TrimFile(InFile,GoodStart,GoodEnd,logger=DummyLogger(),dryrun=False):
                          set md5sum="%s", size="%s", transferstate="WAITING"
                          where u.dataset_id=%s 
                          and concat(substring(u.path,6),"/",u.name) = "%s" """%\
-                        (str(FileTools(InFile_).md5sum()),str(os.path.getsize(InFile_)),"1883",InFile_))
+                        (str(FileTools(InFile_, logger).md5sum()),str(os.path.getsize(InFile_)),"1883",InFile_))
         
         # re-write gaps.txt file using new (trimmed) .i3 file
         if InFile_ == InFile:
@@ -358,7 +358,7 @@ def TrimFile(InFile,GoodStart,GoodEnd,logger=DummyLogger(),dryrun=False):
                                 set md5sum="%s", size="%s"
                                 where u.dataset_id=%s 
                                 and concat(substring(u.path,6),"/",u.name) = "%s" """%\
-                                (str(FileTools(GFile).md5sum()),str(os.path.getsize(GFile)),"1883",GFile))
+                                (str(FileTools(GFile, logger).md5sum()),str(os.path.getsize(GFile)),"1883",GFile))
                 else: # here we actually have to do something
                       # as we haven't overwritten the original file
                       # we have a stale Trimmed_ file...

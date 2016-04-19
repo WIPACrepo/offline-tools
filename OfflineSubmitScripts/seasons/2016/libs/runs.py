@@ -46,7 +46,7 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
     
     if len(GCDFileName):
         GCDFileName = GCDFileName[0]
-        GCDFileChkSum = str(FileTools(GCDFileName).md5sum())
+        GCDFileChkSum = str(FileTools(GCDFileName, logger).md5sum())
         
         lnGCDFile = os.path.join(OutputDir,os.path.basename(GCDFileName))
         lnCmd = "ln -sf %s %s"%(GCDFileName,lnGCDFile)
@@ -80,7 +80,7 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
             if InFile in ExistingChkSums:
                 InFileChkSum = str(ExistingChkSums[InFile])
             else:
-                InFileChkSum = str(FileTools(InFile).md5sum())
+                InFileChkSum = str(FileTools(InFile, logger).md5sum())
     
             if not dryrun:
                 dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","INPUT","%s","%s")"""% \

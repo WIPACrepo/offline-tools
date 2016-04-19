@@ -115,7 +115,7 @@ def main(args, logger):
             elif not os.path.isfile(linkedGCD[0]):
                 verified = 0
                 logger.error("Listed GCD file in DB not in output dir. for run %s" % RunId)
-            elif gInfo['md5sum']!=FileTools(linkedGCD[0]).md5sum():
+            elif gInfo['md5sum']!=FileTools(linkedGCD[0], logger).md5sum():
                 verified = 0
                 logger.error("GCD file linked from L3 dir. has different md5sum from source L2 dir. for run %s" % RunId)
             else:
@@ -190,8 +190,8 @@ def main(args, logger):
                     if not dryrun:
                         dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","PERMANENT","%s","%s")\
                                on duplicate key update dataset_id="%s",queue_id="%s",name="%s",path="%s",type="PERMANENT",md5sum="%s",size="%s",transferstate="WAITING"  """% \
-                                         (DDatasetId,nRecord['queue_id'],os.path.basename(hdf5Out),"file:"+os.path.dirname(hdf5Out)+"/",str(FileTools(hdf5Out).md5sum()),str(os.path.getsize(hdf5Out)),\
-                                          DDatasetId,nRecord['queue_id'],os.path.basename(hdf5Out),"file:"+os.path.dirname(hdf5Out)+"/",str(FileTools(hdf5Out).md5sum()),str(os.path.getsize(hdf5Out))))
+                                         (DDatasetId,nRecord['queue_id'],os.path.basename(hdf5Out),"file:"+os.path.dirname(hdf5Out)+"/",str(FileTools(hdf5Out, logger).md5sum()),str(os.path.getsize(hdf5Out)),\
+                                          DDatasetId,nRecord['queue_id'],os.path.basename(hdf5Out),"file:"+os.path.dirname(hdf5Out)+"/",str(FileTools(hdf5Out, logger).md5sum()),str(os.path.getsize(hdf5Out))))
                         
                         
                         dbs4_.execute("""update i3filter.urlpath set transferstate="IGNORED" where dataset_id=%s and name like "%%%s%%hdf5%%" and name not like "%%Merged%%" """%(DDatasetId,RunId))

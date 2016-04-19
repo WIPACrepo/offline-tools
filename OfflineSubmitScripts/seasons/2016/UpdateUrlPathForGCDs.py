@@ -68,7 +68,7 @@ if __name__ == "__main__":
             if file in sumcache:
                 md5sum = sumcache[file]
             else:
-                md5sum = FileTools(file).md5sum()
+                md5sum = FileTools(file, logger).md5sum()
                 sumcache[file] = md5sum
 
             size = os.path.getsize(file)
