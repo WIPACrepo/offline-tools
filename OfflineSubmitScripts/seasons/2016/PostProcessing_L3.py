@@ -36,6 +36,7 @@ from FileTools import *
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
 from libs.files import get_logdir
+import libs.config
 
 ##-----------------------------------------------------------------
 ## setup DB

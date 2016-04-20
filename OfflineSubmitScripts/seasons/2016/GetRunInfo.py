@@ -26,12 +26,12 @@ dbs4_ = dbs4.MySQL()
 m_live = live.MySQL()
 dbs2_ = dbs2.MySQL()
 
-def send_check_notification(config):
+def send_check_notification(logger, dryrun, config):
     sys.path.append(config.get('DEFAULT', 'ProductionToolsPath'))
     import SendNotification as SN
 
     SENDER = config.get('Notifications', 'eMailSender')
-    RECEIVERS = json.loads(config.get('GetRunInfo', 'NotificationReceivers'))
+    RECEIVERS = libs.config.get_var_list('GetRunInfo', 'NotificationReceiver')
     DOMAIN = config.get('Notifications', 'eMailDomain')
     
     message = ""
@@ -48,10 +48,12 @@ def send_check_notification(config):
         
         A new snapshot is available!
         """
-    
+   
+    logger.debug("Receivers: %s" % RECEIVERS)
+ 
     message = SN.CreateMsg(DOMAIN, SENDER, RECEIVERS, subject,messageBody,mimeVersion,contentType)
     
-    if len(message):
+    if len(message) and not dryrun:
         SN.SendMsg(SENDER,RECEIVERS,message)
 
     
@@ -71,22 +73,47 @@ def main(config, logger,dryrun = False, check = False):
     ss_ref = int(CurrentInfo[0]['max_ss_ref']) + 1
     logger.debug("Got current max production_version %i and ss_ref %i from grl_snapshot_info table" %(CurrentMaxSnapshot,CurrentProductionVersion)) 
     
-    IC86_5_FirstRun = config.get('DEFAULT', 'FirstRun')  # 
-    IC86_5_LastRun = config.get('DEFAULT', 'LastRun')   # change this when IC85_2015 season ends
+    seasons = libs.config.get_seasons_info()
+    current_season = config.getint('DEFAULT', 'Season')
+
+    # First run of current season
+    IC86_5_FirstRun = seasons[current_season]['first']  # 
+
+    # Dfeault last run. If no next season is defined, this value will be kept
+    IC86_5_LastRun = 9999999
+
+    # If a next season is defined, we need to exclude those test runs
+    exclude_next_testruns = [-1]
+ 
+    if current_season + 1 in seasons:
+        if seasons[current_season + 1]['first'] > -1:
+            # last run of the current season is the start run of the next season minus one
+            IC86_5_LastRun = seasons[current_season + 1]['first'] - 1
+            exclude_next_testruns = seasons[current_season + 1]['test']
+
     # including IC86_2015_24hr test runs taken during the IC86_2014 season
     #IC86_2015_24hr_TestRuns = (126289,126290,126291)
 
     # get the newest data from the live db      
-    tmp_i3_ = m_live.fetchall(""" SELECT r.runNumber,r.tStart,r.tStop,
-                                 r.tStart_frac,r.tStop_frac,r.nEvents,r.rateHz,
-                                 l.snapshot_id,l.good_i3,l.good_it,l.reason_i3,l.reason_it,
-                                 l.good_tstart, l.good_tstart_frac, l.good_tstop,l.good_tstop_frac
-                                 FROM live.livedata_snapshotrun l
-                                 join live.livedata_run r on l.run_id=r.id
-                                 where (r.runNumber>=%s or r.runNumber in (126289,126290,126291))
-                                 and r.runNumber<=%s
-                                 order by l.snapshot_id"""%(IC86_5_FirstRun,IC86_5_LastRun),UseDict=True)
-    
+    livesql = """SELECT r.runNumber,r.tStart,r.tStop,
+                    r.tStart_frac,r.tStop_frac,r.nEvents,r.rateHz,
+                    l.snapshot_id,l.good_i3,l.good_it,l.reason_i3,l.reason_it,
+                    l.good_tstart, l.good_tstart_frac, l.good_tstop,l.good_tstop_frac
+                 FROM live.livedata_snapshotrun l
+                 JOIN live.livedata_run r
+                    ON l.run_id=r.id
+                 WHERE (r.runNumber>=%s OR r.runNumber IN (%s))
+                    AND r.runNumber<=%s
+                    AND r.runNumber NOT IN (%s)
+                 ORDER BY l.snapshot_id""" % (IC86_5_FirstRun,
+                        ','.join([str(r) for r in seasons[current_season]['test']] + ['-1']),
+                        IC86_5_LastRun,
+                        ','.join(str(r) for r in exclude_next_testruns))
+   
+    logger.debug("SQL to get data from live: %s" % livesql)
+
+    tmp_i3_ = m_live.fetchall(livesql, UseDict = True)
+ 
     if not len(tmp_i3_):
         logger.info("no results from i3Live DB for runs>=%s, snapshot_id>%s. no DB info. updated,exiting"%(IC86_5_FirstRun,CurrentMaxSnapshot))
         exit(0)
@@ -125,7 +152,7 @@ def main(config, logger,dryrun = False, check = False):
     
     if len(cRecords_):
         logger.info("""The following records have changed and will result in  an update to
-                 the ProductionVersion %s""" %cRecords.__repr__())
+                 the ProductionVersion %s""" %cRecords_.__repr__())
 
         if not check:
             logger.info("Continue porcessing with updates (Y/N)")
@@ -145,7 +172,7 @@ def main(config, logger,dryrun = False, check = False):
 
     if check:
         logger.info("New records available. This was only a check. Do nothing. Exit.")
-        send_check_notification(config)
+        send_check_notification(logger, dryrun, config)
         exit(0)
     
     for r in RunNums_:

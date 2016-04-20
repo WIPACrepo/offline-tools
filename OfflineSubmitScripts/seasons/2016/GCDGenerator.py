@@ -271,22 +271,7 @@ def main(RunNum, ProductionVersion, SnapshotId):
     icetray.logging.rotating_files(OutName)
 
     # attempt to determine run season/year
-    try:
-        Season = ""
-        if int(RunNum)>=118175 and int(RunNum)<=120155 :
-            Season="IC86.2011_"
-        if int(RunNum)>=120156 and int(RunNum) <= 122275 :        
-            Season="IC86.2012_"
-        if int(RunNum)>=122276 :       
-            Season="IC86.2013_"
-        if int(RunNum)>=124702 :        # current running season, open ended for now. Another if statement will be added with a new season
-            Season="IC86.2014_"
-        # IC86_2015 24hr test runs (126289>=x<=126191) and IC86_2015 runs (>=126378)
-        if int(RunNum)==126289 or int(RunNum)==126290 or int(RunNum)==126291 or int(RunNum)>=126378:    
-            Season="IC86.2015_"
-        # FIXME: Add new Season
-    except Exception, err:
-        raise Exception("Error: %s "%str(err))
+    Season = "IC86.%s_" % config.get_season_by_run(int(RunNum))
 
     # just for the IC86_2014 24hr test run, should be removed and previous lines changed for production
     #Season="IC86.2014_"

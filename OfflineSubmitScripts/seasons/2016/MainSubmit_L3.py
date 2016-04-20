@@ -219,20 +219,9 @@ if __name__ == '__main__':
         logger.info( "Will only process run %i!" %args.START_RUN)
         args.END_RUN = args.START_RUN
         
-    config = libs.config.get_config()
-    outdir_mapping = config.get('L3', 'DatasetOutputDirMapping')
+    outdir_mapping = libs.config.get_var_dict('L3', 'DatasetOutputDirMapping', keytype = int)
    
-    logger.debug("Output mapping config string: %s" % outdir_mapping);
-
-    outdir_mapping = json.loads(outdir_mapping)
-
-    # Since json.loads does not accept integers as keys, translate all keys to integers as possible
-    for key in outdir_mapping:
-        try:
-            new_key = int(key)
-            outdir_mapping[new_key] = outdir_mapping.pop(key)
-        except ValueError:
-            logger.warning("Cannot convert key '%s' to integer" % key)
+    logger.debug("Output mapping: %s" % outdir_mapping);
 
     if args.DDatasetId not in outdir_mapping:
         logger.critical("No outdir mapped for destination dataset %s" % args.DDatasetId)

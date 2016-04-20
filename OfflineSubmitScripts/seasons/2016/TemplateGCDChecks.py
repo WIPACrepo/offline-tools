@@ -34,7 +34,7 @@ OFFLINEPRODUCTIONTOOLS = CONFIG.get('DEFAULT', 'ProductionToolsPath')
 CMPGCD = CONFIG.get('PoleGCDChecks', 'CmpGCDScriptName')
 
 SENDER = CONFIG.get('Notifications', 'eMailSender')
-RECEIVERS = json.loads(CONFIG.get('TemplateGCDChecks', 'NotificationReceivers'))
+RECEIVERS = libs.config.get_var_list('TemplateGCDChecks', 'NotificationReceiver')
 DOMAIN = CONFIG.get('Notifications', 'eMailDomain')
 
 LOGFILEPATH = get_logdir(sublogpath = "TemplateGCDChecks")
@@ -180,6 +180,9 @@ if __name__ == '__main__':
     sRuns.sort()
 
     logger.info("Check the following runs: %s"%sRuns)
+
+    logger.debug("Notification Receivers: %s" % RECEIVERS)
+    logger.debug("Sender: %s%s" % (SENDER, DOMAIN))
 
     main_cmp(fileDict, sRuns, args.dryrun)
     

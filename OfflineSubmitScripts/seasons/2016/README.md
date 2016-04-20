@@ -1,15 +1,13 @@
 
-Files which have paths which need to be changed for a new season
+Configuration
+-----------------
 
-* PoleGCDChecks/PoleGCDChecks.py
-* TemplateGCDChecks/TemplateGCDChecks.py
-* CacheChksums_2015.py
-* GCDGenerator_2015.py, function MakeGCD
-* SubmitGCDJobs_2015.py
-* libs/files.py, just before function get_existing_check_sums()
-* crons/* (all files in folder 'crons')
+All configurations need to be made in config/offline_processing.cfg.
+
+The most parameters do not need a modification for a next season but at least the start and test runs are required, and the current season.
+Detailed information are found in the config file.
 
 Documentation
 -----------------
 
-source in `docs`. Compile with sphinx-apidocs (requires napoleon)
+Source in `docs`. Compile with sphinx-apidocs (requires napoleon)
