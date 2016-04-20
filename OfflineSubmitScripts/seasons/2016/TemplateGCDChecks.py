@@ -28,7 +28,7 @@ import SQLClient_dbs4 as dbs4
 dbs4_ = dbs4.MySQL()
 
 DEFAULT_START_RUN = CONFIG.get('TemplateGCDChecks', 'DefaultStartRun')
-ENVSHELL   = "%s/./env-shell.sh" % CONFIG.get('DEFAULT', 'I3_BUILD')
+ENVSHELL   = "%s/./env-shell.sh" % CONFIG.get('L2', 'I3_BUILD')
 OFFLINEPRODUCTIONTOOLS = CONFIG.get('DEFAULT', 'ProductionToolsPath')
 
 CMPGCD = CONFIG.get('PoleGCDChecks', 'CmpGCDScriptName')

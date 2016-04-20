@@ -49,7 +49,7 @@ if __name__ == '__main__':
     config = libs.config.get_config()
 
     CONDOR_SUBMIT_FILE = config.get('GCDGeneration', 'TmpCondorSubmitFile')
-    I3BUILD_DIR = config.get('DEFAULT', 'I3_BUILD')
+    I3BUILD_DIR = config.get('L2', 'I3_BUILD')
 
     #------------------------------------------------------------------
 

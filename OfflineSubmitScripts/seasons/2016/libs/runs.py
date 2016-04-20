@@ -3,6 +3,7 @@ from RunTools import RunTools
 from FileTools import FileTools
 import os
 import glob
+from logger import DummyLogger
 
 def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, logger):
     """
@@ -180,3 +181,35 @@ def get_run_status(GRLInfo):
         status = "IDLE"
 
     return status
+
+def set_post_processing_state(run_id, dataset_id, validated, dbs4, dryrun, logger = DummyLogger()):
+    """
+    Sets the flag for the specified run and dataset in the database.
+
+    Args:
+        run_id (int): The run id
+        dataset_id (int): The dataset id of the run
+        validated (bool): `True`, if the run has been validated
+        dbs4 (SQLClient_dbs4): The SQL client for dbs4
+        dryrun (bool): If `True`, nothing will be written into the database
+        logger (logging.Logger): The logger. Default is the DummyLogger that just prints the messages.
+    """
+
+    run_id = int(run_id)
+    dataset_id = int(dataset_id)
+    validated = int(validated)
+
+    sql = """   INSERT INTO offline_postprocessing
+                    (run_id, dataset_id, validated, date_of_validation)
+                VALUES
+                    (%s, %s, %s, NOW())
+                ON DUPLICATE KEY UPDATE
+                    validated = %s,
+                    date_of_validation = NOW()
+                    """ % (run_id, dataset_id, validated, validated)
+
+    logger.debug("SQL: %s" % sql)
+
+    if not dryrun:
+        dbs4.execute(sql)
+

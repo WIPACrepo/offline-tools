@@ -36,6 +36,7 @@ from FileTools import *
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
 from libs.files import get_logdir
+from libs.runs import set_post_processing_state
 import libs.config
 
 ##-----------------------------------------------------------------
@@ -56,17 +57,23 @@ def main(args, logger):
     DDatasetId = args.DDATASETID
     START_RUN = args.STARTRUN
     END_RUN = args.ENDRUN
-    SEASON = args.SEASON
-    OUTDIR = args.OUTDIR
+    SEASON = libs.config.get_season_by_run(START_RUN)
     MERGEHDF5 = args.MERGEHDF5
 
-    sourceRunInfo = dbs4_.fetchall("""select r.run_id from i3filter.job j
-                                        join i3filter.run r on j.queue_id=r.queue_id
-                                        where j.dataset_id=%s and r.dataset_id=%s
-                                        and r.run_id between %s and %s
-                                        and j.status="OK"
-                                        group by r.run_id
-                                        order by r.run_id
+    season_of_end_run = libs.config.get_season_by_run(END_RUN)
+
+    if SEASON != season_of_end_run:
+        logger.warning("The first run (%s) is of season %s, the last run (%s) is of season %s. Only runs of season %s will be post processed." % (
+            START_RUN, SEASON, END_RUN, season_of_end_run
+        ))
+
+    sourceRunInfo = dbs4_.fetchall("""SELECT r.run_id FROM i3filter.job j
+                                        JOIN i3filter.run r ON j.queue_id=r.queue_id
+                                        WHERE j.dataset_id=%s AND r.dataset_id=%s
+                                        AND r.run_id BETWEEN %s AND %s
+                                        AND j.status="OK"
+                                        GROUP BY r.run_id
+                                        ORDER BY r.run_id
                                         """%(SDatasetId,SDatasetId,START_RUN,END_RUN),UseDict=True)
     
     GRL = "/data/exp/IceCube/%s/filtered/level2/IC86_%s_GoodRunInfo.txt"%(SEASON,SEASON)
@@ -146,7 +153,7 @@ def main(args, logger):
                 OutDir = nRecord['path']
                 if nRecord['status'] not in ("OK","BadRun"):
                     verified = 0
-                    logger.errord("DB record for in/output %s/%s dir. for run %s is %s" % (sr['name'], nName, RunId, nRecord['status']))
+                    logger.error("DB record for in/output %s/%s dir. for run %s is %s" % (sr['name'], nName, RunId, nRecord['status']))
                     continue
 
                 L3Out = os.path.join(nRecord['path'][5:],nRecord['name'])
@@ -182,8 +189,12 @@ def main(args, logger):
                     hdf5Out = nRecord['path'][5:]+"/Level3_IC86.%s_data_Run00%s_Merged.hdf5"%(SEASON,RunId)
 
                     if not args.dryrun:
-                        mergeReturn = sub.call(["/data/user/i3filter/L3_Processing/RHEL_6.4_IC2012-L3_Muon_V2_NewCVMFS/./env-shell.sh",
-                                            "python", "/data/user/i3filter/L3_Processing/RHEL_6.4_IC2012-L3_Muon_V2_NewCVMFS/hdfwriter/resources/scripts/merge.py",
+                        buildir = libs.config.get_config().get('L3', "I3_BUILD_%s" % DDatasetId)
+                        envpath = os.path.join(buildir, './env-shell.sh')
+                        mergescript = os.path.join(buildir, 'hdfwriter/resources/scripts/merge.py')
+
+                        mergeReturn = sub.call([envpath,
+                                            "python", mergescript,
                                             "%s"%hdf5Files, "-o %s"%hdf5Out])
                     
                     if mergeReturn : verified = 0
@@ -203,6 +214,8 @@ def main(args, logger):
             else:
                 logger.error("Failed Verification for run %s, see other logs" % RunId)
             
+            set_post_processing_state(RunId, DDatasetId, verified, dbs4_, args.dryrun, logger)
+
         except Exception,err:
             logger.exception(err)
             logger.warning("skipping verification for %s, see previous error" % RunId)
@@ -217,19 +230,12 @@ if __name__ == '__main__':
                                       dest="DDATASETID", help="Dataset ID to write to, usually L3 dataset")
 
 
-    parser.add_argument("-s", "--startrun", type=int, default=0,
+    parser.add_argument("-s", "--startrun", type=int, required = True,
                                       dest="STARTRUN", help="start submission from this run")
 
 
     parser.add_argument("-e", "--endrun", type=int, default=9999999999,
                                       dest="ENDRUN", help="end submission at this run")
-    
-    
-    parser.add_argument("--outdir", type=str, required = True,
-                                      dest="OUTDIR", help="main output directory")
-    
-    parser.add_argument("--season", type=str, required = True,
-                                    dest="SEASON", help="start year of data taking e.g. 2012 for the IC86_2012 season")
     
     parser.add_argument("--mergehdf5", action="store_true", default=False,
               dest="MERGEHDF5", help="merge hdf5 files, useful when files are really small")
