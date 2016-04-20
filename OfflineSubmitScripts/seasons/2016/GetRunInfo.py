@@ -15,7 +15,7 @@ import SQLClient_dbs2 as dbs2
 from sys import exit
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
-from libs.files import get_logdir
+from libs.files import get_logdir, get_tmpdir
 import libs.checks
 from RunTools import RunTools
 import libs.config
@@ -78,6 +78,11 @@ def main(config, logger,dryrun = False, check = False):
 
     # First run of current season
     IC86_5_FirstRun = seasons[current_season]['first']  # 
+
+    # If it is -1 (that means the season hasn't begun yet) replace it with a very high number
+    # to enable processing the test runs
+    if IC86_5_FirstRun == -1:
+        IC86_5_FirstRun = 9999999
 
     # Dfeault last run. If no next season is defined, this value will be kept
     IC86_5_LastRun = 9999999
@@ -182,7 +187,7 @@ def main(config, logger,dryrun = False, check = False):
             R = RunTools(r,logger=logger)
             RunTimes = R.GetRunTimes()
             InFiles = R.GetRunFiles(RunTimes['tStart'],'P')
-            CheckFiles = R.FilesComplete(InFiles,RunTimes)
+            CheckFiles = R.FilesComplete(InFiles, RunTimes, get_tmpdir())
    
             #  fill new runs from live in run_info_summary 
             if not dryrun: dbs4_.execute( """insert into i3filter.run_info_summary
@@ -214,18 +219,18 @@ def main(config, logger,dryrun = False, check = False):
         # Check PFFilt files if there are empty and/or have no reading permission
         fileChkRlt = libs.checks.pffilt_size_and_permission(r, RunInfo_[r]['tStart'].year, RunInfo_[r]['tStart'].month, RunInfo_[r]['tStart'].day, logger, False)
         if len(fileChkRlt['empty']) + len(fileChkRlt['permission']) + len(fileChkRlt['emptyAndPermission']) > 0:
-            logger.warning("Run %s has issues with PFFilt files"%r)
-            warnstring = '  Empty files w/o reading permission:\n'
+            logger.warning("Run %s has issues with PFFilt files" % r)
+            logger.warning('  Empty files w/o reading permission:')
     	for file in fileChkRlt['emptyAndPermission']:
-    	    warnstring += '    ' + file + '\n'
+    	    logger.warning('    ' + file)
     
-            warnstring += '  Empty files w/ reading permission:\n' 
+            logger.warning('  Empty files w/ reading permission:')
             for file in fileChkRlt['empty']:  
-                warnstring += '    ' + file + '\n'
+                logger.warning('    ' + file )
     
-            warnstring += '  Not empty files w/o reading permission:'
+            logger.warning('  Not empty files w/o reading permission:')
             for file in fileChkRlt['permission']:
-                warnstring += '    ' + file + '\n'
+                logger.warning('    ' + file)
     
         # insert new runs from live in grl_snapshot_info
         if not dryrun: dbs4_.execute( """insert into i3filter.grl_snapshot_info
