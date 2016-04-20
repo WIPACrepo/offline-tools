@@ -162,7 +162,7 @@ class RunTools(object):
             raise Exception("Error: %s\n"%str(err))
         
         
-    def FilesComplete(self,InFiles,RunTimes):
+    def FilesComplete(self,InFiles,RunTimes, tmppath = ''):
         try:
             if not len(InFiles):
                 self.logger.warning( "Input file list is empty, maybe failed/short run")
@@ -177,28 +177,20 @@ class RunTools(object):
             if len(InFiles) != FileParts[-1] + 1:
                 self.logger.warning( "Looks like we don't have all the files for this run")
                 MissingParts = (set(range(0,FileParts[-1] + 1))).difference(set(FileParts))
-                warnstring =  "There are %s Missing Part(s): \n"%len(MissingParts)
+                logger.warning("There are %s Missing Part(s):" % len(MissingParts))
                 MissingParts = list(MissingParts)
                 MissingParts.sort()
                 for m in MissingParts:
-                    warnstring += m + '\n'
-                self.logger.warning(warnstring)
+                    logger.warning(m)
                 return 0
-            
+           
+            tmpfile = os.path.join(tmppath, 'tmp.xml')
+ 
             StartCheck = 0
-            processoutput = subprocess.check_output("""tar xvf %s --exclude="*.i3*" -O > tmp.xml"""%InFiles[0], shell = True, stderr=subprocess.STDOUT)
-            self.logger.info(processoutput.strip())
+            processoutput = subprocess.check_output("""tar xvf %s --exclude="*.i3*" -O > %s""" % (InFiles[0], tmpfile), shell = True, stderr=subprocess.STDOUT)
+            self.logger.debug(processoutput.strip())
 
-            #tree = et.parse("tmp.xml")
-            #sTime = tree.find("Plus").find("Start_DateTime").text
-            #fs_time = parse(sTime)
-            
-            #doc = libxml2.parseFile("tmp.xml")
-            #result = doc.xpathEval('//*')
-            #sTime = [r.getContent() for r in result if r.name=="Start_DateTime"]
-            #fs_time = parse(sTime[0])
-            
-            doc = ET.ElementTree(file="tmp.xml")
+            doc = ET.ElementTree(file = tmpfile)
             sTime = [t.text for t in doc.getiterator() if t.tag=="Start_DateTime"]
             fs_time = parse(sTime[0])
             
@@ -211,19 +203,10 @@ class RunTools(object):
                 self.logger.warning( "mismatch in start time reported by i3Live:%s and file metadata:%s"%(RunStart, fs_time)) 
         
             EndCheck = 0
-            processoutput = subprocess.check_output("""tar xvf %s --exclude="*.i3*" -O > tmp.xml"""%InFiles[-1], shell = True, stderr=subprocess.STDOUT)
+            processoutput = subprocess.check_output("""tar xvf %s --exclude="*.i3*" -O > %s""" % (InFiles[-1], tmpfile), shell = True, stderr=subprocess.STDOUT)
             self.logger.info(processoutput.strip())
             
-            #tree = et.parse("tmp.xml")
-            #eTime = tree.find("Plus").find("End_DateTime").text
-            #fe_time = parse(eTime)
-            
-            #doc = libxml2.parseFile("tmp.xml")
-            #result = doc.xpathEval('//*')
-            #eTime = [r.getContent() for r in result if r.name=="End_DateTime"]
-            #fe_time = parse(eTime[0])
-            
-            doc = ET.ElementTree(file="tmp.xml")
+            doc = ET.ElementTree(file = tmpfile)
             eTime = [t.text for t in doc.getiterator() if t.tag=="End_DateTime"]
             fe_time = parse(eTime[0])
             
