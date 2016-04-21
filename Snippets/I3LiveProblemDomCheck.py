@@ -44,9 +44,13 @@ def get_bd_list_from_i3live(run_number, logger):
     run_doms = json.loads(resp_text)
 
     bdlist = []
+    unconf_doms = []
+    dropped_doms = []
+    problem_doms = []
 
     for key, om in run_doms['unconfigured_doms'].iteritems():
         bdlist.append(icetray.OMKey(om['string'], om['position']))
+        unconf_doms.append(icetray.OMKey(om['string'], om['position']))
 
     logger.debug("unconfigured_doms: %s"%len(run_doms['unconfigured_doms']))
    
@@ -55,6 +59,7 @@ def get_bd_list_from_i3live(run_number, logger):
         for om in src:
             counter = counter + 1
             bdlist.append(icetray.OMKey(om['dom_string'], om['dom_position']))
+            dropped_doms.append(icetray.OMKey(om['dom_string'], om['dom_position']))
     
     logger.debug("dropped_doms: %s"%counter)
 
@@ -63,9 +68,13 @@ def get_bd_list_from_i3live(run_number, logger):
         for key, om in type.iteritems():
             counter = counter + 1
             bdlist.append(icetray.OMKey(om['string'], om['position']))
+            problem_doms.append(icetray.OMKey(om['string'], om['position']))
 
     logger.debug("problem_doms: %s"%counter)
-    return bdlist    
+
+    bdlist = [dom for dom in bdlist if dom.string > 0]
+
+    return bdlist, set(unconf_doms), set(dropped_doms), set(problem_doms)
 
 def get_bd_list_from_gcd(filename, logger):
     file = dataio.I3File(filename)
@@ -79,6 +88,24 @@ def get_bd_list_from_gcd(filename, logger):
             logger.error('No bad dom list found')
 
     return [om for om in bdl]
+
+def get_disabled_oms_from_gcd(filename, logger):
+    file = dataio.I3File(filename)
+    g = file.pop_frame()
+    c = file.pop_frame()
+    d = file.pop_frame()
+
+    disabled_doms = []
+    goodSlcOnlyKeys = []
+
+    for dom in d['I3Geometry'].omgeo.keys():
+        if (dom not in d['I3DetectorStatus'].dom_status.keys() or d['I3DetectorStatus'].dom_status[dom].pmt_hv == 0) and dom.string > 0:
+            disabled_doms.append(dom)
+
+        if dom in d['I3DetectorStatus'].dom_status.keys() and d['I3DetectorStatus'].dom_status[dom].lc_mode == d['I3DetectorStatus'].dom_status[dom].LCMode.SoftLC and d['I3DetectorStatus'].dom_status[dom].pmt_hv > 0 and dom.string > 0:
+            goodSlcOnlyKeys.append(dom)
+
+    return set(disabled_doms), set(goodSlcOnlyKeys)
 
 def main(start_run, end_run, dryrun, logger):
     db = dbs4.MySQL()
@@ -98,6 +125,7 @@ def main(start_run, end_run, dryrun, logger):
                       str(run['run_id']).zfill(8), run['production_version'], run['snapshot_id'])
 
 
+        logger.info("=== Run %s ================================" % run['run_id'])
         logger.info("GCD file: %s"%gcdfile)
 
         if not os.path.isfile(gcdfile):
@@ -106,38 +134,96 @@ def main(start_run, end_run, dryrun, logger):
 
         gcd_bdlist = get_bd_list_from_gcd(gcdfile, logger)
 
+        gcd_unconf_doms, goodSlcOnlyKeys = get_disabled_oms_from_gcd(gcdfile, logger)
+
         if gcd_bdlist == None:
             continue
 
-        live_bdlist = get_bd_list_from_i3live(run['run_id'], logger)
+        live_bdlist, live_unconf_doms, live_dropped_doms, live_problem_doms = get_bd_list_from_i3live(run['run_id'], logger)
 
         gcd_bdlist = set(gcd_bdlist)
         live_bdlist = set(live_bdlist)
 
         logger.info("%s bad doms in GCD found; %s from live"%(len(gcd_bdlist), len(live_bdlist)))
+        logger.info("%s only SLC doms" % len(goodSlcOnlyKeys))
+
+        final_live = live_bdlist.union(goodSlcOnlyKeys)
+        if len(final_live) == len(gcd_bdlist) and len(gcd_bdlist) == len(gcd_bdlist & final_live):
+            logger.info("GCD and i3live bd lists are equal")
+        else:
+            logger.error("GCD and i3live bd lists are not equal")
 
         intersection = gcd_bdlist & live_bdlist
         difference = gcd_bdlist - live_bdlist
         difference2 = live_bdlist - gcd_bdlist
 
-        logger.info("Common DOMs (%s):"%len(intersection))
+        logger.debug('===============================================')
+        logger.debug("Common DOMs (%s):"%len(intersection))
         for dom in intersection:
-            print dom
+            logger.debug(dom)
 
-        logger.info("GCD - live DOMs (%s):"%len(difference))
+        logger.debug('===============================================')
+        logger.debug("GCD - live DOMs (%s):"%len(difference))
         for dom in difference:
-            print dom
+            logger.debug(dom)
 
-        logger.info("live - GCD DOMs (%s):"%len(difference2))
+        logger.debug('===============================================')
+        logger.debug("live - GCD DOMs (%s):"%len(difference2))
         for dom in difference2:
-            print dom
+            logger.debug(dom)
 
         icetop = [om for om in live_bdlist if om.om > 64]
 
-        logger.info("IceTop OMs in i3live: %s"%len(icetop))
+        logger.debug('===============================================')
+        logger.debug("IceTop OMs in i3live: %s"%len(icetop))
         for dom in icetop:
-            print dom
+            logger.debug(dom)
 
+        unconf_intersection = live_unconf_doms & gcd_unconf_doms
+        unconf_diff = gcd_unconf_doms - live_unconf_doms
+        unconf_diff2 = live_unconf_doms - gcd_unconf_doms
+
+        logger.debug('===============================================')
+        logger.debug("Unconfigured doms: live (%s), GCD (%s)" % (len(live_unconf_doms), len(gcd_unconf_doms)))
+        logger.debug("Common doms: %s" % len(unconf_intersection))
+        for dom in unconf_intersection:
+            logger.debug(dom)
+
+        logger.debug('===============================================')
+        logger.debug("GCD - live: %s" % len(unconf_diff))
+        for dom in unconf_diff:
+            logger.debug(dom)
+
+        logger.debug('===============================================')
+        logger.debug("live - GCD: %s" % len(unconf_diff2))
+        for dom in unconf_diff2:
+            logger.debug(dom)
+
+        missing_live_doms = goodSlcOnlyKeys & difference
+        missing_live_doms_diff = difference - goodSlcOnlyKeys
+        missing_live_doms_diff2 = goodSlcOnlyKeys - difference
+
+        logger.debug('===============================================')
+        logger.debug("goodSlcOnlyKeys in GCD: %s" % len(goodSlcOnlyKeys))
+        for dom in goodSlcOnlyKeys:
+            logger.debug(dom)
+
+        logger.debug('===============================================')
+        logger.debug("Missing live doms: %s, goodSlcOnlyKeys %s" % (len(difference), len(goodSlcOnlyKeys)))
+        for dom in missing_live_doms:
+            logger.debug(dom)
+        
+        logger.debug('===============================================')
+        logger.debug("missing - goodSlcOnlyKeys: %s" % len(missing_live_doms_diff))
+        for dom in missing_live_doms_diff:
+            logger.debug(dom)
+        
+        logger.debug('===============================================')
+        logger.debug("goodSlcOnlyKeys - missing: %s" % len(missing_live_doms_diff2))
+        for dom in missing_live_doms_diff2:
+            logger.debug(dom)
+        
+        
 
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__, dryrun = True)
