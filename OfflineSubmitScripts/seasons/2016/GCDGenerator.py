@@ -6,7 +6,6 @@ import StringIO
 import logging
 import copy
 import datetime
-from optparse import OptionParser
 from I3Tray import *
 from icecube import icetray, dataclasses, dataio, phys_services,tpx, portia, paraboloid, common_variables
 
@@ -22,7 +21,9 @@ from RunTools import *
 from FileTools import *
 
 from libs.times import ComputeTenthOfNanosec
+import libs.files
 import libs.config
+from libs.argparser import get_defaultparser
 
 import traceback
 
@@ -255,7 +256,7 @@ def BadDOMAudit(GCDName,RNames):
         return 1
 
 
-def main(RunNum, ProductionVersion, SnapshotId):
+def main(RunNum, ProductionVersion, SnapshotId, outdir):
 
     ScratchSpace = "./"
     try:
@@ -307,12 +308,16 @@ def main(RunNum, ProductionVersion, SnapshotId):
 
     
     GCDDir = "/data/exp/IceCube/%s/filtered/level2/OfflinePreChecks/DataFiles/%s%s"%(sDay.year, str(sDay.month).zfill(2),str(sDay.day).zfill(2))
-    #GCDDir = "."
-    try:
-        if not os.path.exists(GCDDir):
-            os.mkdir(GCDDir)
-    except Exception, err:
-        print str(err)
+
+    # If outdir was set, use new location
+    if outdir:
+        GCDDir = outdir
+    else:
+        try:
+            if not os.path.exists(GCDDir):
+                os.mkdir(GCDDir)
+        except Exception, err:
+            print str(err)
     
     GCDDirAll = "/data/exp/IceCube/%s/filtered/level2/AllGCD/"%sDay.year
     GCDDirVerified = "/data/exp/IceCube/%s/filtered/level2/VerifiedGCD/"%sDay.year    
@@ -340,7 +345,8 @@ def main(RunNum, ProductionVersion, SnapshotId):
     
     if os.path.isfile(GCDName) and os.path.getsize(GCDName)>0:
     
-        os.system("ln -sf %s %s/%s"%(GCDName,GCDDirAll,GCDLinkName))
+        if not outdir:
+            os.system("ln -sf %s %s/%s"%(GCDName,GCDDirAll,GCDLinkName))
         
         print "\nAuditing GCD file for run %s"%RunNum
     
@@ -459,7 +465,8 @@ def main(RunNum, ProductionVersion, SnapshotId):
                 if checkOther:
                     F=1
                         
-                    os.system("ln -sf %s %s/%s"%(GCDName,GCDDirVerified,GCDLinkName))
+                    if not outdir:
+                        os.system("ln -sf %s %s/%s"%(GCDName,GCDDirVerified,GCDLinkName))
                     
                     dbs4_.execute("""update i3filter.grl_snapshot_info set BadDOMsCheck=1
                                   where run_id=%s and snapshot_id=%s """%(RunNum,SnapshotId))
@@ -482,18 +489,17 @@ def main(RunNum, ProductionVersion, SnapshotId):
     
     
 if __name__ == '__main__':
-    if len(os.sys.argv) != 4:
-        print "Run number, processing Version and snapshotId must be supplied"
-        exit(1)
+    parser = get_defaultparser(__doc__)
 
-    try:
-        int(os.sys.argv[1])
-        int(os.sys.argv[2])
-        int(os.sys.argv[3])
-    except Exception, err:
-        print " *** Input run number, processing Version and snapshotId arguments have to be int e.g. 123456 0 9 ***"
-        raise Exception("Error: %s "%str(err))   
+    parser.add_argument("--out", type=int, default=None,
+                                      dest="OUTDIR", help="The directory in which the GCD file should be written.")
+
+    parser.add_argument(help = "Run number", dest = "run", type = int)
+    parser.add_argument(help = "Production version", dest = "production_version", type = int)
+    parser.add_argument(help = "Snapshot ID", dest = "snapshot", type = int)
     
-    print "Processing run %s with ProcessingVersion:%s SnapshotId:%s"%(os.sys.argv[1],os.sys.argv[2],os.sys.argv[3])
-    
-    main(os.sys.argv[1],int(os.sys.argv[2]),int(os.sys.argv[3]))
+    args = parser.parse_args()
+
+    print "Processing run %s with ProcessingVersion:%s SnapshotId:%s"%(args.run, args.production_version, args.snapshot)
+ 
+    main(args.run, args.production_version, args.snapshot)
