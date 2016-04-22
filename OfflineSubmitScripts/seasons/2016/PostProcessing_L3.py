@@ -36,7 +36,7 @@ from FileTools import *
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
 from libs.files import get_logdir
-from libs.runs import set_post_processing_state
+from libs.runs import set_post_processing_state, get_validated_runs
 import libs.config
 
 ##-----------------------------------------------------------------
@@ -84,7 +84,12 @@ def main(args, logger):
     with open(GRL,"r") as G:
         L = G.readlines()
         GoodRuns = [int(l.split()[0]) for l in L if l.split()[0].isdigit()]
-    
+
+    # Get validated runs that we don't validate it another time
+    validated_runs = {}
+    for run in get_validated_runs(DDatasetId, dbs4_, True, logger):
+        validated_runs[int(run['run_id'])] = run
+
     for s in sourceRunInfo:
         try:    
             verified = 1
@@ -93,6 +98,10 @@ def main(args, logger):
             
             if not RunId in GoodRuns:
                 logger.info("Skip run %s since it is not in the good run list" % RunId)
+                continue
+
+            if int(RunId) in validated_runs:
+                logger.debug("Run %s was already validated on %s" % (RunId, validated_runs[int(RunId)]['date_of_validation']))
                 continue
             
             logger.info("Verifying processing for run %s..." % RunId)
@@ -159,7 +168,7 @@ def main(args, logger):
                 L3Out = os.path.join(nRecord['path'][5:],nRecord['name'])
                 if not os.path.isfile(L3Out):
                     verified = 0
-                    logger.error("out L3 file %s does not exist in  outdir. for run %s"%(L3Out,RunId))
+                    logger.error("out L3 file %s does not exist in outdir. for run %s"%(L3Out,RunId))
 
             if verified:
                 logger.info("Sub run check passed")

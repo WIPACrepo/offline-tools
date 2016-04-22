@@ -182,6 +182,28 @@ def get_run_status(GRLInfo):
 
     return status
 
+def get_validated_runs(dataset_id, dbs4, use_dict = True, logger = DummyLogger()):
+    """
+    Returns all validated runs of the given dataset. In addition, it returns also the
+    date of validation.
+
+    Args:
+        dataset_id (int): The dataset id
+        dbs4 (SQLClient_dbs4): The SQL client for dbs4
+        use_dict(bool): If `True` (default), the db result is returned as list of dicts
+        logger (logging.Logger): The logger. Default is the DummyLogger that just prints the messages.
+
+    Returns:
+        list: The SQL result
+    """
+
+    sql = "SELECT * FROM offline_postprocessing WHERE dataset_id = %s AND validated = 1" % int(dataset_id)
+
+    logger.debug("SQL: %s" % sql)
+
+    return dbs4.fetchall(sql, UseDict = use_dict)
+
+
 def set_post_processing_state(run_id, dataset_id, validated, dbs4, dryrun, logger = DummyLogger()):
     """
     Sets the flag for the specified run and dataset in the database.
