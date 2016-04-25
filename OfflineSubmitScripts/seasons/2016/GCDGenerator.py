@@ -17,13 +17,14 @@ from dateutil.relativedelta import *
 
 from icecube import I3Db
 
-from RunTools import *
-from FileTools import *
-
 from libs.times import ComputeTenthOfNanosec
 import libs.files
-import libs.config
 from libs.argparser import get_defaultparser
+
+import libs.config
+sys.path.append(libs.config.get_config().get('DEFAULT', 'ProductionToolsPath'))
+from RunTools import *
+from FileTools import *
 
 import traceback
 
@@ -166,7 +167,7 @@ def MakeGCD(RunNum,FName,GCDName,ProductionVersion,SnapshotId,effectiveStartTime
     except Exception, err:
         traceback.print_exc()
         print " MakeGCD Error: " + str(err)
-        del tray
+        # del tray
         return 1
         #return str(err)
 
@@ -272,12 +273,13 @@ def main(RunNum, ProductionVersion, SnapshotId, outdir):
     icetray.logging.rotating_files(OutName)
 
     # attempt to determine run season/year
-    Season = "IC86.%s_" % config.get_season_by_run(int(RunNum))
+    Season = "IC86.%s_" % libs.config.get_season_by_run(int(RunNum))
 
     # just for the IC86_2014 24hr test run, should be removed and previous lines changed for production
     #Season="IC86.2014_"
 
     try:
+        sys.path.append(libs.config.get_config().get('DEFAULT', 'SQLClientPath'))
         import SQLClient_i3live as live
         m_live = live.MySQL()
         import SQLClient_dbs4 as dbs4
@@ -491,7 +493,7 @@ def main(RunNum, ProductionVersion, SnapshotId, outdir):
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__)
 
-    parser.add_argument("--out", type=int, default=None,
+    parser.add_argument("--out", type=str, default=None,
                                       dest="OUTDIR", help="The directory in which the GCD file should be written.")
 
     parser.add_argument(help = "Run number", dest = "run", type = int)
@@ -502,4 +504,4 @@ if __name__ == '__main__':
 
     print "Processing run %s with ProcessingVersion:%s SnapshotId:%s"%(args.run, args.production_version, args.snapshot)
  
-    main(args.run, args.production_version, args.snapshot)
+    main(args.run, args.production_version, args.snapshot, args.OUTDIR)

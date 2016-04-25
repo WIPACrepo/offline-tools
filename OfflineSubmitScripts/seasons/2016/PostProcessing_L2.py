@@ -52,7 +52,7 @@ def main_run(r,logger,dryrun=False):
     logger.debug( "GoodRunTimeAdjust   .... passed")
 
     logger.debug("--Attempting to tar _gaps.txt files ...")
-    MakeTarGapsTxtFile(r['tStart'],r['run_id'],dryrun=dryrun, logger = logger)
+    MakeTarGapsTxtFile(dbs4_, r['tStart'],r['run_id'],dryrun=dryrun, logger = logger)
     logger.debug("MakeTarGapsFile              .... passed")
     logger.info( "--Attempting to collect Active Strings/DOMs information from verified GCD file ...")
     R = RunTools(r['run_id'])
@@ -72,7 +72,7 @@ def main(runinfo,logger,dryrun=False):
             logger.exception("Exception %s thrown for: Run=%s, production_version=%s" %(e.__repr__(),run['run_id'],str(run['production_version'])))
    
     if runinfo: 
-        MakeRunInfoFile(dryrun=dryrun) 
+        MakeRunInfoFile(dbs4_, dryrun=dryrun) 
 
 
 if __name__ == '__main__':

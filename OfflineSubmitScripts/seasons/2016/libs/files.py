@@ -10,8 +10,6 @@ from logger import DummyLogger
 
 import config
 
-from FileTools import FileTools
-
 import cPickle
 
 try:
@@ -21,22 +19,15 @@ try:
 except:
     warn("No env-shell loaded")
 
-import SQLClient_i3live as live
-import SQLClient_dbs4 as dbs4
-import SQLClient_dbs2 as dbs2
-
-m_live = live.MySQL()    
-dbs4_ = dbs4.MySQL()   
-dbs2_ = dbs2.MySQL()    
-
 RUNINFODIR = lambda year : "/data/exp/IceCube/%s/filtered/level2/RunInfo/" %str(year)
 LEVEL2_DIR = lambda year : "/data/exp/IceCube/%s/filtered/level2/" %str(year)
 
-def MakeRunInfoFile(dryrun=False):
+def MakeRunInfoFile(dbs4_, dryrun=False):
     """
     Write the 'goodrun list': start stop and string information for every run
 
     Keyword Args:
+        dbs4_ (SQLClient_dbs4.MySQL): The mysql client for dbs4
         dryrun (bool): Do not do anything serious if set
 
     Returns:
@@ -62,8 +53,8 @@ def MakeRunInfoFile(dryrun=False):
     RunInfoFile = RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_"%(ProductionYear,LatestProductionVersion)+time.strftime("%Y_%m_%d-%H_%M_%S",time.localtime()) + ".txt"
     
     RunInfoFileV = RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_Versioned_"%(ProductionYear,LatestProductionVersion)+time.strftime("%Y_%m_%d-%H_%M_%S",time.localtime()) + ".txt"
-    if dryrun: RunInfoFile  = get_tmpdir() + "runinfo"
-    if dryrun: RunInfoFileV = get_tmpdir() + "runinfoV"
+    if dryrun: RunInfoFile  = os.path.join(get_tmpdir(), "runinfo")
+    if dryrun: RunInfoFileV = os.path.join(get_tmpdir(), "runinfoV")
     RI_File = open(RunInfoFile,'w')
     RI_FileV = open(RunInfoFileV,'w')
     
@@ -126,12 +117,13 @@ def MakeRunInfoFile(dryrun=False):
     if not dryrun: sub.call(["ln","-s","%s"%LatestGoodRunInfoV, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt"%(ProductionYear)])
     return
 
-def MakeTarGapsTxtFile(StartTime,RunId,dryrun=False,datasetid=1883, logger = DummyLogger()):
+def MakeTarGapsTxtFile(dbs4_, StartTime,RunId,dryrun=False,datasetid=1883, logger = DummyLogger()):
     """
     Tar the gaps files together and update the urlpath table with 
     the newly created file
 
     Args:
+        dbs4_ (SQLClient_dbs4.MySQL): The mysql client for dbs4
         StartTime (datetimd.datetime): Good start time
         RunId (int): run number
     
@@ -143,6 +135,9 @@ def MakeTarGapsTxtFile(StartTime,RunId,dryrun=False,datasetid=1883, logger = Dum
         None
 
     """
+
+    from FileTools import FileTools
+
     OutDir = LEVEL2_DIR(str(StartTime.year)) + "%s%s/Run00%s/"%(str(StartTime.month).zfill(2), str(StartTime.day).zfill(2),RunId)
     
     OutTar = os.path.join(OutDir,"Run00"+str(RunId)+"_GapsTxt.tar")
@@ -273,12 +268,13 @@ def GetGoodSubruns(OutFiles,GoodStartTime,GoodStopTime,ProdVersion):
                 
 ##############################################
 
-def TrimFile(InFile,GoodStart,GoodEnd,logger=DummyLogger(),dryrun=False):
+def TrimFile(dbs4_, InFile,GoodStart,GoodEnd,logger=DummyLogger(),dryrun=False):
     """
     Truncate a file and remove events which are not in the time interval
     [GoodStart,GoodEnd]
 
     Args:
+        dbs4_ (SQLClient_dbs4.MySQL): The mysql client for dbs4
         InFile (str): the name of the file to 
         GoodStart (): grl good start time
         GoodStop (): grl good stop time
@@ -287,6 +283,9 @@ def TrimFile(InFile,GoodStart,GoodEnd,logger=DummyLogger(),dryrun=False):
         logger (logging.Logger): the logger instance to use
         dryrun (boo): if set, don't do anything
     """
+
+    from FileTools import FileTools
+
     InFiles = [f for f in glob.glob(InFile.replace(".i3.bz2","*")) if ".i3" in f]
         
     for InFile_ in InFiles :
@@ -366,13 +365,14 @@ def TrimFile(InFile,GoodStart,GoodEnd,logger=DummyLogger(),dryrun=False):
 
 ################################################################
 
-def RemoveBadSubRuns(L2Files,firstGood,lastGood,logger=DummyLogger(),CleanDB = False,dryrun=False):
+def RemoveBadSubRuns(dbs4_, L2Files,firstGood,lastGood,logger=DummyLogger(),CleanDB = False,dryrun=False):
     """
     Move sub runs which are not in the good run range 
     to a subfolder in the actual data folder of the run and
     optionally mark changes in the database
 
     Args:
+        dbs4_ (SQLClient_dbs4.MySQL): The mysql client for dbs4
         L2Files (list): the files of the run
         firstGood (str): name of the first file considered "good"
         lastGood (str): name of the last file considered "good"

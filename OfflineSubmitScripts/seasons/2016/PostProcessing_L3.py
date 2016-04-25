@@ -134,7 +134,7 @@ def main(args, logger):
                 logger.error("Listed GCD file in DB not in output dir. for run %s" % RunId)
             elif gInfo['md5sum']!=FileTools(linkedGCD[0], logger).md5sum():
                 verified = 0
-                logger.error("GCD file linked from L3 dir. has different md5sum from source L2 dir. for run %s" % RunId)
+                logger.error("GCD file linked from L3 dir. has different md5sum from source L2 dir. for run %s. Source: %s, linked: %s" % (RunId, gInfo, linkedGCD[0]))
             else:
                 logger.info("GCD check passed")
             # End: GCD check
@@ -223,7 +223,8 @@ def main(args, logger):
             else:
                 logger.error("Failed Verification for run %s, see other logs" % RunId)
             
-            set_post_processing_state(RunId, DDatasetId, verified, dbs4_, args.dryrun, logger)
+            if not args.dryrun:
+                set_post_processing_state(RunId, DDatasetId, verified, dbs4_, args.dryrun, logger)
 
         except Exception,err:
             logger.exception(err)

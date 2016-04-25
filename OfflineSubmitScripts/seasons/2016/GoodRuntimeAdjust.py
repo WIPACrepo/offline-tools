@@ -59,17 +59,17 @@ def main(RunNum,ProductionVersion,logger,dryrun=False):
  
     # This moves subruns which are outside the goodruntime
     # to a BadNotWithinGoodRunRange subfolder
-    RemoveBadSubRuns(L2Files,firstGood,lastGood,CleanDB=True,logger=logger,dryrun=dryrun)
+    RemoveBadSubRuns(dbs4_, L2Files,firstGood,lastGood,CleanDB=True,logger=logger,dryrun=dryrun)
 
     firstGoodStart, firstGoodStop = GetSubRunStartStop(firstGood,logger)
     lastGoodStart, lastGoodStop = GetSubRunStartStop(lastGood,logger)
     # Check if firstGood has to be trimmed
     if firstGoodStart < GoodStart:
-        TrimFile(firstGood,GoodStart,GoodEnd,dryrun=dryrun,logger=logger)
+        TrimFile(dbs4_, firstGood,GoodStart,GoodEnd,dryrun=dryrun,logger=logger)
 
     # Check if lastGood has to be trimmed
     if lastGoodStop > GoodEnd: 
-        TrimFile(lastGood,GoodStart,GoodEnd,dryrun=dryrun,logger=logger)
+        TrimFile(dbs4_, lastGood,GoodStart,GoodEnd,dryrun=dryrun,logger=logger)
 
     if (abs(firstGoodStart - GoodStart)) > TOLERANCE:
         logger.warning( "Discrepancy larger than %4.2e of Run start %s and grl table %s" %(TOLERANCE,firstGoodStart.__str__(), GoodStart.__str__()))

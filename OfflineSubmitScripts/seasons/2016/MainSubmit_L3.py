@@ -79,7 +79,7 @@ def CleanRun(DatasetId,Run,CLEAN_DW,logger,dryrun=False):
         dbs4_.execute("""delete from i3filter.run where dataset_id=%s and queue_id in (%s)"""%(DatasetId,CleanListStr))
         
 
-def SubmitRunL3(DDatasetId,SDatasetId,Run,QId,OUTDIR,AGGREGATE,logger,dryrun=False):
+def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, linkonlygcd, dryrun=False):
     """
     Submit a run for Level3 processing
 
@@ -117,7 +117,9 @@ def SubmitRunL3(DDatasetId,SDatasetId,Run,QId,OUTDIR,AGGREGATE,logger,dryrun=Fal
     date_ = str(date_.year)+ "/"+str(date_.month).zfill(2)+str(date_.day).zfill(2)
     OutDir = os.path.join(OUTDIR,date_,"Run00"+str(Run))
     if not os.path.exists(OutDir):
-        if not dryrun: os.makedirs(OutDir)
+        if not dryrun or linkonlygcd:
+            os.makedirs(OutDir)
+            logger.debug("Makedirs: %s" % OutDir)
     
     firstSubRun = runInfo[0]['sub_run']
     lastSubRun = runInfo[-1]['sub_run']
@@ -135,7 +137,11 @@ def SubmitRunL3(DDatasetId,SDatasetId,Run,QId,OUTDIR,AGGREGATE,logger,dryrun=Fal
     GCDFile = os.path.join(GCDEntry['path'][5:],GCDEntry['name'])
     lnCmd = "ln -sf %s %s"%(GCDFile,os.path.join(OutDir,os.path.basename(GCDFile)))
     logger.info("Linking GCDFile %s to %s" %(GCDFile,OutDir))
-    if not dryrun: os.system(lnCmd)
+
+    if not dryrun or linkonlygcd:
+        os.system(lnCmd)
+        logger.debug("Created GCD link")
+
     for g in range(len(groups_)-1):
         QId+=1
         if not dryrun:
@@ -196,24 +202,29 @@ def main(params, outdir, logger,dryrun=False):
     for s in sourceInfo:
         CleanRun(DDatasetId,s['run_id'],CLEAN_DW,logger,dryrun=DryRun)
         QId = MaxQId(dbs4_,DDatasetId)
-        SubmitRunL3(DDatasetId,SDatasetId,s['run_id'],QId,OUTDIR,AGGREGATE,logger,dryrun=DryRun)
+        SubmitRunL3(DDatasetId, SDatasetId, s['run_id'], QId, OUTDIR, AGGREGATE, logger, params.LINK_ONLY_GCD, dryrun=DryRun)
             
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__,dryrun=True)
-    parser.add_argument("--sourcedatasetid", type=int, dest="SDatasetId", help="Dataset ID to read from, usually L2 dataset")
-    parser.add_argument("--destinationdatasetid", type=int, dest="DDatasetId", help="Dataset ID to write to, usually L3 dataset")
+    parser.add_argument("--sourcedatasetid", type=int, required = True, dest="SDatasetId", help="Dataset ID to read from, usually L2 dataset")
+    parser.add_argument("--destinationdatasetid", type=int, required = True, dest="DDatasetId", help="Dataset ID to write to, usually L3 dataset")
     parser.add_argument("-s", "--startrun", type=int, default=0, dest="START_RUN", help="start submission from this run")
     parser.add_argument("-e", "--endrun", type=int, default=0,dest="END_RUN", help="end submission at this run")
     parser.add_argument("-a", "--aggregate", type=int, default=1,dest="AGGREGATE", help="number of subruns to aggregate to form one job, needed when processing 1 subrun is really short")
     parser.add_argument("-c", "--cleandatawarehouse", action="store_true", default=False,dest="CLEAN_DW", help="clean output files in datawarehouse as part of (re)submission process")
-    #parser.add_option("-r", "--dryrun", action="store_true", default=False,
-    #          dest="DRYRUN_", help="don't set status, just print the runs to be affected")
+    parser.add_argument("--linkonlygcd", action="store_true", default=False, dest="LINK_ONLY_GCD", help="No jobs will be submitted but the GCD file(s) will be linked. Useful if some links are missing")
     args = parser.parse_args()
+
+    # Check of only GCDs should be linked
+    # If yes, act like an dryrun except for the linking
+    if args.LINK_ONLY_GCD:
+        args.dryrun = True
+
     LOGFILE=os.path.join(get_logdir(sublogpath = 'L3Processing'), 'L3Processing_')
     logger = get_logger(args.loglevel,LOGFILE)
-    if not args.SDatasetId or not args.DDatasetId:
-        logger.exception( "you must enter source and destination dataset_ids for submission")
-        exit(1)
+
+    logger.debug("Dryrun: %s" % args.dryrun)
+    logger.debug("Create only GCD links: %s" % args.LINK_ONLY_GCD)
 
     if args.START_RUN and not args.END_RUN:
         logger.info( "Will only process run %i!" %args.START_RUN)
