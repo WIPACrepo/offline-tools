@@ -96,9 +96,6 @@ def main(config, logger,dryrun = False, check = False):
             IC86_5_LastRun = seasons[current_season + 1]['first'] - 1
             exclude_next_testruns = seasons[current_season + 1]['test']
 
-    # including IC86_2015_24hr test runs taken during the IC86_2014 season
-    #IC86_2015_24hr_TestRuns = (126289,126290,126291)
-
     # get the newest data from the live db      
     livesql = """SELECT r.runNumber,r.tStart,r.tStop,
                     r.tStart_frac,r.tStop_frac,r.nEvents,r.rateHz,

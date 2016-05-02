@@ -23,6 +23,7 @@ from libs.files import get_logdir, get_existing_check_sums
 from libs.checks import runs_already_submitted
 from libs.runs import get_run_status, clean_run, submit_run
 from libs.dbtools import max_queue_id 
+from libs.config import get_dataset_id_by_run
 
 ##-----------------------------------------------------------------
 ## setup DB
@@ -62,6 +63,16 @@ def main(params, logger, DryRun):
     ExistingChkSums = get_existing_check_sums(logger)
 
     for Run in AllRuns:
+        dataset_id = params.DATASETID
+
+        if params.DATASETID is None:
+            dataset_id = get_dataset_id_by_run(Run)
+            if dataset_id < 0:
+                logger.error("Could not get dataset id for run %s from config file. %s was returned. Skip this run." % (Run, dataset_id))
+                continue
+            else:
+                logger.info("Dataset id of run %s was determined to %s" % (Run, dataset_id))
+
         if DryRun:
             logger.info(Run)
         else:
@@ -78,11 +89,11 @@ def main(params, logger, DryRun):
             for g in GRLInfo:
                 status = get_run_status(g)
                
-                clean_run(dbs4_,params.DATASETID,Run,params.CLEANDW,g, logger, DryRun)
+                clean_run(dbs4_, dataset_id, Run,params.CLEANDW, g, logger, DryRun)
             
-                QId = max_queue_id(dbs4_,params.DATASETID)
+                QId = max_queue_id(dbs4_, dataset_id)
                 
-                submit_run(dbs4_,g,status,params.DATASETID,QId,ExistingChkSums,DryRun,logger)
+                submit_run(dbs4_, g, status, dataset_id, QId, ExistingChkSums, DryRun, logger)
                
                 if not DryRun: 
                     dbs4_.execute("""update i3filter.grl_snapshot_info\
@@ -95,8 +106,8 @@ def main(params, logger, DryRun):
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__, dryrun = True)
 
-    parser.add_argument("--datasetid", type=int, default=1883,
-                                      dest="DATASETID", help="The dataset id. The default value is 1883.")
+    parser.add_argument("--datasetid", type=int, default=None,
+                                      dest="DATASETID", help="The dataset id. The default value is `None`. In this case it gets the dataset id from the config file.")
 
 
     parser.add_argument("-s", "--startrun", type=int, required = True,
@@ -126,5 +137,8 @@ if __name__ == '__main__':
         LOGFILE = args.OUTPUTLOG
 
     logger = get_logger(args.loglevel, LOGFILE)
+
+    if args.DATASETID is None:
+        logger.info("No dataset id is specified. The config file will checked for each run to which dataset it belongs.")
 
     main(args, logger, args.dryrun)

@@ -167,7 +167,7 @@ def get_seasons_info():
 
     return get_var_dict(section = 'DEFAULT', name = 'Season', keytype = int, valtype = 'json')
 
-def get_season_info(season):
+def get_season_info(season = None):
     """
     Returns the info to the given season. It is an shortcut for
     `get_seasons_info()[season]`.
@@ -175,11 +175,15 @@ def get_season_info(season):
     It raises an exception if no info for this season is available.
 
     Args:
-        season (int): The season
+        season (int): The season. If no season is passed (default) the current season is determined by the `Season` key
+                        in the `DEFAULT` section of the config file.
 
     Returns:
         dict: All info about the given season.
     """
+
+    if season is None:
+        season = get_config().getint('DEFAULT', 'Season')
 
     return get_seasons_info()[int(season)]
 
@@ -204,6 +208,43 @@ def get_season_by_run(run_id):
             return found_season
 
     return found_season
+
+def get_dataset_id_by_run(run_id):
+    """
+    Returns the dataset id identified by the run number with respect to the test runs.
+
+    Args:
+        run_id (int): Run number
+
+    Returns:
+        int: Datset id. If no dataset id found, -1 will be returned.
+    """
+    datasets = get_var_dict(section = 'DEFAULT', name = 'Season', keytype = int, valtype = 'json')
+
+    found_dataset = -1
+    for s, v in datasets.iteritems():
+        if (run_id >= v['first'] and v['first'] != -1) or run_id in v['test']:
+            found_dataset = v['dataset_id']
+
+        if run_id < v['first'] and found_dataset > -1:
+            return found_dataset
+
+    return found_dataset
+
+def is_test_run(run_id):
+    """
+    Checks if the given run is a test run
+
+    Args:
+        run_id (int): The run id
+
+    Returns:
+        bool: `True` if the run is a test run
+    """
+    season = get_season_by_run(run_id)
+    season_info = get_season_info(season)
+
+    return run_id in season_info['test']
 
 if __name__ == '__main__':
     config = get_config()

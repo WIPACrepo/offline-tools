@@ -22,7 +22,7 @@ except:
 RUNINFODIR = lambda year : "/data/exp/IceCube/%s/filtered/level2/RunInfo/" %str(year)
 LEVEL2_DIR = lambda year : "/data/exp/IceCube/%s/filtered/level2/" %str(year)
 
-def MakeRunInfoFile(dbs4_, dryrun=False):
+def MakeRunInfoFile(dbs4_, dataset_id, dryrun=False):
     """
     Write the 'goodrun list': start stop and string information for every run
 
@@ -34,11 +34,11 @@ def MakeRunInfoFile(dbs4_, dryrun=False):
         None
     """
     RunInfo = dbs4_.fetchall("""SELECT * FROM i3filter.grl_snapshot_info g
-                                 join i3filter.run_info_summary r on r.run_id=g.run_id
-                                 join i3filter.run jr on jr.run_id=r.run_id
-                                 where jr.dataset_id=1883 and (g.good_i3 or g.good_it) and g.submitted
-                                 group by jr.run_id
-                                 order by g.run_id,g.production_version""",UseDict=True)
+                                 JOIN i3filter.run_info_summary r ON r.run_id=g.run_id
+                                 JOIN i3filter.run jr ON jr.run_id=r.run_id
+                                 WHERE jr.dataset_id=%s AND (g.good_i3 or g.good_it) AND g.submitted
+                                 GROUP BY jr.run_id
+                                 ORDER BY g.run_id,g.production_version""" % dataset_id, UseDict=True)
     
     RunInfoDict = {}
     for r in RunInfo:
@@ -77,7 +77,8 @@ def MakeRunInfoFile(dbs4_, dryrun=False):
         LiveTime = (LT.microseconds + (LT.seconds + LT.days *24 *3600) * 10**6) / 10**6
         
         Comments = ""
-        if int(k) >= 126289 and int(k) <= 126291 : Comments = "IC86_2015 24hr test run"
+        if config.is_test_run(int(k)):
+            Comments = "IC86_%s 24hr test run" % ProductionYear
         
         ActiveStrings = "  "
         if RunInfoDict[k]['ActiveStrings'] is not None :  ActiveStrings = str(RunInfoDict[k]['ActiveStrings'])
@@ -117,7 +118,7 @@ def MakeRunInfoFile(dbs4_, dryrun=False):
     if not dryrun: sub.call(["ln","-s","%s"%LatestGoodRunInfoV, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt"%(ProductionYear)])
     return
 
-def MakeTarGapsTxtFile(dbs4_, StartTime,RunId,dryrun=False,datasetid=1883, logger = DummyLogger()):
+def MakeTarGapsTxtFile(dbs4_, StartTime, RunId, datasetid, dryrun = False, logger = DummyLogger()):
     """
     Tar the gaps files together and update the urlpath table with 
     the newly created file
@@ -126,10 +127,10 @@ def MakeTarGapsTxtFile(dbs4_, StartTime,RunId,dryrun=False,datasetid=1883, logge
         dbs4_ (SQLClient_dbs4.MySQL): The mysql client for dbs4
         StartTime (datetimd.datetime): Good start time
         RunId (int): run number
+        datasetid (int): dataset number
     
     Keyword Args:
         dryrun (bool): Don't do anything if set
-        datasetid (int): dataet number
     
     Returns:
         None
@@ -150,11 +151,11 @@ def MakeTarGapsTxtFile(dbs4_, StartTime,RunId,dryrun=False,datasetid=1883, logge
         if not dryrun: sub.check_call(["tar","rf",OutTar,"-C",OutDir,g])
     
     maxQId = dbs4_.fetchall("""SELECT max(u.queue_id) FROM i3filter.urlpath u join i3filter.run r on u.queue_id=r.queue_id
-                 where r.dataset_id=1883 and u.dataset_id=1883 and r.run_id=%s"""%RunId)
+                 where r.dataset_id=%s and u.dataset_id=%s and r.run_id=%s""" % (datasetid, datasetid, RunId))
     
     if not dryrun:
         dbs4_.execute(""" update i3filter.urlpath u join i3filter.run r on u.queue_id=r.queue_id set u.transferstate="IGNORED"
-              where r.dataset_id=1883 and u.dataset_id=1883 and r.run_id=%s and u.name like "%%_gaps.txt" """%RunId)
+              where r.dataset_id=%s and u.dataset_id=%s and r.run_id=%s and u.name like "%%_gaps.txt" """ % (datasetid, datasetid, RunId))
     
         dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","PERMANENT","%s","%s")\
                    on duplicate key update dataset_id="%s",queue_id="%s",name="%s",path="%s",type="PERMANENT",md5sum="%s",size="%s",transferstate="WAITING"  """% \
@@ -268,7 +269,7 @@ def GetGoodSubruns(OutFiles,GoodStartTime,GoodStopTime,ProdVersion):
                 
 ##############################################
 
-def TrimFile(dbs4_, InFile,GoodStart,GoodEnd,logger=DummyLogger(),dryrun=False):
+def TrimFile(dbs4_, InFile, GoodStart, GoodEnd, dataset_id, logger = DummyLogger(), dryrun = False):
     """
     Truncate a file and remove events which are not in the time interval
     [GoodStart,GoodEnd]
@@ -278,6 +279,7 @@ def TrimFile(dbs4_, InFile,GoodStart,GoodEnd,logger=DummyLogger(),dryrun=False):
         InFile (str): the name of the file to 
         GoodStart (): grl good start time
         GoodStop (): grl good stop time
+        dataset_id (int): The dataset id
 
     Keyword Args:
         logger (logging.Logger): the logger instance to use
@@ -323,7 +325,7 @@ def TrimFile(dbs4_, InFile,GoodStart,GoodEnd,logger=DummyLogger(),dryrun=False):
                          set md5sum="%s", size="%s", transferstate="WAITING"
                          where u.dataset_id=%s 
                          and concat(substring(u.path,6),"/",u.name) = "%s" """%\
-                        (str(FileTools(InFile_, logger).md5sum()),str(os.path.getsize(InFile_)),"1883",InFile_))
+                        (str(FileTools(InFile_, logger).md5sum()), str(os.path.getsize(InFile_)), dataset_id, InFile_))
         
         # re-write gaps.txt file using new (trimmed) .i3 file
         if InFile_ == InFile:
@@ -357,7 +359,7 @@ def TrimFile(dbs4_, InFile,GoodStart,GoodEnd,logger=DummyLogger(),dryrun=False):
                                 set md5sum="%s", size="%s"
                                 where u.dataset_id=%s 
                                 and concat(substring(u.path,6),"/",u.name) = "%s" """%\
-                                (str(FileTools(GFile, logger).md5sum()),str(os.path.getsize(GFile)),"1883",GFile))
+                                (str(FileTools(GFile, logger).md5sum()),str(os.path.getsize(GFile)), dataset_id, GFile))
                 else: # here we actually have to do something
                       # as we haven't overwritten the original file
                       # we have a stale Trimmed_ file...
@@ -365,7 +367,7 @@ def TrimFile(dbs4_, InFile,GoodStart,GoodEnd,logger=DummyLogger(),dryrun=False):
 
 ################################################################
 
-def RemoveBadSubRuns(dbs4_, L2Files,firstGood,lastGood,logger=DummyLogger(),CleanDB = False,dryrun=False):
+def RemoveBadSubRuns(dbs4_, L2Files, firstGood, lastGood, dataset_id, logger=DummyLogger(), CleanDB = False, dryrun = False):
     """
     Move sub runs which are not in the good run range 
     to a subfolder in the actual data folder of the run and
@@ -376,6 +378,7 @@ def RemoveBadSubRuns(dbs4_, L2Files,firstGood,lastGood,logger=DummyLogger(),Clea
         L2Files (list): the files of the run
         firstGood (str): name of the first file considered "good"
         lastGood (str): name of the last file considered "good"
+        dataset_id (int): the dataset id
 
     KeywordArgs:
         CleanDB (bool): change the urlpath table and mark files as "DELETED"
@@ -419,7 +422,7 @@ def RemoveBadSubRuns(dbs4_, L2Files,firstGood,lastGood,logger=DummyLogger(),Clea
                  join i3filter.job j on u.queue_id=j.queue_id
                  set u.transferstate="DELETED",j.status="BadRun"
                  where u.dataset_id=%s and j.dataset_id=%s
-                 and concat(substring(u.path,6),"/",u.name) in (%s)"""%("1883","1883",ToBeRemovedS))
+                 and concat(substring(u.path,6),"/",u.name) in (%s)"""%(dataset_id, dataset_id, ToBeRemovedS))
 
 ##############################################################
 

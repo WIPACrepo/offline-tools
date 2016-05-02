@@ -19,6 +19,7 @@ from libs.logger import get_logger
 from libs.argparser import get_defaultparser
 from libs.files import get_logdir,MakeTarGapsTxtFile,MakeRunInfoFile
 from libs.checks import CheckFiles
+from libs.config import get_season_info, get_config, get_dataset_id_by_run
 from GoodRuntimeAdjust import main as GoodRuntimeAdjust
 
 import SQLClient_i3live as live
@@ -29,10 +30,16 @@ m_live = live.MySQL()
 dbs4_ = dbs4.MySQL()   
 dbs2_ = dbs2.MySQL()    
 
-
-def main_run(r,logger,dryrun=False):
+def main_run(r, logger, dataset_id, dryrun = False):
     logger.info("======= Checking %s %s ==========="  %(str(r['run_id']),str(r['production_version'])))
-    if DbTools(r['run_id'],1883).AllOk():
+
+    if dataset_id < 0:
+        logger.error("Cannot determine the dataset id. Skipping.")
+        return
+    else:
+        logger.info("Dataset id was determined to %s" % dataset_id)
+
+    if DbTools(r['run_id'], dataset_id).AllOk():
         logger.warning( """Processing of Run=%s, production_version=%s
                  may not be complete ... skipping"""\
                 %(r['run_id'],str(r['production_version'])))
@@ -48,11 +55,11 @@ def main_run(r,logger,dryrun=False):
 
     ## delete/trim files when Good start/stop differ from Run start/stop
     logger.info( "--Attempting to make adjustments to output Files to ensure all events fall within GoodRun start/stop time ...")
-    GoodRuntimeAdjust(r['run_id'],r['production_version'],logger=logger,dryrun=dryrun)
+    GoodRuntimeAdjust(r['run_id'], r['production_version'], dataset_id = dataset_id, logger = logger, dryrun = dryrun)
     logger.debug( "GoodRunTimeAdjust   .... passed")
 
     logger.debug("--Attempting to tar _gaps.txt files ...")
-    MakeTarGapsTxtFile(dbs4_, r['tStart'],r['run_id'],dryrun=dryrun, logger = logger)
+    MakeTarGapsTxtFile(dbs4_, r['tStart'], r['run_id'], datasetid = dataset_id, dryrun = dryrun, logger = logger)
     logger.debug("MakeTarGapsFile              .... passed")
     logger.info( "--Attempting to collect Active Strings/DOMs information from verified GCD file ...")
     R = RunTools(r['run_id'])
@@ -65,32 +72,53 @@ def main_run(r,logger,dryrun=False):
     return
 
 def main(runinfo,logger,dryrun=False):
+    datasets = []
+
     for run in runinfo:
         try:
-            main_run(run,logger,dryrun = dryrun) 
+            # Get the dataset id for this run
+            dataset_id = get_dataset_id_by_run(int(run['run_id']))
+
+            # If the dataset id is good, add it to the list of processed dataset ids
+            if dataset_id > 0:
+                datasets.append(dataset_id)
+            
+            main_run(run, logger, dataset_id = dataset_id, dryrun = dryrun) 
         except Exception as e:
             logger.exception("Exception %s thrown for: Run=%s, production_version=%s" %(e.__repr__(),run['run_id'],str(run['production_version'])))
    
-    if runinfo: 
-        MakeRunInfoFile(dbs4_, dryrun=dryrun) 
+    if len(datasets) > 1:
+        logger.warning("We have runs from more than one dataset: %s" % datasets)
+
+    if runinfo:
+        # Create run info files for all dataset ids thta are affected
+        for dataset in datasets:
+            MakeRunInfoFile(dbs4_, dataset_id = dataset, dryrun = dryrun) 
 
 
 if __name__ == '__main__':
-
     parser = get_defaultparser(__doc__,dryrun=True)
     parser.add_argument('-r',nargs="?", help="run to postprocess",dest="run",type=int)
     args = parser.parse_args()
     LOGFILE=os.path.join(get_logdir(sublogpath = 'PostProcessing'), 'PostProcessing_')
     logger = get_logger(args.loglevel, LOGFILE)
+
+    season = get_config().getint('DEFAULT', 'Season')
+    test_runs = get_season_info(season)['test']
+
+    # Workaround for empty lists (the query needs to have at least one element)
+    if len(test_runs) == 0:
+        test_runs = [-1]
+
     if args.run is not None:
         RunInfo = dbs4_.fetchall("""SELECT r.tStart,g.* FROM i3filter.grl_snapshot_info g
-                                  join i3filter.run_info_summary r on r.run_id=g.run_id
-                                  where g.submitted and (g.good_i3 or g.good_it or g.run_id in (126289,126290,126291)) and not validated and g.run_id = %i
-                                  order by g.run_id""" %args.run,UseDict=True)
+                                  JOIN i3filter.run_info_summary r ON r.run_id=g.run_id
+                                  WHERE g.submitted AND (g.good_i3 OR g.good_it or g.run_id IN (%s)) AND NOT validated AND g.run_id = %i
+                                  ORDER BY g.run_id""" % (','.join([str(r) for r in test_runs]), args.run), UseDict=True)
     else: 
         RunInfo = dbs4_.fetchall("""SELECT r.tStart,g.* FROM i3filter.grl_snapshot_info g
-                                 join i3filter.run_info_summary r on r.run_id=g.run_id
-                                 where g.submitted and (g.good_i3 or g.good_it or g.run_id in (126289,126290,126291)) and not validated
-                                 order by g.run_id""",UseDict=True)
+                                 JOIN i3filter.run_info_summary r ON r.run_id=g.run_id
+                                 WHERE g.submitted AND (g.good_i3 OR g.good_it OR g.run_id IN (%s)) AND NOT validated
+                                 ORDER BY g.run_id""" % ','.join([str(r) for r in test_runs]), UseDict=True)
 
-    main(RunInfo,logger,dryrun=args.dryrun)
+    main(RunInfo, logger, dryrun = args.dryrun)

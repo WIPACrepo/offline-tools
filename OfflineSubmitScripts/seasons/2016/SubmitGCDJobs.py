@@ -123,9 +123,6 @@ if __name__ == '__main__':
     RunNums.sort()
     
     for r in RunNums:
-    
-        #if r not in  [123615,123616] : continue
-        
         logger.info("%s %s"%(r, GRLInfo[r]))
     
         StartDay = GRLInfo[r][0]

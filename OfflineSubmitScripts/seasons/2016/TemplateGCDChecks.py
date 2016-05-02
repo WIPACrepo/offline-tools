@@ -70,12 +70,16 @@ def parse_logs(logFile, logger):
     return " , ".join(notIceTop),",".join(changedVariables)
 
 def main_cmp(fileDict, sRuns, dryrun):
+    # First run of season
+    first_run_of_season = libs.config.get_season_info()['first']
+
+    if first_run_of_season < 0:
+        logger.critical("Cannot execute check since no start run of season is defined. Exit.")
+        exit(1)
+
     for sRun in sRuns:
-        if sRun <= 126378: continue # first template
-        
-        #if sRun != 126380: continue
-        #if sRun not in [124799,124859,124891,125057,125171]: continue
-        #if sRun !=126007: continue
+        if sRun <= first_run_of_season:
+            continue # first template
         
         if fileDict[sRun][1] is not None:
             logger.info("Run %s is already checked"%sRun)
@@ -154,8 +158,6 @@ if __name__ == '__main__':
 
     logger = get_logger(args.loglevel, LOGFILE)
     
-    logger.info("Attempting TemplateGCDChecks @ %s"%datetime.datetime.now().isoformat().replace("T"," "))
-
     lock = libs.process.Lock(os.path.basename(__file__), logger)
     lock.lock()
     
@@ -179,7 +181,7 @@ if __name__ == '__main__':
     sRuns = fileDict.keys()
     sRuns.sort()
 
-    logger.info("Check the following runs: %s"%sRuns)
+    logger.debug("Check the following runs: %s"%sRuns)
 
     logger.debug("Notification Receivers: %s" % RECEIVERS)
     logger.debug("Sender: %s%s" % (SENDER, DOMAIN))
