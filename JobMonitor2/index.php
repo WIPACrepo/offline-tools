@@ -8,6 +8,7 @@
 
     <!-- Bootstrap -->
     <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/font-awesome.min.css" rel="stylesheet">
     <link href="css/jobmonitor2.css" rel="stylesheet">
 
     <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
@@ -47,7 +48,7 @@
               <ul class="dropdown-menu">
               </ul>
             </li>
-            <li><a href="#" id="force-update"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span></a></li>
+            <li><a href="#" id="force-update"><i class="fa fa-refresh fa-lg fa-fw margin-bottom"></i></a></li>
           </ul>
           <ul class="nav navbar-nav navbar-right">
             <li class="dropdown" id="jm-view-dropdown">

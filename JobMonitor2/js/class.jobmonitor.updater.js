@@ -144,6 +144,7 @@ JobMonitorUpdater.prototype.update = function(force) {
 
     // Creating request
     this.startLoadingCallback();
+    this._startLoading();
     $.getJSON(iam.url, {'dataset_id': iam.getDatasetIdCallback()}, 
         function(data) {
             iam.updateDataCallback(data);
@@ -153,12 +154,21 @@ JobMonitorUpdater.prototype.update = function(force) {
     })
     .always(function() {
         iam.endLoadingCallback();
+        iam._endLoading();
 
         iam.lastUpdate = new Date();
         iam._updateLastUpdate();
 
         iam.blockUpdates = false;
     });
+}
+
+JobMonitorUpdater.prototype._startLoading = function() {
+    $('.fa-refresh', this.forceUpdate).addClass('fa-spin');
+}
+
+JobMonitorUpdater.prototype._endLoading = function() {
+    $('.fa-refresh', this.forceUpdate).removeClass('fa-spin');
 }
 
 /**
