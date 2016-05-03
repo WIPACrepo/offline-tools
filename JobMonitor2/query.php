@@ -1,0 +1,30 @@
+<?php
+
+require('config.php');
+require('./resources/class.ProcessingJobs.php');
+
+header('Content-Type: application/json');
+
+try {
+    $pjobs = new ProcessingJobs($CONFIG['db_host'],
+                                $CONFIG['db_username'],
+                                $CONFIG['db_password'],
+                                $CONFIG['db_database'],
+                                $CONFIG['default_dataset_id'],
+                                $CONFIG['L2_datasets']);
+    
+    // Set defaults
+    $pjobs->set_dataset_id($CONFIG['default_dataset_id']);
+    
+    if(isset($_GET['dataset_id'])) {
+        $pjobs->set_dataset_id(filter_input(INPUT_GET, 'dataset_id'));
+    }
+    
+    print(json_encode($pjobs->execute()));
+} catch(Exception $e) {
+    $content = array('error' => 0, 'error_msg' => '', 'data' => array());
+    $content['error'] = 1;
+    $content['error_msg'] = $e->getTraceAsString();
+
+    print(jscon_encode($content));
+}

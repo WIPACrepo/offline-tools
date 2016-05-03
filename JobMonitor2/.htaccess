@@ -1,0 +1,5 @@
+AuthName "IceCube"
+AuthType basic
+AuthUserFile /var/www/htpasswd/icecube.htpasswd
+Require valid-user
+
