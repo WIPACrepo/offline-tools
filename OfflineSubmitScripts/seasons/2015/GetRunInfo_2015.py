@@ -123,7 +123,7 @@ def main(logger,dryrun = False, check = False):
     
     if len(cRecords_):
         logger.info("""The following records have changed and will result in  an update to
-                 the ProductionVersion %s""" %cRecords.__repr__())
+                 the ProductionVersion %s""" %cRecords_.__repr__())
 
         if not check:
             logger.info("Continue porcessing with updates (Y/N)")
