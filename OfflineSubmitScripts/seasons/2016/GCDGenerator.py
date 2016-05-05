@@ -101,8 +101,7 @@ def MakeGCD(RunNum,FName,GCDName,ProductionVersion,SnapshotId,effectiveStartTime
     config = libs.config.get_config()
 
     try:
-        
-        from icecube.BadDomList.BadDomsList_TraySegment import BadDomList as BDList
+        from icecube.BadDomList.BadDomListTraySegment import BadDomList
         from icecube.phys_services.spe_fit_injector import I3SPEFitInjector
           
         tray = I3Tray()
@@ -135,17 +134,7 @@ def MakeGCD(RunNum,FName,GCDName,ProductionVersion,SnapshotId,effectiveStartTime
                         RunNum = RunNum,
                         Streams=[icetray.I3Frame.DetectorStatus])
 
-        tray.AddSegment(BDList,"baddomlist",DataType=True, run=RunNum)
-
-        tray.AddModule('I3IceTopSanityChecks', 'IceTopSanityChecks',
-            InputBadDOMList      = 'BadDomsList',
-            BadDOMList           = 'IceTopBadDOMs',
-            BadTankList          = 'IceTopBadTanks',
-            #BadStationList       = 'IceTopBadStations',
-            CheckGainCalibration = True,                      # Default
-            CheckTimeCalibration = True                       # Default
-            )
-
+        tray.AddSegment(BadDomList, "baddomlist", RunId = RunNum)
 
         tray.AddModule('I3Writer', 'GCDWriter',
                                FileName = GCDName, # ! Name of GCD output file
