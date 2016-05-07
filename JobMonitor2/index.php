@@ -22,6 +22,7 @@
     <script src="js/bootstrap.min.js"></script>
     <script src="js/class.jobmonitor.calendar.js"></script>
     <script src="js/class.jobmonitor.updater.js"></script>
+    <script src="js/class.jobmonitor.datasets.js"></script>
     <script src="js/class.jobmonitor.js"></script>
     <script src="js/jobmonitor.js"></script>
   </head>
@@ -59,11 +60,18 @@
                 <li><a href="#"><span class="glyphicon glyphicon-unchecked" aria-hidden="true"></span> Recently Successfully Processed Jobs</a></li>
               </ul>
             </li>
-            <li class="dropdown">
-              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><b>Dataset:</b> 1883 <span class="caret"></span></a>
+            <li class="dropdown" id="jm-dataset-dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><b>Dataset:</b> <span id="current-dataset">not selected</span> <span class="caret"></span></a>
               <ul class="dropdown-menu">
-                <li><a href="#">Action</a></li>
-                <li><a href="#">Another action</a></li>
+              </ul>
+            </li>
+            <li>
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><span class="glyphicon glyphicon-question-sign"></span></a>
+              <ul class="dropdown-menu">
+                <li><a href="#">Feedback</a></li>
+                <li><a href="#">API</a></li>
+                <li role="separator" class="divider"></li>
+                <li class="disabled"><a href="#">Revision X (date)</a></li>
               </ul>
             </li>
           </ul>

@@ -19,12 +19,18 @@ try {
     if(isset($_GET['dataset_id'])) {
         $pjobs->set_dataset_id(filter_input(INPUT_GET, 'dataset_id'));
     }
-    
+   
+    if(isset($_GET['dataset_list_only'])) {
+        if(filter_input(INPUT_GET, 'dataset_list_only')) {
+            $pjobs->set_dataset_list_only(true);
+        }
+    }
+
     print(json_encode($pjobs->execute()));
 } catch(Exception $e) {
     $content = array('error' => 0, 'error_msg' => '', 'data' => array());
     $content['error'] = 1;
     $content['error_msg'] = $e->getTraceAsString();
 
-    print(jscon_encode($content));
+    print(json_encode($content));
 }

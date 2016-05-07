@@ -23,14 +23,12 @@ function JobMonitorUpdater(url, updateDataCallback, startLoadingCallback, endLoa
     /** @private */ this.endLoadingCallback = endLoadingCallback;
     /** @private */ this.errorCallback = errorCallback;
     /** @private */ this.getDatasetIdCallback = getDatasetIdCallback;
-
-    this._init();
 }
 
 /**
  * Initializes the updater.
  */
-JobMonitorUpdater.prototype._init = function() {
+JobMonitorUpdater.prototype.init = function() {
     var iam = this;
     var menu = $('.dropdown-menu', this.intervalSelection).empty();
 
@@ -113,9 +111,11 @@ JobMonitorUpdater.prototype._set_update_interval = function(fromNow) {
  * You can force the update if you pass `true`.
  *
  * @param {bool} force If it is set to `true`, the update is forced. The default is `false`.
+ * @param {bool} force If it is set to `true`, only the list of datasets is requested. The default is `false`.
  */
-JobMonitorUpdater.prototype.update = function(force) {
+JobMonitorUpdater.prototype.update = function(force, datasets_only) {
     force = typeof force !== 'undefined' ? force : false;
+    datasets_only = typeof datasets_only !== 'undefined' ? datasets_only : false;
     var iam = this;
 
     console.log('update(force = ' + force + ') called')
@@ -145,7 +145,13 @@ JobMonitorUpdater.prototype.update = function(force) {
     // Creating request
     this.startLoadingCallback();
     this._startLoading();
-    $.getJSON(iam.url, {'dataset_id': iam.getDatasetIdCallback()}, 
+
+    var params = {'dataset_id': iam.getDatasetIdCallback()};
+    if(typeof params['dataset_id'] === 'undefined') {
+        params = {};
+    }
+
+    $.getJSON(iam.url, params, 
         function(data) {
             iam.updateDataCallback(data);
     })
@@ -161,6 +167,9 @@ JobMonitorUpdater.prototype.update = function(force) {
 
         iam.blockUpdates = false;
     });
+}
+
+JobMonitorUpdater.prototype.updateDatasetId = function() {
 }
 
 JobMonitorUpdater.prototype._startLoading = function() {

@@ -5,9 +5,12 @@ class ProcessingJobs {
     private $result;
     private $dataset_id;
     private $dataset_ids;
+    private $default_dataset_id;
     private $l2_dataset_ids;
 
     private $is_l2_dataset;
+
+    private $dataset_list_only;
 
     private static $JOB_STATES = array('WAITING','QUEUEING','QUEUED','PROCESSING','OK','ERROR','READYTOCOPY','COPYING','SUSPENDED','RESET','FAILED','COPIED','EVICTED','CLEANING','IDLE','IDLEBDList','IDLEIncompleteFiles','IDLENoFiles','IDLETestRun','IDLEShortRun','IDLELid','IDLENoGCD','BadRun','FailedRun');
 
@@ -18,10 +21,12 @@ class ProcessingJobs {
 
     public function __construct($host, $user, $password, $db, $default_dataset_id, array $l2_dataset_ids) {
         $this->mysql = @new mysqli($host, $user, $password, $db);
-        $this->result = array('error' => 0, 'error_msg' => '', 'data' => array());
+        $this->result = array('error' => 0, 'error_msg' => '', 'data' => array('runs' => array(), 'datasets' => array()));
         $this->dataset_id = $default_dataset_id;
+        $this->default_dataset_id = $default_dataset_id;
         $this->l2_dataset_ids = $l2_dataset_ids;
         $this->dataset_ids = null;
+        $this->dataset_list_only = false;
     }
 
     private function build_job_status_query($prev) {
@@ -57,17 +62,25 @@ class ProcessingJobs {
 
         $this->is_l2_dataset = in_array($this->dataset_id, $this->l2_dataset_ids);
 
-        $this->add_submitted_runs($run_pattern);
-        $this->add_good_run_list($run_pattern);
-        $this->validate_runs();
-        $this->set_run_states();
-        $this->add_error_logs();
+        if(!$this->dataset_list_only) {
+            $this->add_submitted_runs($run_pattern);
+            $this->add_good_run_list($run_pattern);
+            $this->validate_runs();
+            $this->set_run_states();
+            $this->add_error_logs();
+        }
+
+        $this->add_dataset_list();   
 
         return $this->result;
     }
 
+    private function add_dataset_list() {
+        $this->result['data']['datasets'] = $this->get_dataset_ids();
+    }
+
     private function add_error_logs() {
-        foreach($this->result['data'] as $run_id => &$run)  {
+        foreach($this->result['data']['runs'] as $run_id => &$run)  {
             if($run['jobs_states']['ERROR'] + $run['jobs_states']['FAILED'] > 0) {
                 $run['error_message'] = $this->get_error_jobs_and_msgs($run_id);
             }
@@ -75,7 +88,7 @@ class ProcessingJobs {
     }
 
     private function set_run_states() {
-        foreach($this->result['data'] as &$run) {
+        foreach($this->result['data']['runs'] as &$run) {
             if(is_null($run['status'])) {
                 $data = &$run['jobs_states'];
 
@@ -112,8 +125,8 @@ class ProcessingJobs {
 
         $query = $this->mysql->query($sql);
         while($row = $query->fetch_assoc()) {
-            if(isset($this->result['data'][$row['run_id']])) {
-                $this->result['data'][$row['run_id']]['validated'] = $row['validated'] == 1;
+            if(isset($this->result['data']['runs'][$row['run_id']])) {
+                $this->result['data']['runs'][$row['run_id']]['validated'] = $row['validated'] == 1;
             }
         }
     }
@@ -123,7 +136,7 @@ class ProcessingJobs {
         // It is the first element in the result array
         // since it is ordered by run_id ASC and PHP
         // arrays are ordered
-        $run_ids = array_keys($this->result['data']);
+        $run_ids = array_keys($this->result['data']['runs']);
 
         if(count($run_ids) < 1) {
             // No runs for this dataset submitted yet. Do nothing since we don't know
@@ -147,10 +160,10 @@ class ProcessingJobs {
 
         $query = $this->mysql->query($sql);
         while($row = $query->fetch_assoc()) {
-            if(isset($this->result['data'][$row['run_id']])) {
+            if(isset($this->result['data']['runs'][$row['run_id']])) {
                 // L2 validation flag is currently stored in grl_snapshot_info
                 if($this->is_l2_dataset) {
-                    $this->result['data'][$row['run_id']]['validated'] = $row['validated'] == 1;
+                    $this->result['data']['runs'][$row['run_id']]['validated'] = $row['validated'] == 1;
                 }
             } else {
                 $current_run = $run_pattern;
@@ -160,7 +173,7 @@ class ProcessingJobs {
                 $current_run['submitted'] = $this->is_l2_dataset_id && $row['submitted'] == 1;
                 $current_run['status'] = self::get_status('NONE');
 
-                $this->result['data'][ $row['run_id']] = $current_run;
+                $this->result['data']['runs'][ $row['run_id']] = $current_run;
             }
         }
     }
@@ -218,7 +231,7 @@ class ProcessingJobs {
             // This run is obviously submitted
             $current_run['submitted'] = true;
 
-            $this->result['data'][$row['run_id']] = $current_run;
+            $this->result['data']['runs'][$row['run_id']] = $current_run;
         }
     }
 
@@ -228,6 +241,8 @@ class ProcessingJobs {
             $sql = 'SELECT dataset_id, description FROM dataset ORDER BY dataset_id DESC';
             $query = $this->mysql->query($sql);
             while($row = $query->fetch_assoc()) {
+                $row['selected'] = $row['dataset_id'] == $this->dataset_id;
+
                 $list[] = $row;
             }
             
@@ -307,6 +322,10 @@ class ProcessingJobs {
         }
 
         return $result;
+    }
+
+    public function set_dataset_list_only($only) {
+        $this->dataset_list_only = (bool)$only;
     }
 
     private static function get_status($name) {
