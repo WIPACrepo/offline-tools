@@ -1,4 +1,8 @@
-<!DOCTYPE html>
+<?php
+
+require_once('config.php');
+
+?><!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -20,6 +24,7 @@
 
     <script src="js/jquery.min.js"></script>
     <script src="js/bootstrap.min.js"></script>
+    <script src="js/class.jobmonitor.view.js"></script>
     <script src="js/class.jobmonitor.calendar.js"></script>
     <script src="js/class.jobmonitor.updater.js"></script>
     <script src="js/class.jobmonitor.datasets.js"></script>
@@ -27,7 +32,8 @@
     <script src="js/jobmonitor.js"></script>
   </head>
   <body>
-    <nav class="navbar navbar-default">
+    <div class="jm-invisible" id="jm-api-version"><?php print($CONFIG['api_version']); ?></div>
+    <nav class="navbar navbar-default navbar-fixed-top">
       <div class="container-fluid">
         <!-- Brand and toggle get grouped for better mobile display -->
         <div class="navbar-header">
@@ -37,7 +43,7 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
-          <a class="navbar-brand" href="#">Offline Processing Job Monitor 2</a>
+          <a class="navbar-brand" href="#">OPJM2</a>
         </div>
     
         <!-- Collect the nav links, forms, and other content for toggling -->
@@ -71,7 +77,7 @@
                 <li><a href="#">Feedback</a></li>
                 <li><a href="#">API</a></li>
                 <li role="separator" class="divider"></li>
-                <li class="disabled"><a href="#">Revision X (date)</a></li>
+                <li><a href="#">Revision X (date)</a></li>
               </ul>
             </li>
           </ul>
@@ -80,12 +86,12 @@
     </nav>
 
     <div id="content-frame">
-      <div class="panel panel-default">
+      <div class="panel panel-default" id="jm-content-view-calendar">
         <div class="panel-heading">
-          <h3 class="panel-title">Calendar View</h3>
+          <h3 class="panel-title jm-view-header">Calendar View</h3>
         </div>
-        <div class="panel-body">
-          Panel content
+        <div class="panel-body jm-view-content">
+          Not loaded yet...
         </div>
       </div>    
     </div>

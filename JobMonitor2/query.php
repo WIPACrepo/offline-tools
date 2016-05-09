@@ -11,7 +11,8 @@ try {
                                 $CONFIG['db_password'],
                                 $CONFIG['db_database'],
                                 $CONFIG['default_dataset_id'],
-                                $CONFIG['L2_datasets']);
+                                $CONFIG['L2_datasets'],
+                                $CONFIG['api_version']);
     
     // Set defaults
     $pjobs->set_dataset_id($CONFIG['default_dataset_id']);

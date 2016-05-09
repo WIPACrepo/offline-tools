@@ -1,8 +1,15 @@
 
+@import url('jobmonitor.calendar.css');
+
 body {
+    padding-top: 70px;
 }
 
 #content-frame {
     padding: 50px;
+}
+
+.jm-invisible {
+    display: none;
 }
 

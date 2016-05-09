@@ -1,0 +1,165 @@
+
+#jm-content-view-calendar .jm-view-content table {
+    border: 1px solid #eee;
+    border-radius: 5px;
+    display: inline-block;
+    margin-bottom: 10px;
+    margin-right: 10px;
+    padding: 5px;
+    vertical-align: top;
+    border-collapse: initial;
+    border-spacing: 2px;
+    line-height: 1;
+}
+
+#jm-content-view-calendar .jm-view-content table:hover {
+    border-color: #ddd;
+}
+
+#jm-content-view-calendar .jm-view-content table thead tr td {
+    padding: 2px;
+}
+
+#jm-content-view-calendar .jm-view-content table thead tr:first-child td {
+    font-weight: bold;
+    padding-bottom: 10px;
+    text-align: center;
+}
+
+#jm-content-view-calendar .jm-view-content table thead tr:last-child td {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 2px;
+    text-align: center;
+}
+
+#jm-content-view-calendar .jm-view-content table tbody tr td {
+    padding: 5px;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    text-align: right;
+}
+
+#jm-content-view-calendar .jm-view-content table tbody tr td:hover {
+   border-color: #ddd;
+}
+
+#jm-content-view-calendar .jm-view-content table tbody tr td.no-day:hover {
+   border-color: transparent;
+}
+
+#jm-content-view-calendar .jm-view-content .day-ok, table.jm-day-summary .run-status-indicator.run-ok {
+    cursor: pointer;
+    background-color: green;
+    color: white;
+}
+
+#jm-content-view-calendar .jm-view-content table tbody tr td.day-ok:hover {
+    border-color: #014100;
+}
+
+#jm-content-view-calendar .jm-view-content .day-idle, table.jm-day-summary .run-status-indicator.run-idle {
+    cursor: pointer;
+    background-color: #B3B7FF;
+    color: white;
+}
+
+#jm-content-view-calendar .jm-view-content .day-proc, table.jm-day-summary .run-status-indicator.run-proc {
+    cursor: pointer;
+    background-color: #FFE400;
+}
+
+#jm-content-view-calendar .jm-view-content .day-proc-error, table.jm-day-summary .run-status-indicator.run-proc-error {
+    cursor: pointer;
+    background-color: orange;
+}
+
+#jm-content-view-calendar .jm-view-content .day-error, table.jm-day-summary .run-status-indicator.run-error {
+    cursor: pointer;
+    background-color: red;
+    color: white;
+}
+
+#jm-content-view-calendar .jm-view-content .day-not-all-submitted {
+    background-image: url("../images/triangle_top-left.png");
+    background-position: left top;
+    background-repeat: no-repeat;
+}
+
+#jm-content-view-calendar .jm-view-content #key .day-not-all-submitted {
+    background-color: gray;
+}
+
+#jm-content-view-calendar .jm-view-content .day-not-validated {
+    background-image: url('../images/not_validated.png');
+    background-position: left bottom;
+    background-repeat: no-repeat;
+}
+
+#jm-content-view-calendar .jm-view-content .day-not-all-submitted.day-not-validated {
+    background-image: url("../images/triangle_top-left.png"), url('../images/not_validated.png');
+    background-position: left top, left bottom;
+}
+
+#jm-content-view-calendar .jm-view-content #key .day-not-validated {
+    background-color: gray;
+}
+
+#jm-content-view-calendar .jm-view-content table tbody tr td.day-error:hover {
+    border-color: #870000;
+}
+
+#jm-content-view-calendar .jm-view-content #key {
+    margin-top: 20px;
+}
+
+#jm-content-view-calendar .jm-view-content #key .jm-label {
+    border: 1px solid #eee;
+    border-radius: 5px;
+    margin-right: 10px;
+    padding: 5px;
+}
+
+#jm-content-view-calendar .jm-view-content #key .jm-label .icon {
+    border-radius: 2px;
+    display: inline-block;
+    height: 15px;
+    margin-right: 5px;
+    vertical-align: middle;
+    width: 15px;
+    border: 1px solid #444;
+}
+
+table.jm-day-summary {
+    width: 100%;
+}
+
+table.jm-day-summary thead td {
+    font-weight: bold;
+}
+
+table.jm-day-summary tbody tr td:first-child {
+    text-align: left;
+}
+
+table.jm-day-summary tbody tr td {
+    text-align: center;
+}
+
+table.jm-day-summary .run-ok {
+    color: green;
+}
+
+table.jm-day-summary .run-bad {
+    color: red;
+}
+
+table.jm-day-summary .run-status-indicator {
+    border-radius: 50%;
+    display: inline-block;
+    height: 12px;
+    margin-left: 5px;
+    width: 12px;
+}
+
+
+

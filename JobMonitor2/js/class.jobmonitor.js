@@ -9,12 +9,7 @@ function JobMonitor(params) {
 
     params = typeof params !== 'undefined' ? params : {};
 
-    /** @private */ this.legends = {'Processed': 'day-ok',
-                                    'Processed w/ Errors': 'day-error',
-                                    'Processing': 'day-proc',
-                                    'Processing w/ Errors': 'day-proc-error',
-                                    'Not All Runs Submitted Yet': 'day-not-all-submitted',
-                                    'Not Validated Yet': 'day-not-validated'};
+    this.apiVersion = parseInt($('#jm-api-version').html());
 
     this.datasets = new JobMonitorDatasets(function() {iam.updater.update(true);});
 
@@ -26,7 +21,7 @@ function JobMonitor(params) {
         function() {return iam.datasets.getSelectedDataset();}
     );
 
-    console.log(this.datasets);
+    this.calendarView = new JobMonitorCalendar();
 }
 
 JobMonitor.prototype._startLoading = function() {
@@ -53,10 +48,18 @@ JobMonitor.prototype._updateData = function(data) {
     }
 
     // First check passed :)
+    // Check of api version compatible
+    if(this.apiVersion != data['api_version']) {
+        alert('API version incompatible');
+        console.log(data);
+    }
+
     // Update dataset list
     if(typeof data['data']['datasets'] !== 'undefined') {
         this.datasets.update(data['data']['datasets']);
     }
+
+    this.calendarView.updateView(data['data']);
 }    
 
 JobMonitor.prototype._loadingError = function() {
@@ -65,5 +68,6 @@ JobMonitor.prototype._loadingError = function() {
 
 JobMonitor.prototype.init = function () {
     this.updater.init();
+    this.calendarView.init();
 }
 

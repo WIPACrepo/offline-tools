@@ -17,11 +17,11 @@ class ProcessingJobs {
     /**
      * @var array Valid states for `status`. The order is important since the first (OK) is not that severe than the last (FAILED).
      */
-    private static $RUN_STATUS = array('NONE', 'IDLE', 'OK', 'PROCESSING', 'PROCESSING/ERRORS', 'FAILED');
+    private static $RUN_STATUS = array('NONE', 'OK', 'IDLE', 'PROCESSING', 'PROCESSING/ERRORS', 'FAILED');
 
-    public function __construct($host, $user, $password, $db, $default_dataset_id, array $l2_dataset_ids) {
+    public function __construct($host, $user, $password, $db, $default_dataset_id, array $l2_dataset_ids, $api_version) {
         $this->mysql = @new mysqli($host, $user, $password, $db);
-        $this->result = array('error' => 0, 'error_msg' => '', 'data' => array('runs' => array(), 'datasets' => array()));
+        $this->result = array('api_version' => $api_version,'error' => 0, 'error_msg' => '', 'data' => array('runs' => array(), 'datasets' => array()));
         $this->dataset_id = $default_dataset_id;
         $this->default_dataset_id = $default_dataset_id;
         $this->l2_dataset_ids = $l2_dataset_ids;
@@ -103,7 +103,7 @@ class ProcessingJobs {
                 } elseif($ok + $data['FAILED'] == $run['sub_runs']) {
                     $status = self::get_status('FAILED');
                 } elseif($data['FAILED'] + $data['ERROR'] > 0) {
-                    $status = self::get_status('PROCESSING/ERROR');
+                    $status = self::get_status('PROCESSING/ERRORS');
                 } elseif($data['IDLE'] > 0) {
                     $status = self::get_status('IDLE');
                 }
@@ -193,8 +193,7 @@ class ProcessingJobs {
                 JOIN grl_snapshot_info g
                     ON r.run_id = g.run_id
                 WHERE   r.dataset_id = {$this->dataset_id} AND 
-                        (good_it = 1 OR good_i3 = 1) AND
-                        r.run_id >= 127645
+                        (good_it = 1 OR good_i3 = 1 OR r.run_id IN (127891,127892,127893))
                 GROUP BY r.run_id
                 ORDER BY r.run_id ASC";
 
