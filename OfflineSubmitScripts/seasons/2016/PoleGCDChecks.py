@@ -33,7 +33,6 @@ dbs4_ = dbs4.MySQL()
 DEFAULT_START_RUN = CONFIG.get('PoleGCDChecks', 'DefaultStartRun')
 ENVSHELL   = "%s/./env-shell.sh" % CONFIG.get('L2', 'I3_BUILD')
 OFFLINEPRODUCTIONTOOLS = CONFIG.get('DEFAULT', 'ProductionToolsPath')
-DATAPATH = '/data/exp/IceCube'
 VERIFIEDGCD = CONFIG.get('PoleGCDChecks', 'VerifiedGCDsPath')
 
 CMPGCD = CONFIG.get('PoleGCDChecks', 'CmpGCDScriptName')
@@ -49,7 +48,7 @@ def main(logger, StartRun = DEFAULT_START_RUN, dryrun=False):
     # no valid GCD files between season start (126378) and 126444
     # run when 'good' GCD files started flowing again from Pole (126445)
     runs_ = dbs4_.fetchall("""SELECT * FROM i3filter.grl_snapshot_info g
-                 where (good_it or good_i3) and run_id>=%d
+                 where (good_it or good_i3 or run_id IN (127891, 127892, 127893)) and run_id>=%d
                  and PoleGCDCheck is NULL order by run_id """%StartRun, UseDict=True)
     
     run_id = [r['run_id'] for r in runs_]
@@ -66,6 +65,9 @@ def main(logger, StartRun = DEFAULT_START_RUN, dryrun=False):
     inDirs = []
     for year in range(first_season, last_season + 2):
         folder = "/data/exp/IceCube/%s/internal-system/sps-gcd" % year
+
+        logger.debug("Add folder %s for SPS GCD files" % folder);
+
         inDirs.extend(glob.glob(folder + "/*"))
     
     if not len(inDirs):
@@ -113,8 +115,10 @@ def main(logger, StartRun = DEFAULT_START_RUN, dryrun=False):
         if not run_.isdigit():
             logger.warning( " could not get run number from Pole file name ...")
             continue
-        
-        northFile = glob.glob(DATAPATH + str(year_) + "/" + VERIFIEDGCD + "/*" + str(run_) + "*")
+      
+        logger.debug(VERIFIEDGCD) 
+        logger.debug("Search for verified GCD file with %s" % (VERIFIEDGCD.replace('%%s', '%s') % year_ + "/*" + str(run_) + "*")) 
+        northFile = glob.glob(VERIFIEDGCD.replace('%%s', '%s') % year_ + "/*" + str(run_) + "*")
         if not len(northFile):
             logger.warning(" **** no Verified GCD file in the north for run %s ****"%run_)
             #clean up
@@ -122,7 +126,10 @@ def main(logger, StartRun = DEFAULT_START_RUN, dryrun=False):
             logger.debug("Removing files %s" %files.__repr__())
             map(os.remove,files)
             continue
-        
+    
+        logger.debug("North file(s): %s" % northFile)
+        logger.debug("Pole file: %s" % poleFile)
+    
         if len(northFile)>0:northFile.sort(key=lambda x: os.path.getmtime(x),reverse=True)
         northFile = northFile[0]
         sub.check_call(["cp",northFile,"."])
@@ -132,7 +139,7 @@ def main(logger, StartRun = DEFAULT_START_RUN, dryrun=False):
             try:
                 RV = sub.call([ENVSHELL,
                                 "python", os.path.join(OFFLINEPRODUCTIONTOOLS,CMPGCD),
-                                "-f", "%s %s"%(northFile,poleFile),"-v"],stdout=oL, stderr=oL)
+                                "-f", "%s" % northFile, "%s" % poleFile,"-v"],stdout=oL, stderr=oL)
                 
                 if not dryrun: dbs4_.execute("""update i3filter.grl_snapshot_info g
                                  set PoleGCDCheck=%s where run_id=%s"""%(RV,runNum))

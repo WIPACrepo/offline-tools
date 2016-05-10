@@ -19,7 +19,7 @@ from libs.logger import get_logger
 from libs.argparser import get_defaultparser
 from libs.files import get_logdir,MakeTarGapsTxtFile,MakeRunInfoFile
 from libs.checks import CheckFiles
-from libs.config import get_season_info, get_config, get_dataset_id_by_run
+from libs.config import get_season_info, get_config, get_dataset_id_by_run, get_season_by_run
 from GoodRuntimeAdjust import main as GoodRuntimeAdjust
 
 import SQLClient_i3live as live
@@ -30,7 +30,7 @@ m_live = live.MySQL()
 dbs4_ = dbs4.MySQL()   
 dbs2_ = dbs2.MySQL()    
 
-def main_run(r, logger, dataset_id, dryrun = False):
+def main_run(r, logger, dataset_id, season, dryrun = False):
     logger.info("======= Checking %s %s ==========="  %(str(r['run_id']),str(r['production_version'])))
 
     if dataset_id < 0:
@@ -47,7 +47,7 @@ def main_run(r, logger, dataset_id, dryrun = False):
      
     # check i/o files in data warehouse and Db
     logger.info("Checking Files in Data warehouse and database records ...")
-    if CheckFiles(r,logger,dryrun=dryrun):
+    if CheckFiles(r, logger, dataset_id = dataset_id, season = season, dryrun = dryrun):
         logger.error("FilesCheck failed: for Run=%s, production_version=%s"\
         %(r['run_id'],str(r['production_version'])))
         return
@@ -76,8 +76,9 @@ def main(runinfo,logger,dryrun=False):
 
     for run in runinfo:
         try:
-            # Get the dataset id for this run
+            # Get the dataset id and season for this run
             dataset_id = get_dataset_id_by_run(int(run['run_id']))
+            season = get_season_by_run(run['run_id']);
 
             # If the dataset id is good, add it to the list of processed dataset ids
             if dataset_id > 0:

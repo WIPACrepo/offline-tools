@@ -64,13 +64,14 @@ def runs_already_submitted(dbs4_, StartRun, EndRun, logger, dryrun):
 
     return not Abort
 
-def CheckFiles(r,logger,dryrun=False):
+def CheckFiles(r, logger, dataset_id, season, dryrun = False):
     """
     Check if there are as many L2 files as there are PFFilt files. 
     Check for GCD files and database consistency;
 
     Args:
         r (dict): extracted from database
+        dataset_id (int): The dataset id of the run
 
     Returns:
         bool: 0 if everything is fine, 1 if errors
@@ -120,7 +121,7 @@ def CheckFiles(r,logger,dryrun=False):
 
     for p in InFiles:
         l = os.path.join(os.path.dirname(L2Files[0]),os.path.basename(p).replace\
-             ("PFFilt_PhysicsFiltering","Level2_IC86.2015_data").replace\
+             ("PFFilt_PhysicsFiltering","Level2_IC86.%s_data" % season).replace\
              (".tar",".i3").replace\
              ("Subrun00000000_","Subrun"))
     
@@ -134,11 +135,11 @@ def CheckFiles(r,logger,dryrun=False):
     Files2CheckS = """'""" + """','""".join(Files2Check) + """'"""
     
     FilesInDb = dbs4_.fetchall("""SELECT distinct name,concat(substring(u.path,6),"/",u.name)
-                                  from i3filter.urlpath u
-                                 where u.dataset_id=1883 and
-                                 concat(substring(u.path,6),"/",u.name) in (%s) or \
-                                 concat(substring(u.path,6),u.name) in (%s) """%\
-                                 (Files2CheckS,Files2CheckS))
+                                  FROM i3filter.urlpath u
+                                 WHERE u.dataset_id = %s AND
+                                 concat(substring(u.path,6),"/",u.name) IN (%s) OR \
+                                 concat(substring(u.path,6),u.name) IN (%s) """ %\
+                                 (dataset_id, Files2CheckS, Files2CheckS))
     
     FilesInDb = [f[1].replace('//','/') for f in FilesInDb]
 
