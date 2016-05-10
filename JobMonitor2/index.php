@@ -12,6 +12,7 @@ require_once('config.php');
 
     <!-- Bootstrap -->
     <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/dataTables.bootstrap.min.css" rel="stylesheet">
     <link href="css/font-awesome.min.css" rel="stylesheet">
     <link href="css/jobmonitor2.css" rel="stylesheet">
 
@@ -23,9 +24,12 @@ require_once('config.php');
     <![endif]-->
 
     <script src="js/jquery.min.js"></script>
+    <script src="js/jquery.dataTables.min.js"></script>
     <script src="js/bootstrap.min.js"></script>
+    <script src="js/dataTables.bootstrap.min.js"></script>
     <script src="js/class.jobmonitor.view.js"></script>
     <script src="js/class.jobmonitor.calendar.js"></script>
+    <script src="js/class.jobmonitor.jobs.js"></script>
     <script src="js/class.jobmonitor.updater.js"></script>
     <script src="js/class.jobmonitor.datasets.js"></script>
     <script src="js/class.jobmonitor.js"></script>
@@ -89,6 +93,15 @@ require_once('config.php');
       <div class="panel panel-default" id="jm-content-view-calendar">
         <div class="panel-heading">
           <h3 class="panel-title jm-view-header">Calendar View</h3>
+        </div>
+        <div class="panel-body jm-view-content">
+          Not loaded yet...
+        </div>
+      </div>
+
+      <div class="panel panel-default" id="jm-content-view-current-jobs">
+        <div class="panel-heading">
+          <h3 class="panel-title jm-view-header">Currently Processing or Failed Jobs</h3>
         </div>
         <div class="panel-body jm-view-content">
           Not loaded yet...

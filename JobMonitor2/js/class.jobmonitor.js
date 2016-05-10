@@ -22,6 +22,7 @@ function JobMonitor(params) {
     );
 
     this.calendarView = new JobMonitorCalendar();
+    this.jobsView = new JobMonitorJobs();
 }
 
 JobMonitor.prototype._startLoading = function() {
@@ -60,6 +61,7 @@ JobMonitor.prototype._updateData = function(data) {
     }
 
     this.calendarView.updateView(data['data']);
+    this.jobsView.updateView(data['data']);
 }    
 
 JobMonitor.prototype._loadingError = function() {
@@ -69,5 +71,6 @@ JobMonitor.prototype._loadingError = function() {
 JobMonitor.prototype.init = function () {
     this.updater.init();
     this.calendarView.init();
+    this.jobsView.init();
 }
 

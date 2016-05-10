@@ -21,7 +21,7 @@ class ProcessingJobs {
 
     public function __construct($host, $user, $password, $db, $default_dataset_id, array $l2_dataset_ids, $api_version) {
         $this->mysql = @new mysqli($host, $user, $password, $db);
-        $this->result = array('api_version' => $api_version,'error' => 0, 'error_msg' => '', 'data' => array('runs' => array(), 'datasets' => array()));
+        $this->result = array('api_version' => $api_version,'error' => 0, 'error_msg' => '', 'data' => array('runs' => array(), 'datasets' => array(), 'seasons' => array()));
         $this->dataset_id = $default_dataset_id;
         $this->default_dataset_id = $default_dataset_id;
         $this->l2_dataset_ids = $l2_dataset_ids;
@@ -62,7 +62,11 @@ class ProcessingJobs {
 
         $this->is_l2_dataset = in_array($this->dataset_id, $this->l2_dataset_ids);
 
-        if(!$this->dataset_list_only) {
+        $this->add_dataset_list();   
+        $this->add_season_list();
+        $this->validate_datasets();
+
+        if(!$this->dataset_list_only && !$this->result['error']) {
             $this->add_submitted_runs($run_pattern);
             $this->add_good_run_list($run_pattern);
             $this->validate_runs();
@@ -70,13 +74,54 @@ class ProcessingJobs {
             $this->add_error_logs();
         }
 
-        $this->add_dataset_list();   
-
         return $this->result;
     }
 
+    private function validate_datasets() {
+        static $validated = false;
+
+        if($validated) {
+            return;
+        }
+
+        $sql = "SELECT d.dataset_id, ds.season
+                FROM dataset d
+                JOIN offline_dataset_season ds
+                    ON d.dataset_id = ds.dataset_id";
+
+        $query = $this->mysql->query($sql);
+        while($validated = $query->fetch_assoc()) {
+            $this->result['data']['datasets'][$validated['dataset_id']]['supported'] = true;
+            $this->result['data']['datasets'][$validated['dataset_id']]['season'] = $validated['season'];
+        }
+
+        $validated = true;
+    }
+
+    private function add_season_list() {
+        if(count($this->result['data']['seasons'])) {
+            return;
+        }
+
+        $seasons = array();
+
+        $sql = "SELECT *
+                FROM offline_season
+                ORDER BY season";
+
+        $query = $this->mysql->query($sql);
+        while($season = $query->fetch_assoc()) {
+            $season['test_runs'] = strlen($season['test_runs']) === 0 ? array() : explode(',', $season['test_runs']);
+            $seasons[$season['season']] = $season;
+        }
+
+        $this->result['data']['seasons'] = $seasons;
+    }
+
     private function add_dataset_list() {
-        $this->result['data']['datasets'] = $this->get_dataset_ids();
+        if(!count($this->result['data']['datasets'])) {
+            $this->result['data']['datasets'] = $this->get_dataset_ids();
+        }
     }
 
     private function add_error_logs() {
@@ -132,29 +177,55 @@ class ProcessingJobs {
     }
 
     private function add_good_run_list(array &$run_pattern) {
-        // Get smallest run number from submitted jobs
-        // It is the first element in the result array
-        // since it is ordered by run_id ASC and PHP
-        // arrays are ordered
-        $run_ids = array_keys($this->result['data']['runs']);
+        // Get first, last, and test runs of dataset
+        $season = $this->result['data']['datasets'][$this->dataset_id]['season'];
+        $season_info = $this->result['data']['seasons'][$season];
 
-        if(count($run_ids) < 1) {
-            // No runs for this dataset submitted yet. Do nothing since we don't know
-            // from grl_snapshot_info which run belongs to which dataset
-            return;
+        $first_run_id = $season_info['first_run'];
+
+        // If the first run is <= 0 it is not set yet
+        if($first_run_id <= 0) {
+            $first_run_id = 99999999;
         }
 
-        $first_run_id = $run_ids[0];
+        // Consider test runs
+        // Include test runs of current season
+        $season_test_runs = implode(',', $season_info['test_runs']);
+        if(count($season_info['test_runs'])) {
+            $season_test_runs .= ',';
+        }
+        
+        $next_season_test_runs = '';
 
-        // Biggest run number:
-        $last_run_id = $run_ids[count($run_ids) - 1];
+        // The last run is either the first run of next season -1 or it has no end
+        $last_run_id = 99999999; // No end
+
+        // Check if next season data is available
+        if(isset($this->result['data']['seasons'][(string)(intval($season) + 1)])) {
+            $next_season = $this->result['data']['seasons'][(string)(intval($season) + 1)];
+
+            // Check if there is already a first run (> 0) for the next season
+            if(intval($next_season['first_run']) > 0) {
+                $last_run_id = $next_season['first_run'];
+            }
+
+            // Exclude test runs of next season
+            $next_season_test_runs = implode(',', $season_info['test_runs']);
+            if(count($season_info['test_runs'])) {
+                $next_season_test_runs .= ',';
+            }
+        }
 
         $sql = "SELECT  run_id,
                         validated,
                         DATE(good_tstart) AS `date`,
                         submitted
                 FROM grl_snapshot_info
-                WHERE   run_id BETWEEN $first_run_id AND $last_run_id AND
+                WHERE   (
+                            run_id BETWEEN $first_run_id AND $last_run_id OR
+                            run_id IN ($season_test_runs -1) /* Have at least -1 to avoid bad SQL */
+                        ) AND
+                        run_id NOT IN ($next_season_test_runs -1) /* Have at least -1 to avoid bad SQL */ AND
                         (good_it = 1 OR good_i3 = 1)
                 ORDER BY run_id ASC";
 
@@ -173,7 +244,7 @@ class ProcessingJobs {
                 $current_run['submitted'] = $this->is_l2_dataset_id && $row['submitted'] == 1;
                 $current_run['status'] = self::get_status('NONE');
 
-                $this->result['data']['runs'][ $row['run_id']] = $current_run;
+                $this->result['data']['runs'][$row['run_id']] = $current_run;
             }
         }
     }
@@ -193,7 +264,7 @@ class ProcessingJobs {
                 JOIN grl_snapshot_info g
                     ON r.run_id = g.run_id
                 WHERE   r.dataset_id = {$this->dataset_id} AND 
-                        (good_it = 1 OR good_i3 = 1 OR r.run_id IN (127891,127892,127893))
+                        (good_it = 1 OR good_i3 = 1)
                 GROUP BY r.run_id
                 ORDER BY r.run_id ASC";
 
@@ -237,12 +308,17 @@ class ProcessingJobs {
     public function get_dataset_ids() {
         if(is_null($this->dataset_ids)) {
             $list = array();
-            $sql = 'SELECT dataset_id, description FROM dataset ORDER BY dataset_id DESC';
+            $sql = 'SELECT  dataset_id,
+                            description
+                    FROM dataset
+                    ORDER BY dataset_id DESC';
             $query = $this->mysql->query($sql);
             while($row = $query->fetch_assoc()) {
                 $row['selected'] = $row['dataset_id'] == $this->dataset_id;
+                $row['supported'] = false;
+                $row['season'] = null;
 
-                $list[] = $row;
+                $list[$row['dataset_id']] = $row;
             }
             
             $this->dataset_ids = $list;
@@ -254,15 +330,15 @@ class ProcessingJobs {
     public function set_dataset_id($dataset_id) {
         $dataset_id = intval($dataset_id);
 
-        $sql = "SELECT EXISTS(SELECT 1 FROM dataset WHERE dataset_id = $dataset_id) AS `exists`";
-        $query = $this->mysql->query($sql);
-        $result = $query->fetch_assoc();
+        $this->add_dataset_list();   
+        $this->add_season_list();
+        $this->validate_datasets();
 
-        if(intval($result['exists'])) {
+        if(isset($this->result['data']['datasets'][(string)$dataset_id]) && $this->result['data']['datasets'][(string)$dataset_id]['supported']) {
             $this->dataset_id = $dataset_id;
-            return true;
         } else {
-            return false;
+            $this->result['error'] = 1;
+            $this->result['error_msg'] = "Dataset $dataset_id doesn't exist or is not supported";
         }
     }
 

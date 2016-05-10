@@ -10,19 +10,30 @@ JobMonitorDatasets.prototype.update = function(datasets) {
     var menu = $('.dropdown-menu', this.datasetList).empty();
     var selected = -1;
 
-    datasets.forEach(function(dataset) {
+    // We want a sorted list
+    var keys = Object.keys(datasets);
+    keys.sort();
+    keys.reverse();
+
+    for(var i = 0; i < keys.length; ++i) {
+        var dataset = datasets[keys[i]];
+
         var text = '<a href="#">';
 
         text += '<b>' + dataset['dataset_id'] + '</b>: ' + dataset['description'];
 
         text += '</a>';
 
-        $(menu).append($('<li></li>').data('value', dataset['dataset_id']).html(text));
-
+        if(!dataset['supported']) {
+            $(menu).append($('<li></li>').addClass('disabled').data('value', dataset['dataset_id']).html(text));
+        } else {
+            $(menu).append($('<li></li>').data('value', dataset['dataset_id']).html(text));
+        }
+        
         if(dataset['selected']) {
             selected = dataset['dataset_id'];
         }
-    });
+    }
 
     $('li', menu).click(function() {
         $('li', menu).each(function() {

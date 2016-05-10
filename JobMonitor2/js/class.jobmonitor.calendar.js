@@ -105,26 +105,31 @@ JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day)
     var html = '<table class="jm-day-summary">';
     html += '<thead>';
     html += '<tr>';
-    html += '<td>';
+    html += '<th>';
     html += 'Run';
-    html += '</td>';
-    html += '<td>';
+    html += '</th>';
+    html += '<th>';
     html += 'Subm.';
-    html += '</td>';
-    html += '<td>';
+    html += '</th>';
+    html += '<th>';
     html += 'Val.';
-    html += '</td>';
+    html += '</th>';
     html += '</tr>';
     html += '</thead>';
     html += '<tbody>';
 
     dayData['runs'].forEach(function(run) {
         var runStatusCSS = iam.runStatusCSSMapping[run['status']['name']];
+        var progressIndicator = Math.floor(run['jobs_states']['OK'] / run['sub_runs'] * 100);
 
         html += '<tr>';
         html += '<td>';
         html += run['run_id'];
-        html += '<span class="run-status-indicator ' + runStatusCSS + '"></span>';
+
+        if(!isNaN(progressIndicator)) {
+            html += '<span class="run-status-indicator ' + runStatusCSS + '">' + progressIndicator + '%</span>';
+        }
+
         html += '</td>';
 
         if(run['submitted']) {
