@@ -99,8 +99,8 @@ def CmpCalibration(GCDFiles,BadDOMsList=[],V=False,T=False):
         
         #atwd_freq_fit_Check = list(itertools.chain.from_iterable([[DC1[k].atwd_freq_fit[i].quad_fit_a,DC1[k].atwd_freq_fit[i].quad_fit_b,DC1[k].atwd_freq_fit[i].quad_fit_v] for i in xrange(2)]))\
         #                      == list(itertools.chain.from_iterable([[DC2[k].atwd_freq_fit[i].quad_fit_a,DC2[k].atwd_freq_fit[i].quad_fit_b,DC2[k].atwd_freq_fit[i].quad_fit_v] for i in xrange(2)]))
-        DCal_Diff_Tdict['atwd_freq_fit_Check'] = list(itertools.chain.from_iterable([[DC1[k].atwd_freq_fit[i].quad_fit_a,DC1[k].atwd_freq_fit[i].quad_fit_b,DC1[k].atwd_freq_fit[i].quad_fit_v] for i in xrange(2)]))\
-                                                == list(itertools.chain.from_iterable([[DC2[k].atwd_freq_fit[i].quad_fit_a,DC2[k].atwd_freq_fit[i].quad_fit_b,DC2[k].atwd_freq_fit[i].quad_fit_v] for i in xrange(2)]))
+        DCal_Diff_Tdict['atwd_freq_fit_Check'] = list(itertools.chain.from_iterable([[DC1[k].atwd_freq_fit[i].quad_fit_a,DC1[k].atwd_freq_fit[i].quad_fit_b,DC1[k].atwd_freq_fit[i].quad_fit_c] for i in xrange(2)]))\
+                                                == list(itertools.chain.from_iterable([[DC2[k].atwd_freq_fit[i].quad_fit_a,DC2[k].atwd_freq_fit[i].quad_fit_b,DC2[k].atwd_freq_fit[i].quad_fit_c] for i in xrange(2)]))
     
         
         # only in old GCD
