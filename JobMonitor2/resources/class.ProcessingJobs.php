@@ -335,7 +335,13 @@ class ProcessingJobs {
         $this->validate_datasets();
 
         if(isset($this->result['data']['datasets'][(string)$dataset_id]) && $this->result['data']['datasets'][(string)$dataset_id]['supported']) {
+            // Set current selection to false
+            $this->result['data']['datasets'][(string)$this->dataset_id]['selected'] = false;
+            
             $this->dataset_id = $dataset_id;
+
+            // Set new selection
+            $this->result['data']['datasets'][(string)$dataset_id]['selected'] = true;
         } else {
             $this->result['error'] = 1;
             $this->result['error_msg'] = "Dataset $dataset_id doesn't exist or is not supported";

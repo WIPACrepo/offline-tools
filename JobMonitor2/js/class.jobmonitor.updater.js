@@ -47,13 +47,15 @@ JobMonitorUpdater.prototype.init = function() {
         $(menu).append($('<li></li>').data('value', n).html(text));
     });
 
-    $('li', menu).click(function() {
+    $('li', menu).click(function(e) {
         $(iam.currentInterval).html($('a', this).html()).data('value', $(this).data('value'));
         iam.update(false);
+        e.preventDefault();
     });
 
-    $(this.forceUpdate).click(function() {
+    $(this.forceUpdate).click(function(e) {
         iam.update(true);
+        e.preventDefault();
     });
 
     this.lastUpdateTimer = setInterval(function() {

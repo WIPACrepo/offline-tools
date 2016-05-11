@@ -35,7 +35,7 @@ JobMonitorDatasets.prototype.update = function(datasets) {
         }
     }
 
-    $('li', menu).click(function() {
+    $('li', menu).click(function(e) {
         $('li', menu).each(function() {
             $('a', this).removeClass('bg-info');
         });
@@ -43,6 +43,7 @@ JobMonitorDatasets.prototype.update = function(datasets) {
         $(iam.currentDataset).html($(this).data('value')).data('value', $(this).data('value'));
         $('a', this).addClass('bg-info');
         iam.updateCallback();
+        e.preventDefault();
     });
 
     $('li', menu).each(function() {
