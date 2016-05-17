@@ -12,5 +12,21 @@ JobMonitorView.prototype.init = function() {
 JobMonitorView.prototype.getName = function() {return this.name;}
 JobMonitorView.prototype.getHeader = function() {return this.header;}
 JobMonitorView.prototype.getContent = function() {return this.content;}
-JobMonitorView.prototype.updateView = function(data) {alert('Not implemented yet');}
+JobMonitorView.prototype.updateView = function(data) {console.log('update() Not implemented yet');}
+
+JobMonitorView.prototype.show = function() {
+    $(this.root).show('slow');
+}
+
+JobMonitorView.prototype.hide = function() {
+    $(this.root).hide('slow');
+}
+
+JobMonitorView.prototype.startLoading = function() {
+    $(this.getContent()).animate({'opacity': .5});
+}
+
+JobMonitorView.prototype.endLoading = function() {
+    $(this.getContent()).animate({'opacity': 1});
+}
 

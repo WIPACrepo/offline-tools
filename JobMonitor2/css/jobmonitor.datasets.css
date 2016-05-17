@@ -1,0 +1,9 @@
+
+#jm-content-view-dataset-selection .jm-view-content table tbody tr td {
+    cursor: pointer;
+}
+
+#jm-content-view-dataset-selection .jm-view-content table tbody tr td.text-muted {
+    cursor: not-allowed;
+}
+

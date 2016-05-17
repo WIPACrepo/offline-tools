@@ -47,6 +47,16 @@
    border-color: transparent;
 }
 
+#jm-content-view-calendar .jm-view-content .day-none, table.jm-day-summary .run-status-indicator.run-none {
+    cursor: pointer;
+    background-color: gray;
+    color: white;
+}
+
+#jm-content-view-calendar .jm-view-content table tbody tr td.day-none:hover {
+    border-color: #333;
+}
+
 #jm-content-view-calendar .jm-view-content .day-ok, table.jm-day-summary .run-status-indicator.run-ok {
     cursor: pointer;
     background-color: green;

@@ -5,6 +5,9 @@ function JobMonitorDatasets(updateCallback) {
     this.updateCallback = updateCallback;
 }
 
+JobMonitorDatasets.prototype = new JobMonitorView('dataset-selection');
+JobMonitorDatasets.prototype.constructor = JobMonitorDatasets;
+
 JobMonitorDatasets.prototype.update = function(datasets) {
     var iam = this; 
     var menu = $('.dropdown-menu', this.datasetList).empty();
@@ -14,6 +17,19 @@ JobMonitorDatasets.prototype.update = function(datasets) {
     var keys = Object.keys(datasets);
     keys.sort();
     keys.reverse();
+
+    // Dataset selection view
+    var datasetSelection = '<table class="table table-hover">';
+    datasetSelection += '<thead>';
+    datasetSelection += '<tr>';
+    datasetSelection += '<th>';
+    datasetSelection += 'Dataset Id';
+    datasetSelection += '</th>';
+    datasetSelection += '<th>';
+    datasetSelection += 'Description';
+    datasetSelection += '</th>';
+    datasetSelection += '</tr>';
+    datasetSelection += '</thead><tbody>';
 
     for(var i = 0; i < keys.length; ++i) {
         var dataset = datasets[keys[i]];
@@ -33,7 +49,18 @@ JobMonitorDatasets.prototype.update = function(datasets) {
         if(dataset['selected']) {
             selected = dataset['dataset_id'];
         }
+
+        datasetSelection += '<tr><td' + (dataset['supported'] ? '' : ' class="text-muted"') + '>';
+
+        datasetSelection += dataset['dataset_id'];
+
+        datasetSelection += '</td>';
+        datasetSelection += '<td' + (dataset['supported'] ? '' : ' class="text-muted"') + '>';
+        datasetSelection += dataset['description'];
+        datasetSelection += '</td></tr>';
     }
+
+    datasetSelection += '</tbody></table>';
 
     $('li', menu).click(function(e) {
         $('li', menu).each(function() {
@@ -52,6 +79,26 @@ JobMonitorDatasets.prototype.update = function(datasets) {
             return;
         }
     });
+
+    $(this.getContent()).html(datasetSelection);
+
+    $('table tbody tr', this.getContent()).click(function() {
+        var datasetId = $('td:first-child', this);
+
+        if($(datasetId).hasClass('text-muted')) {
+            // Not supported dataset
+            return;
+        }
+    
+        var datasetId = $(datasetId).html();
+
+        $('li', menu).each(function() {
+            if($(this).data('value') == datasetId) {
+                $(this).click();
+                return;
+            }
+        });
+    });
 }
 
 JobMonitorDatasets.prototype.getSelectedDataset = function() {
@@ -60,9 +107,11 @@ JobMonitorDatasets.prototype.getSelectedDataset = function() {
 
 JobMonitorDatasets.prototype.startLoading = function() { 
     $('a[data-toggle="dropdown"]', this.datasetList).addClass('disabled');
+    JobMonitorView.prototype.startLoading.call(this);
 }
 
 JobMonitorDatasets.prototype.endLoading = function() {
     $('a[data-toggle="dropdown"]', this.datasetList).removeClass('disabled');
+    JobMonitorView.prototype.endLoading.call(this);
 }
 

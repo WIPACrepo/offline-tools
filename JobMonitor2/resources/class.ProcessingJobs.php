@@ -342,6 +342,7 @@ class ProcessingJobs {
 
             // Set new selection
             $this->result['data']['datasets'][(string)$dataset_id]['selected'] = true;
+        } elseif($dataset_id === -1) {
         } else {
             $this->result['error'] = 1;
             $this->result['error_msg'] = "Dataset $dataset_id doesn't exist or is not supported";

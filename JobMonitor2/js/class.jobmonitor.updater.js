@@ -47,9 +47,18 @@ JobMonitorUpdater.prototype.init = function() {
         $(menu).append($('<li></li>').data('value', n).html(text));
     });
 
+    // Initialize interval drop down only once
+    var initialized = false;
+
     $('li', menu).click(function(e) {
         $(iam.currentInterval).html($('a', this).html()).data('value', $(this).data('value'));
-        iam.update(false);
+
+        if(initialized) {
+            iam.update(false);
+        } else {
+            initialized = true;
+        }
+
         e.preventDefault();
     });
 
@@ -65,7 +74,7 @@ JobMonitorUpdater.prototype.init = function() {
     // Execute methods
     $('li', menu).each(function() {
         if($(this).data('value') === iam.defaultInterval) {
-            $('a', this).click();
+           $('a', this).click();
         }
     });
 }
@@ -153,6 +162,10 @@ JobMonitorUpdater.prototype.update = function(force, datasets_only) {
         params = {};
     }
 
+    if(datasets_only) {
+        params['dataset_list_only'] = true;
+    }
+
     $.getJSON(iam.url, params, 
         function(data) {
             iam.updateDataCallback(data);
@@ -169,9 +182,6 @@ JobMonitorUpdater.prototype.update = function(force, datasets_only) {
 
         iam.blockUpdates = false;
     });
-}
-
-JobMonitorUpdater.prototype.updateDatasetId = function() {
 }
 
 JobMonitorUpdater.prototype._startLoading = function() {

@@ -21,16 +21,26 @@ function JobMonitor(params) {
         function() {return iam.datasets.getSelectedDataset();}
     );
 
-    this.calendarView = new JobMonitorCalendar();
-    this.jobsView = new JobMonitorJobs();
+    this.views = {
+        'calendarView': new JobMonitorCalendar(),
+        'jobsView': new JobMonitorJobs()
+    };
 }
 
 JobMonitor.prototype._startLoading = function() {
     this.datasets.startLoading();
+
+    $.each(this.views, function(name, view) {
+        view.startLoading();
+    });
 }
 
 JobMonitor.prototype._endLoading = function() {
     this.datasets.endLoading();
+
+    $.each(this.views, function(name, view) {
+        view.endLoading();
+    });
 }
 
 JobMonitor.prototype._updateData = function(data) {
@@ -60,8 +70,20 @@ JobMonitor.prototype._updateData = function(data) {
         this.datasets.update(data['data']['datasets']);
     }
 
-    this.calendarView.updateView(data['data']);
-    this.jobsView.updateView(data['data']);
+    if(typeof this.datasets.getSelectedDataset() === 'undefined') {
+        this.datasets.show();
+
+        $.each(this.views, function(name, view) {
+            view.hide();
+        });
+    } else {
+        this.datasets.hide();
+
+        $.each(this.views, function(name, view) {
+            view.show();
+            view.updateView(data['data']);
+        });
+    }
 }    
 
 JobMonitor.prototype._loadingError = function() {
@@ -70,7 +92,12 @@ JobMonitor.prototype._loadingError = function() {
 
 JobMonitor.prototype.init = function () {
     this.updater.init();
-    this.calendarView.init();
-    this.jobsView.init();
+    this.datasets.init();
+
+    $.each(this.views, function(name, view) {
+        view.init();
+    });
+
+    this.updater.update(false, true);
 }
 

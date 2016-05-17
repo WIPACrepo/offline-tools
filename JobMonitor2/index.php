@@ -81,7 +81,7 @@ require_once('config.php');
                 <li><a href="#">Feedback</a></li>
                 <li><a href="#">API</a></li>
                 <li role="separator" class="divider"></li>
-                <li><a href="#">Revision X (date)</a></li>
+                <li><a href="#"><?php print($CONFIG['svn']['rev']); ?></a></li>
               </ul>
             </li>
           </ul>
@@ -90,7 +90,7 @@ require_once('config.php');
     </nav>
 
     <div id="content-frame">
-      <div class="panel panel-default" id="jm-content-view-calendar">
+      <div class="panel panel-default" id="jm-content-view-calendar" style="display: none">
         <div class="panel-heading">
           <h3 class="panel-title jm-view-header">Calendar View</h3>
         </div>
@@ -99,9 +99,18 @@ require_once('config.php');
         </div>
       </div>
 
-      <div class="panel panel-default" id="jm-content-view-current-jobs">
+      <div class="panel panel-default" id="jm-content-view-current-jobs" style="display: none">
         <div class="panel-heading">
           <h3 class="panel-title jm-view-header">Currently Processing or Failed Jobs</h3>
+        </div>
+        <div class="panel-body jm-view-content">
+          Not loaded yet...
+        </div>
+      </div>    
+
+      <div class="panel panel-default" id="jm-content-view-dataset-selection">
+        <div class="panel-heading">
+          <h3 class="panel-title jm-view-header">Select Dataset</h3>
         </div>
         <div class="panel-body jm-view-content">
           Not loaded yet...

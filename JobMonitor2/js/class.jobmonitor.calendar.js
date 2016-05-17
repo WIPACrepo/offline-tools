@@ -8,7 +8,7 @@ function JobMonitorCalendar() {
      * @private
      */
     this.dayStatusCSSMapping = {
-        'NONE': '',
+        'NONE': 'day-none',
         'IDLE': 'day-idle',
         'OK': 'day-ok',
         'PROCESSING': 'day-proc',
@@ -212,12 +212,10 @@ JobMonitorCalendar.prototype._computeCalendarData = function(data) {
             calendar[d['year']][d['month']][d['day']]['summary']['status_name'] = value['status']['name'];
         }
 
-        if(!value['validated']) {
-            calendar[d['year']][d['month']][d['day']]['summary']['all_validated'] = false;
-        }
-
         if(!value['submitted']) {
             calendar[d['year']][d['month']][d['day']]['summary']['all_submitted'] = false;
+        } else if(!value['validated']) {
+            calendar[d['year']][d['month']][d['day']]['summary']['all_validated'] = false;
         }
     });
 
