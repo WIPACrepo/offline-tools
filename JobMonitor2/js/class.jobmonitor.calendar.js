@@ -60,7 +60,7 @@ JobMonitorCalendar.prototype.updateView = function(data) {
     // Handle tooltips
     $('[data-toggle=\'popover\']', this.getContent()).popover(
         {
-            'trigger': 'hover',
+            'trigger': 'click hover',
             'container': 'body',
             'placement': 'bottom',
             'html': true,
@@ -92,6 +92,15 @@ JobMonitorCalendar.prototype.updateView = function(data) {
             }
         }
     );
+
+    // Close popover on click outside of popover
+    $('body').on('click', function (e) {
+        $('[data-toggle="popover"]', iam.getContent()).each(function () {
+            if (!$(this).is(e.target) && $(this).has(e.target).length === 0 && $('.popover').has(e.target).length === 0) {
+                $(this).popover('hide');
+            }
+        });
+    });
 }
 
 JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day) {
