@@ -19,8 +19,11 @@ function config_svn_parse(&$CONFIG) {
     $svn = array('date' => null, 'rev' => null, 'author' => null);
     $parts = explode(' ', $CONFIG['svn']);
 
+    $svn['date'] = "{$parts[3]}";
     $svn['rev'] = $parts[2];
+    $svn['author'] = $parts[5];
 
     $CONFIG['svn'] = $svn;
 }
 
+config_svn_parse($CONFIG);

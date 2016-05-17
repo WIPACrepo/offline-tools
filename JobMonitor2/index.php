@@ -81,7 +81,7 @@ require_once('config.php');
                 <li><a href="#">Feedback</a></li>
                 <li><a href="#">API</a></li>
                 <li role="separator" class="divider"></li>
-                <li><a href="#"><?php print($CONFIG['svn']['rev']); ?></a></li>
+                <li><a href="http://code.icecube.wisc.edu/projects/icecube/browser/IceCube/sandbox/jan/JobMonitor2" target="_blank">Rev <?php print($CONFIG['svn']['rev']); ?> (<?php print($CONFIG['svn']['date']); ?>)</a></li>
               </ul>
             </li>
           </ul>
