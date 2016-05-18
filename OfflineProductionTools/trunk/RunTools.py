@@ -23,77 +23,71 @@ class RunTools(object):
         self.logger = logger
         
     def GetActiveStringsAndDoms(self,Season,UpdateDB=False):
-
-        try:
-            
-            startDate=self.GetRunTimes()['tStart']
-            
-            GCDFile = glob.glob("/data/exp/IceCube/%s/filtered/level2/VerifiedGCD/Level2_IC86.%s*%s*"%(startDate.year,Season,self.RunNumber))
-            
-            if not len(GCDFile):
-                self.logger.warning("No GCD file for run %s in Verified GCD Directory ... exiting"%self.RunNumber)
-                return 1
-            
-            GCDFile.sort(key=lambda x: os.path.getmtime(x))
-            GCDFile = GCDFile[-1]
-
-            from icecube import icetray, dataio, dataclasses
-
-            f = dataio.I3File(str(GCDFile))
-            BDL = None
-            while f.more():
-                GCD = f.pop_frame()
-                if GCD.Has("BadDomsList") :
-                    BDL = GCD["BadDomsList"]
-                    break
+        startDate=self.GetRunTimes()['tStart']
         
-            if not BDL:
-                self.logger.warning("No BadDomsList object in GCD file ... exiting")
-                return 1
+        GCDFile = glob.glob("/data/exp/IceCube/%s/filtered/level2/VerifiedGCD/Level2_IC86.%s*%s*"%(startDate.year,Season,self.RunNumber))
+        
+        if not len(GCDFile):
+            self.logger.warning("No GCD file for run %s in Verified GCD Directory ... exiting"%self.RunNumber)
+            return 1
+        
+        GCDFile.sort(key=lambda x: os.path.getmtime(x))
+        GCDFile = GCDFile[-1]
 
-            
-            # make default configuration
-            detConf = {}    
-            for s in range(1,87):
-                detConf[s] = range(1,67)
-            
-            # remove DOMs in BDL
-            for b in BDL:
-                detConf[b.string].pop(detConf[b.string].index(b.om))
+        from icecube import icetray, dataio, dataclasses
 
-            
-            # count number of strings with at least 1 active non-IceTop DOM
-            ActiveStrings = len([k for k in detConf.keys() if len(set(detConf[k]).difference([61,62,63,64,65,66]))])
-            
-            # add all DOMs after excluding Bad DOMs
-            ActiveDoms = sum([len(detConf[k]) for k in detConf.keys()])
-            
-            #print [len(detConf[k]) for k in detConf.keys()]
-            #for k in detConf.keys(): print detConf[k]
-            
-            ActiveInIceDoms = sum([len(set(detConf[k]).difference(set([61,62,63,64,65,66]))) for k in detConf.keys()])
-            
-            #print [len(set(detConf[k]).difference(set([61,62,63,64]))) for k in detConf.keys()]
-            
-            #print ActiveStrings
-            #print ActiveDoms
-            #print ActiveInIceDoms
+        f = dataio.I3File(str(GCDFile))
+        BDL = None
+        while f.more():
+            GCD = f.pop_frame()
+            if GCD.Has("BadDomsList") :
+                BDL = GCD["BadDomsList"]
+                break
+    
+        if not BDL:
+            self.logger.warning("No BadDomsList object in GCD file ... exiting")
+            return 1
 
-            
-            if UpdateDB:
-                import SQLClient_dbs4 as dbs4
-                dbs4_ = dbs4.MySQL()
-                #print """update i3filter.grl_snapshot_info g set ActiveStrings=%d, ActiveDoms=%s
-                #                 where g.run_id=%d """%(ActiveStrings,ActiveDoms,self.RunNumber)
-                dbs4_.execute("""update i3filter.grl_snapshot_info g set ActiveStrings=%d, ActiveDoms=%s, ActiveInIceDoms=%s
-                                 where g.run_id=%d """%(ActiveStrings,ActiveDoms,ActiveInIceDoms,self.RunNumber))
-                
+        
+        # make default configuration
+        detConf = {}    
+        for s in range(0,87):
+            detConf[s] = range(1,67)
+        
+        # remove DOMs in BDL
+        for b in BDL:
+            detConf[b.string].pop(detConf[b.string].index(b.om))
 
+        
+        # count number of strings with at least 1 active non-IceTop DOM
+        ActiveStrings = len([k for k in detConf.keys() if len(set(detConf[k]).difference([61,62,63,64,65,66]))])
+        
+        # add all DOMs after excluding Bad DOMs
+        ActiveDoms = sum([len(detConf[k]) for k in detConf.keys()])
+        
+        #print [len(detConf[k]) for k in detConf.keys()]
+        #for k in detConf.keys(): print detConf[k]
+        
+        ActiveInIceDoms = sum([len(set(detConf[k]).difference(set([61,62,63,64,65,66]))) for k in detConf.keys()])
+        
+        #print [len(set(detConf[k]).difference(set([61,62,63,64]))) for k in detConf.keys()]
+        
+        #print ActiveStrings
+        #print ActiveDoms
+        #print ActiveInIceDoms
+
+        
+        if UpdateDB:
+            import SQLClient_dbs4 as dbs4
+            dbs4_ = dbs4.MySQL()
+            #print """update i3filter.grl_snapshot_info g set ActiveStrings=%d, ActiveDoms=%s
+            #                 where g.run_id=%d """%(ActiveStrings,ActiveDoms,self.RunNumber)
+            dbs4_.execute("""update i3filter.grl_snapshot_info g set ActiveStrings=%d, ActiveDoms=%s, ActiveInIceDoms=%s
+                             where g.run_id=%d """%(ActiveStrings,ActiveDoms,ActiveInIceDoms,self.RunNumber))
             
-            return ActiveStrings,ActiveDoms,ActiveInIceDoms
-           
-        except Exception, err:
-            raise Exception("Error: %s "%str(err))
+
+        
+        return ActiveStrings,ActiveDoms,ActiveInIceDoms
 
 
     
