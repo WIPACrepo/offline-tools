@@ -45,6 +45,9 @@ def MakeRunInfoFile(dbs4_, dataset_id, dryrun=False):
         RunInfoDict[r['run_id']] = r
     keys_ = RunInfoDict.keys()
     keys_.sort()
+
+    if len(keys_) == 0:
+        return
     
     ProductionYear = str(RunInfoDict[keys_[0]]['tStart'].year)
     
@@ -116,7 +119,6 @@ def MakeRunInfoFile(dbs4_, dataset_id, dryrun=False):
     if os.path.lexists(LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt"%(ProductionYear)):
         if not dryrun: sub.call(["rm",LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt"%(ProductionYear)])
     if not dryrun: sub.call(["ln","-s","%s"%LatestGoodRunInfoV, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt"%(ProductionYear)])
-    return
 
 def MakeTarGapsTxtFile(dbs4_, StartTime, RunId, datasetid, dryrun = False, logger = DummyLogger()):
     """

@@ -62,12 +62,18 @@ def main_run(r, logger, dataset_id, season, dryrun = False):
     MakeTarGapsTxtFile(dbs4_, r['tStart'], r['run_id'], datasetid = dataset_id, dryrun = dryrun, logger = logger)
     logger.debug("MakeTarGapsFile              .... passed")
     logger.info( "--Attempting to collect Active Strings/DOMs information from verified GCD file ...")
+
     R = RunTools(r['run_id'])
-    R.GetActiveStringsAndDoms(2015,UpdateDB=True)
+    if 1 == R.GetActiveStringsAndDoms(season, UpdateDB = not dryrun):
+        logger.error("GetActiveStringsAndDoms failed")
+        return
+
     if not dryrun: dbs4_.execute("""update i3filter.grl_snapshot_info 
                          set validated=1
                          where run_id=%s and production_version=%s"""%\
-                     (r['run_id'],str(r['production_version'])))           
+                     (r['run_id'],str(r['production_version'])))
+
+    logger.info("Checks passed")
     logger.info("======= End Checking %i %i ======== " %(r['run_id'],r['production_version'])) 
     return
 
@@ -84,7 +90,7 @@ def main(runinfo,logger,dryrun=False):
             if dataset_id > 0:
                 datasets.append(dataset_id)
             
-            main_run(run, logger, dataset_id = dataset_id, dryrun = dryrun) 
+            main_run(run, logger, dataset_id = dataset_id, season = season, dryrun = dryrun) 
         except Exception as e:
             logger.exception("Exception %s thrown for: Run=%s, production_version=%s" %(e.__repr__(),run['run_id'],str(run['production_version'])))
    
