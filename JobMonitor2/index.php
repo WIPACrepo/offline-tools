@@ -12,6 +12,7 @@ require_once('config.php');
 
     <!-- Bootstrap -->
     <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/bootstrap-select.min.css" rel="stylesheet">
     <link href="css/dataTables.bootstrap.min.css" rel="stylesheet">
     <link href="css/font-awesome.min.css" rel="stylesheet">
     <link href="css/jobmonitor2.css" rel="stylesheet">
@@ -26,6 +27,7 @@ require_once('config.php');
     <script src="js/jquery.min.js"></script>
     <script src="js/jquery.dataTables.min.js"></script>
     <script src="js/bootstrap.min.js"></script>
+    <script src="js/bootstrap-select.min.js"></script>
     <script src="js/dataTables.bootstrap.min.js"></script>
     <script src="js/class.jobmonitor.view.js"></script>
     <script src="js/class.jobmonitor.calendar.js"></script>
@@ -116,6 +118,23 @@ require_once('config.php');
           Not loaded yet...
         </div>
       </div>    
+    </div>
+
+    <div class="modal fade" id="jm-dialog" tabindex="-1" role="dialog" aria-labelledby="jm-dialog-label">
+      <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title" id="jm-dialog-label">Dialog title</h4>
+          </div>
+          <div class="modal-body">
+            <div class="row">
+                <div class="col-md-4" id="jm-dialog-log-menu"></div>
+                <div class="col-md-8" id="jm-dialog-log-content"></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </body>
 </html>

@@ -238,7 +238,7 @@ JobMonitorCalendar.prototype._createMonth = function(year, month, data) {
     // Get last day of month, therefore no -1!
     var daysOfMonth = (new Date(year, month, 0)).getDate();
 
-    var html = '<table class="highlight">';
+    var html = '<table>';
     html += '<thead>';
     html += '<tr>';
     html += '<td colspan="7">';

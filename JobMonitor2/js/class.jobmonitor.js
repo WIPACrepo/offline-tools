@@ -84,6 +84,8 @@ JobMonitor.prototype._updateData = function(data) {
             view.updateView(data['data']);
         });
     }
+
+    $('select').filter(function() {return !$(this).hasClass('selectpicker');}).addClass('selectpicker').selectpicker();
 }    
 
 JobMonitor.prototype._loadingError = function() {
