@@ -11,6 +11,8 @@ function JobMonitor(params) {
 
     this.apiVersion = parseInt($('#jm-api-version').html());
 
+    this.data = undefined;
+
     this.datasets = new JobMonitorDatasets(function() {iam.updater.update(true);});
 
     this.updater = new JobMonitorUpdater('query.php',
@@ -36,11 +38,28 @@ JobMonitor.prototype._startLoading = function() {
 }
 
 JobMonitor.prototype._endLoading = function() {
+    var iam = this;
+
     this.datasets.endLoading();
 
     $.each(this.views, function(name, view) {
         view.endLoading();
     });
+
+    // Check if L3 dataset before 2015
+    var showWarning = false;
+    $.each(this.data['data']['datasets'], function(dataset_id, value) {
+        if(value['selected'] && value['season'] < 2015 && value['type'] === 'L3') {
+            showWarning = true;
+            return;
+        }
+    });
+
+    if(showWarning) {
+        iam._showL3SeasonWarning();
+    } else {
+        iam._hideL3SeasonWarning();
+    }
 }
 
 JobMonitor.prototype._updateData = function(data) {
@@ -66,6 +85,8 @@ JobMonitor.prototype._updateData = function(data) {
     }
 
     // Update dataset list
+    this.data = data;
+
     if(typeof data['data']['datasets'] !== 'undefined') {
         this.datasets.update(data['data']['datasets']);
     }
@@ -89,7 +110,15 @@ JobMonitor.prototype._updateData = function(data) {
 }    
 
 JobMonitor.prototype._loadingError = function() {
+    $('#jm-loading-error').show('slow');
+}
 
+JobMonitor.prototype._showL3SeasonWarning = function() {
+    $('#jm-l3-pre-2015-season-note').show('slow');
+}
+
+JobMonitor.prototype._hideL3SeasonWarning = function() {
+    $('#jm-l3-pre-2015-season-note').hide('slow');
 }
 
 JobMonitor.prototype.init = function () {

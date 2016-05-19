@@ -2,6 +2,7 @@
 function JobMonitorDatasets(updateCallback) {
     this.datasetList = $('#jm-dataset-dropdown');
     this.currentDataset = $('#current-dataset', this.datasetList);
+    this.title = $('#jm-dataset-title');
     this.updateCallback = updateCallback;
 }
 
@@ -99,6 +100,30 @@ JobMonitorDatasets.prototype.update = function(datasets) {
             }
         });
     });
+
+    // Update title
+    var title = '';
+    var datasetId = this.currentDataset.data('value');
+
+    console.log(datasets);
+    console.log(datasetId);
+
+    if(typeof datasetId !== 'undefined') {
+        title += '<h3><strong>';
+        title += datasetId;
+        title += '</strong>: ' + datasets[datasetId]['description'];
+        title += '</h3>';
+        title += '<p>';
+        title += '<span class="label label-info">Season ' + datasets[datasetId]['season'] + '</span>';
+
+        if(typeof datasets[datasetId]['type'] !== 'undefined') {
+            title += ' <span class="label label-info">Type ' + datasets[datasetId]['type'] + '</span>';
+        }
+
+        title += '</p>';
+
+        this.title.html(title);
+    }
 }
 
 JobMonitorDatasets.prototype.getSelectedDataset = function() {

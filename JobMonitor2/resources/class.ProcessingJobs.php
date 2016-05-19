@@ -84,7 +84,7 @@ class ProcessingJobs {
             return;
         }
 
-        $sql = "SELECT d.dataset_id, ds.season
+        $sql = "SELECT d.dataset_id, ds.season, ds.dataset_type
                 FROM dataset d
                 JOIN offline_dataset_season ds
                     ON d.dataset_id = ds.dataset_id";
@@ -93,6 +93,7 @@ class ProcessingJobs {
         while($validated = $query->fetch_assoc()) {
             $this->result['data']['datasets'][$validated['dataset_id']]['supported'] = true;
             $this->result['data']['datasets'][$validated['dataset_id']]['season'] = $validated['season'];
+            $this->result['data']['datasets'][$validated['dataset_id']]['type'] = $validated['dataset_type'];
         }
 
         $validated = true;
@@ -346,8 +347,10 @@ class ProcessingJobs {
 
         if(isset($this->result['data']['datasets'][(string)$dataset_id]) && $this->result['data']['datasets'][(string)$dataset_id]['supported']) {
             // Set current selection to false
-            $this->result['data']['datasets'][(string)$this->dataset_id]['selected'] = false;
-            
+            if($this->dataset_id > 0) {
+                $this->result['data']['datasets'][(string)$this->dataset_id]['selected'] = false;
+            }
+
             $this->dataset_id = $dataset_id;
 
             // Set new selection
@@ -363,8 +366,6 @@ class ProcessingJobs {
         $msg = str_replace('<br>', '', $msg);
         $parts =  preg_split('/----([_0-9a-z\.\ ]+)----[\:]{0,1}/i', $msg, -1,  PREG_SPLIT_DELIM_CAPTURE);
 
-        #print_r($parts);
-        
         $msgs = array();
 
         $file = null;

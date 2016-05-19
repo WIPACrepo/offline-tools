@@ -92,6 +92,16 @@ require_once('config.php');
     </nav>
 
     <div id="content-frame">
+      <div id="jm-dataset-title" style="margin-bottom: 20px"></div>
+
+      <div class="alert alert-warning" role="alert" id="jm-l3-pre-2015-season-note" style="display: none;">
+        <strong>Note:</strong> You are watching a L3 dataset before season 2015. For those runs no validation flag exists. Therefore, all runs are maked as validated by default.
+      </div>
+
+      <div class="alert alert-danger" role="alert" id="jm-loading-error" style="display: none;">
+        <strong>Error:</strong> An error occurred while loading data.
+      </div>
+
       <div class="panel panel-default" id="jm-content-view-calendar" style="display: none">
         <div class="panel-heading">
           <h3 class="panel-title jm-view-header">Calendar View</h3>
