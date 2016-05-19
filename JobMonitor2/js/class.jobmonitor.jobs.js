@@ -245,7 +245,7 @@ JobMonitorJobs.prototype._logDialog = function(header, content, data) {
 
             html += '<option value="' + i + '">' + fileName + '</option>';
 
-            if(log['file'] === '') {
+            if(log['file'] === '' && selectedSubRun['log_tails'].length > 1) {
                 html += '<option data-divider="true"></option>';
             }
             
