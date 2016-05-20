@@ -1,6 +1,7 @@
 
 function JobMonitorView(name) {
     this.name = name;
+    this.visible = true;
 }
 
 JobMonitorView.prototype.init = function() {
@@ -14,8 +15,12 @@ JobMonitorView.prototype.getHeader = function() {return this.header;}
 JobMonitorView.prototype.getContent = function() {return this.content;}
 JobMonitorView.prototype.updateView = function(data) {console.log('update() Not implemented yet');}
 
-JobMonitorView.prototype.show = function() {
-    $(this.root).show('slow');
+JobMonitorView.prototype.show = function(force) {
+    force = typeof force === 'undefined' ? false : force;
+
+    if(this.visible) {
+        $(this.root).show('slow');
+    }
 }
 
 JobMonitorView.prototype.hide = function() {
@@ -28,5 +33,15 @@ JobMonitorView.prototype.startLoading = function() {
 
 JobMonitorView.prototype.endLoading = function() {
     $(this.getContent()).animate({'opacity': 1});
+}
+
+JobMonitorView.prototype.setVisible = function(visible) {
+    this.visible = visible;
+
+    if(visible) {
+        this.show();
+    } else {
+        this.hide();
+    }
 }
 

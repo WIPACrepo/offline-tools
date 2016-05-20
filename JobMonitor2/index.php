@@ -30,6 +30,7 @@ require_once('config.php');
     <script src="js/bootstrap-select.min.js"></script>
     <script src="js/dataTables.bootstrap.min.js"></script>
     <script src="js/class.jobmonitor.view.js"></script>
+    <script src="js/class.jobmonitor.views.js"></script>
     <script src="js/class.jobmonitor.calendar.js"></script>
     <script src="js/class.jobmonitor.jobs.js"></script>
     <script src="js/class.jobmonitor.updater.js"></script>
@@ -67,9 +68,8 @@ require_once('config.php');
             <li class="dropdown" id="jm-view-dropdown">
               <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">View <span class="caret"></span></a>
               <ul class="dropdown-menu">
-                <li><a href="#"><span class="glyphicon glyphicon-unchecked" aria-hidden="true"></span> Calendar</a></li>
-                <li><a href="#"><span class="glyphicon glyphicon-unchecked" aria-hidden="true"></span> Processing/Failed Jobs</a></li>
-                <li><a href="#"><span class="glyphicon glyphicon-unchecked" aria-hidden="true"></span> Recently Successfully Processed Jobs</a></li>
+                <li><a href="#" data-target="calendarView"><span class="glyphicon glyphicon-check" aria-hidden="true"></span> Calendar</a></li>
+                <li><a href="#" data-target="jobsView"><span class="glyphicon glyphicon-check" aria-hidden="true"></span> Processing/Failed Jobs</a></li>
               </ul>
             </li>
             <li class="dropdown" id="jm-dataset-dropdown">

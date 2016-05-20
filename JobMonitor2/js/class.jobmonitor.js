@@ -13,6 +13,8 @@ function JobMonitor(params) {
 
     this.data = undefined;
 
+    this.viewOptions = new JobMonitorViews();
+
     this.datasets = new JobMonitorDatasets(function() {iam.updater.update(true);});
 
     this.updater = new JobMonitorUpdater('query.php',
@@ -124,6 +126,7 @@ JobMonitor.prototype._hideL3SeasonWarning = function() {
 JobMonitor.prototype.init = function () {
     this.updater.init();
     this.datasets.init();
+    this.viewOptions.init(this.views);
 
     $.each(this.views, function(name, view) {
         view.init();
