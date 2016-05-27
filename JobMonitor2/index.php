@@ -29,6 +29,7 @@ require_once('config.php');
     <script src="js/bootstrap.min.js"></script>
     <script src="js/bootstrap-select.min.js"></script>
     <script src="js/dataTables.bootstrap.min.js"></script>
+    <script src="js/class.jobmonitor.location.js"></script>
     <script src="js/class.jobmonitor.view.js"></script>
     <script src="js/class.jobmonitor.views.js"></script>
     <script src="js/class.jobmonitor.calendar.js"></script>

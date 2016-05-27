@@ -1,5 +1,7 @@
 
-function JobMonitorCalendar() {
+function JobMonitorCalendar(url) {
+    this.url = url;
+
     /** @private */ this.weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     /** @private */ this.months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     /**
@@ -44,6 +46,9 @@ function JobMonitorCalendar() {
 
     $('#jm-dialog-day').on('show.bs.modal', function (event) {
         iam._dayDialog($('.modal-title', this), $('.modal-body', this));
+    }).on('hidden.bs.popover', function () {
+        iam.url.removeState('day');
+        iam.url.pushState();
     });
 }
 
@@ -69,9 +74,6 @@ JobMonitorCalendar.prototype.updateView = function(data) {
     $('td[data-jm-day]', this.getContent()).click(function() {
         var dateSplit = $(this).attr('data-jm-day').split('-');
 
-        console.log(this);
-        console.log(dateSplit);
-
         if(dateSplit.length === 3) {
             try {
                 iam.selectedDay = {'year': parseInt(dateSplit[0]),
@@ -80,6 +82,9 @@ JobMonitorCalendar.prototype.updateView = function(data) {
                                   };
 
                 $('#jm-dialog-day').modal();
+
+                iam.url.setState('day', $(this).attr('data-jm-day'));
+                iam.url.pushState();
             } catch(e) {
                 console.log(e);
                 // Do nothing when parsing failed
@@ -133,6 +138,22 @@ JobMonitorCalendar.prototype.updateView = function(data) {
             }
         });
     });
+
+    var preselectedDay = this.url.getState('day');
+
+    if(typeof preselectedDay !== 'undefined') {
+        var dayFound = false;
+
+        $('td[data-jm-day=\'' + preselectedDay + '\']', this.getContent()).each(function() {
+            dayFound = true;
+            $(this).click();
+        });
+
+        if(!dayFound) {
+            this.url.removeState('day');
+            this.url.pushState();
+        }
+    }
 }
 
 JobMonitorCalendar.prototype._dayDialog = function(header, content) {

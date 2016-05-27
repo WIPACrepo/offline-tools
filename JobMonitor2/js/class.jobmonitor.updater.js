@@ -1,5 +1,5 @@
 
-function JobMonitorUpdater(url, updateDataCallback, startLoadingCallback, endLoadingCallback, errorCallback, getDatasetIdCallback) {
+function JobMonitorUpdater(url, loc, updateDataCallback, startLoadingCallback, endLoadingCallback, errorCallback, getDatasetIdCallback) {
     /** @private */ this.updateIntervals = [1, 5, 10, 20, 30, 60, 90, 120, -1];
     /** @private */ this.defaultInterval = -1;
     /** @private */ this.updateIntervalUnits = {'d': ' day', 'h': ' hour', 'm': ' min', 's': ' sec'};
@@ -18,11 +18,15 @@ function JobMonitorUpdater(url, updateDataCallback, startLoadingCallback, endLoa
 
     /** @private */ this.url = url;
 
+    /** @private */ this.loc = loc;
+
     /** @private */ this.updateDataCallback = updateDataCallback;
     /** @private */ this.startLoadingCallback = startLoadingCallback;
     /** @private */ this.endLoadingCallback = endLoadingCallback;
     /** @private */ this.errorCallback = errorCallback;
     /** @private */ this.getDatasetIdCallback = getDatasetIdCallback;
+
+    /** @private */ this.nextAction = undefined;
 }
 
 /**
@@ -59,6 +63,14 @@ JobMonitorUpdater.prototype.init = function() {
             initialized = true;
         }
 
+        if($(this).data('value') === iam.defaultInterval) {
+            iam.loc.removeState('updateInterval');
+        } else {
+            iam.loc.setState('updateInterval', $(this).data('value'));
+        }
+
+        iam.loc.pushState();
+
         e.preventDefault();
     });
 
@@ -72,8 +84,26 @@ JobMonitorUpdater.prototype.init = function() {
     }, 1000 * 60);
 
     // Execute methods
+    // Select default interval
+    var selected = this.defaultInterval;    
+    var preselection = this.loc.getState('updateInterval');
+
+    if(typeof preselection !== 'undefined') {
+        try {
+            preselection = parseInt(preselection);
+
+            if($.inArray(preselection, this.updateIntervals) !== -1) {
+                selected = preselection;
+            }
+        } catch(e) {
+            // Not a number
+        }
+    }
+
+    console.log('Selected ' + selected);
+
     $('li', menu).each(function() {
-        if($(this).data('value') === iam.defaultInterval) {
+        if($(this).data('value') === selected) {
            $('a', this).click();
         }
     });
@@ -181,6 +211,12 @@ JobMonitorUpdater.prototype.update = function(force, datasets_only) {
         iam._updateLastUpdate();
 
         iam.blockUpdates = false;
+
+        if(typeof iam.nextAction !== 'undefined') {
+            iam.nextAction();
+
+            iam.nextAction = undefined;
+        }
     });
 }
 
@@ -190,6 +226,10 @@ JobMonitorUpdater.prototype._startLoading = function() {
 
 JobMonitorUpdater.prototype._endLoading = function() {
     $('.fa-refresh', this.forceUpdate).removeClass('fa-spin');
+}
+
+JobMonitorUpdater.prototype.setNextAction = function(callback) {
+    this.nextAction = callback;
 }
 
 /**

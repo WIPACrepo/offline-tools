@@ -1,9 +1,11 @@
 
-function JobMonitorDatasets(updateCallback) {
+function JobMonitorDatasets(updateCallback, url, nextActionCallback) {
     this.datasetList = $('#jm-dataset-dropdown');
     this.currentDataset = $('#current-dataset', this.datasetList);
     this.title = $('#jm-dataset-title');
     this.updateCallback = updateCallback;
+    this.url = url;
+    this.nextActionCallback = nextActionCallback;
 }
 
 JobMonitorDatasets.prototype = new JobMonitorView('dataset-selection');
@@ -72,6 +74,10 @@ JobMonitorDatasets.prototype.update = function(datasets) {
         $('a', this).addClass('bg-info');
         iam.updateCallback();
         e.preventDefault();
+
+        // Modify URL
+        iam.url.setState('dataset', $(this).data('value'));
+        iam.url.pushState();
     });
 
     $('li', menu).each(function() {
@@ -105,9 +111,6 @@ JobMonitorDatasets.prototype.update = function(datasets) {
     var title = '';
     var datasetId = this.currentDataset.data('value');
 
-    console.log(datasets);
-    console.log(datasetId);
-
     if(typeof datasetId !== 'undefined') {
         title += '<h3><strong>';
         title += datasetId;
@@ -123,6 +126,40 @@ JobMonitorDatasets.prototype.update = function(datasets) {
         title += '</p>';
 
         this.title.html(title);
+    }
+
+    // Check if a dataset is selected
+    // If not, check if a preselection exists via url
+    if(typeof datasetId === 'undefined') {
+        console.log('No dataset selcted yet');
+
+        var preselection = this.url.getState('dataset');
+        if(typeof preselection !== 'undefined') {
+            console.log('Predefined dataset: ' + preselection);
+
+            var validDataset = false;
+
+            $('li', menu).each(function() {
+                if($(this).data('value') == preselection && datasets[$(this).data('value')]['supported']) {
+                    var click = this;
+
+                    iam.nextActionCallback(function() {
+                        $(click).click();
+                    });
+
+                    validDataset = true;
+                    return;
+                }
+            });
+
+            // Modify URL if dataset is not valid
+            if(!validDataset) {
+                console.log('Invalid dataset');
+
+                iam.url.removeState('dataset');
+                iam.url.pushState();
+            }
+        }
     }
 }
 

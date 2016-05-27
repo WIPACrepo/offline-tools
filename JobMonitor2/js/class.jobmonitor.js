@@ -13,11 +13,14 @@ function JobMonitor(params) {
 
     this.data = undefined;
 
+    this.url = new JobMonitorLocation();
+    this.url.init();
+
     this.viewOptions = new JobMonitorViews();
 
-    this.datasets = new JobMonitorDatasets(function() {iam.updater.update(true);});
+    this.datasets = new JobMonitorDatasets(function() {iam.updater.update(true);}, this.url, function(callback) {iam.updater.setNextAction(callback);});
 
-    this.updater = new JobMonitorUpdater('query.php',
+    this.updater = new JobMonitorUpdater('query.php', this.url,
         function(data) {iam._updateData(data);},
         function() {iam._startLoading();},
         function() {iam._endLoading();},
@@ -26,7 +29,7 @@ function JobMonitor(params) {
     );
 
     this.views = {
-        'calendarView': new JobMonitorCalendar(),
+        'calendarView': new JobMonitorCalendar(this.url),
         'jobsView': new JobMonitorJobs()
     };
 }
