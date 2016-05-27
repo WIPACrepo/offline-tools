@@ -58,7 +58,8 @@ class ProcessingJobs {
     public function execute() {
         $run_pattern = array('run_id' => null, 'sub_runs' => -1, 'date' => null, 'status' => null,
                              'jobs_states' => array(), 'jobs_prev_states' => array(), 'failures' => array(), 'validated' => false,
-                             'submitted' => false, 'last_status_change' => '', 'error_message' => array());
+                             'submitted' => false, 'last_status_change' => '', 'error_message' => array(),
+                             'snapshot_id' => null, 'production_version' => null);
 
         $this->is_l2_dataset = in_array($this->dataset_id, $this->l2_dataset_ids);
 
@@ -227,10 +228,17 @@ class ProcessingJobs {
             }
         }
 
+        // Store GRL run numbers:
+        // In case there is a processed run that is not in the GRL
+        // we need to remove it
+        $grl_run_ids = array();
+
         $sql = "SELECT  run_id,
                         validated,
                         DATE(good_tstart) AS `date`,
-                        submitted
+                        submitted,
+                        MAX(snapshot_id) AS `snapshot_id`,
+                        MAX(production_version) AS `production_version`
                 FROM grl_snapshot_info
                 WHERE   (
                             run_id BETWEEN $first_run_id AND $last_run_id OR
@@ -238,6 +246,7 @@ class ProcessingJobs {
                         ) AND
                         run_id NOT IN ($next_season_test_runs -1) /* Have at least -1 to avoid bad SQL */ AND
                         (good_it = 1 OR good_i3 = 1)
+                GROUP BY run_id
                 ORDER BY run_id ASC";
 
         $query = $this->mysql->query($sql);
@@ -247,6 +256,10 @@ class ProcessingJobs {
                 if($this->is_l2_dataset) {
                     $this->result['data']['runs'][$row['run_id']]['validated'] = $row['validated'] == 1;
                 }
+
+                // Add production version and snapshot id
+                $this->result['data']['runs'][$row['run_id']]['production_version'] = $row['production_version'];
+                $this->result['data']['runs'][$row['run_id']]['snapshot_id'] = $row['snapshot_id'];
             } else {
                 $current_run = $run_pattern;
 
@@ -254,8 +267,20 @@ class ProcessingJobs {
                 $current_run['date'] = $row['date'];
                 $current_run['submitted'] = $this->is_l2_dataset_id && $row['submitted'] == 1;
                 $current_run['status'] = self::get_status('NONE');
+                $current_run['production_version'] = $row['production_version'];
+                $current_run['snapshot_id'] = $row['snapshot_id'];
 
                 $this->result['data']['runs'][$row['run_id']] = $current_run;
+            }
+
+            // Store run of GRL
+            $grl_run_ids[] = $row['run_id'];
+        }
+
+        // Remove all runs from result run list that are not in the GRL
+        foreach($this->result['data']['runs'] as $run_id => &$value) {
+            if(!in_array($run_id, $grl_run_ids)) {
+                unset($this->result['data']['runs'][$run_id]);
             }
         }
     }
@@ -272,10 +297,7 @@ class ProcessingJobs {
                 JOIN job j
                     ON j.queue_id = r.queue_id
                     AND j.dataset_id = r.dataset_id
-                JOIN grl_snapshot_info g
-                    ON r.run_id = g.run_id
-                WHERE   r.dataset_id = {$this->dataset_id} AND 
-                        (good_it = 1 OR good_i3 = 1)
+                WHERE   r.dataset_id = {$this->dataset_id}
                 GROUP BY r.run_id
                 ORDER BY r.run_id ASC";
 
