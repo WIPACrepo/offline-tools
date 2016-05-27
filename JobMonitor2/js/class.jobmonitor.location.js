@@ -4,7 +4,7 @@ function JobMonitorLocation() {
     this.listener = [];
 
     window.addEventListener("popstate", function(e) {
-        iam.forEach(function(listener) {
+        iam.listener.forEach(function(listener) {
             listener.popState(iam);
         });
     });
