@@ -33,10 +33,18 @@ function JobMonitorCalendar() {
                                 'Processing': 'day-proc',
                                 'Processing w/ Errors': 'day-proc-error',
                                 'Jobs Idling': 'day-idle',
+                                'In Preparation': 'day-none',
                                 'Not All Runs Submitted Yet': 'day-not-all-submitted',
                                 'Not All Runs Validated Yet': 'day-not-validated'};
 
     this.calendarData = undefined;
+    
+    var iam = this;
+    this.selectedDay = undefined;
+
+    $('#jm-dialog-day').on('show.bs.modal', function (event) {
+        iam._dayDialog($('.modal-title', this), $('.modal-body', this));
+    });
 }
 
 JobMonitorCalendar.prototype = new JobMonitorView('calendar');
@@ -57,10 +65,34 @@ JobMonitorCalendar.prototype.updateView = function(data) {
 
     $(this.getContent()).html(html);
 
+    // Handle detailed day info
+    $('td[data-jm-day]', this.getContent()).click(function() {
+        var dateSplit = $(this).attr('data-jm-day').split('-');
+
+        console.log(this);
+        console.log(dateSplit);
+
+        if(dateSplit.length === 3) {
+            try {
+                iam.selectedDay = {'year': parseInt(dateSplit[0]),
+                                   'month': parseInt(dateSplit[1]),
+                                   'day': parseInt(dateSplit[2])
+                                  };
+
+                $('#jm-dialog-day').modal();
+            } catch(e) {
+                console.log(e);
+                // Do nothing when parsing failed
+            }
+        }
+
+        return false;
+    });
+
     // Handle tooltips
     $('[data-toggle=\'popover\']', this.getContent()).popover(
         {
-            'trigger': 'click hover',
+            'trigger': 'hover',
             'container': 'body',
             'placement': 'bottom',
             'html': true,
@@ -103,7 +135,25 @@ JobMonitorCalendar.prototype.updateView = function(data) {
     });
 }
 
-JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day) {
+JobMonitorCalendar.prototype._dayDialog = function(header, content) {
+    header.html('Runs from ' + this.months[this.selectedDay['month'] - 1] + ' ' + this.selectedDay['day'] + ', ' + this.selectedDay['year']);
+
+    content.html(this._createDaySummaryTable(this.selectedDay['year'], this.selectedDay['month'], this.selectedDay['day'], true));
+    
+    $('[data-toggle="popover"]', content).popover({'html': true});
+    
+    // Close popover on click outside of popover
+    $('body').on('click', function (e) {
+        $('[data-toggle="popover"]', content).each(function () {
+            if (!$(this).is(e.target) && $(this).has(e.target).length === 0 && $('.popover').has(e.target).length === 0) {
+                $(this).popover('hide');
+            }
+        });
+    });
+}
+
+JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day, verbose) {
+    verbose = typeof verbose === 'undefined' ? false : verbose;
     var dayData = this.calendarData[year][month][day];
     var iam = this;
 
@@ -111,18 +161,39 @@ JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day)
         return '';
     }
 
-    var html = '<table class="jm-day-summary">';
+    var html = '<table class="jm-day-summary' + (verbose ? ' table table-striped' : '') + '">';
     html += '<thead>';
     html += '<tr>';
     html += '<th>';
     html += 'Run';
     html += '</th>';
+
+    if(verbose) {
+        html += '<th>';
+        html += 'Snapshot Id';
+        html += '</th>';
+
+        html += '<th>';
+        html += 'Production Version';
+        html += '</th>';
+    }
+
     html += '<th>';
-    html += 'Subm.';
+    html += verbose ? 'Submitted' : 'Subm.';
     html += '</th>';
     html += '<th>';
-    html += 'Val.';
+    html += verbose ? 'Validated' : 'Val.';
     html += '</th>';
+
+    if(verbose) {
+        html += '<th>';
+        html += 'Processing Completed';
+        html += '</th>';
+        html += '<th>';
+        html += '';
+        html += '</th>';
+    }
+
     html += '</tr>';
     html += '</thead>';
     html += '<tbody>';
@@ -130,6 +201,8 @@ JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day)
     dayData['runs'].forEach(function(run) {
         var runStatusCSS = iam.runStatusCSSMapping[run['status']['name']];
         var progressIndicator = Math.floor(run['jobs_states']['OK'] / run['sub_runs'] * 100);
+
+        var folderPath = '/data/exp/IceCube/' + year + '/filtered/level2/' + (month < 10 ? '0' : '') + month + (day < 10 ? '0' : '') + day + '/Run00' + run['run_id'] + '/';
 
         html += '<tr>';
         html += '<td>';
@@ -140,6 +213,15 @@ JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day)
         }
 
         html += '</td>';
+
+        if(verbose) {
+            html += '<td>';
+            html += run['snapshot_id'];
+            html += '</td>';
+            html += '<td>';
+            html += run['production_version'];
+            html += '</td>';
+        }
 
         if(run['submitted']) {
             html += '<td class="run-ok">';
@@ -160,11 +242,31 @@ JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day)
         }
 
         html += '</td>';
+        
+        if(verbose) {
+            html += '<td>';
+            html += run['status']['name'] === 'OK' ? run['last_status_change'] : 'N/A';
+            html += '</td>';
+            html += '<td>';
+
+            if(run['validated']) {
+                html += '<a href="#" onclick="return false" data-container="body" data-toggle="popover" data-placement="bottom" data-content="<b>Folder:</b> <code>' + folderPath + '</code>">';
+                html += '<span class="glyphicon glyphicon-folder-open" aria-hidden="true"></a>';
+            }
+
+            html += '</td>';
+        }
+
         html += '</tr>';
     });
 
     html += '</tbody>';
     html += '</table>';
+
+    if(!verbose) {
+        html += '<small class="text-muted">Click on day for more information</small>';
+    }
+
     return html;
 }
 

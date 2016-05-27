@@ -17,8 +17,6 @@ function JobMonitorJobs() {
     this.dialogSelectedRun = undefined;
 
     $('#jm-dialog').on('show.bs.modal', function (event) {
-        console.log(iam.dialogSelectedRun);
-
         iam._logDialog($('.modal-title', this), $('.modal-body', this), iam.data['runs'][iam.dialogSelectedRun]);
     });
 }
