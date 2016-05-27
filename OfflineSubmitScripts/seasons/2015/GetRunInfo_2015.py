@@ -91,15 +91,23 @@ def main(logger,dryrun = False, check = False):
         
     # dict structure of live db data ensures only latest entry for every run is considered
     RunInfo_ = {}
+
+    # Need to catch all run id/snapshot id combinations of all runs
+    # That means that it needs to be aware of that one run can have several entries/snapshot ids
+    Run_SSId = []
     for r_ in tmp_i3_:
         for k in r_.keys():
             if r_[k] is None : r_[k]="NULL"
+
         RunInfo_[r_['runNumber']] = r_
+
+        # Add run id/snapshot id combination
+        Run_SSId.append((r_['runNumber'], r_['snapshot_id']))
     
     RunNums_ = RunInfo_.keys()
     RunNums_.sort()
-    
-    Run_SSId_Str_ = ",".join(["'"+str(r)+"_"+str(RunInfo_[r]['snapshot_id'])+"'" for r in RunNums_])
+   
+    Run_SSId_Str_ = ",".join(["'%s_%s'" % (r[0], r[1]) for r in Run_SSId])
     RunStr_ = ",".join([str(r) for r in RunNums_])
 
     # get all previous runs from dbs4 and check if entries in live are different
