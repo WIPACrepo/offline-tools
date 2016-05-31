@@ -70,7 +70,7 @@ def main(logger,dryrun = False, check = False):
     logger.debug("Got current max production_version %i and ss_ref %i from grl_snapshot_info table" %(CurrentMaxSnapshot,CurrentProductionVersion)) 
     
     IC86_5_FirstRun = "126378"  # 
-    IC86_5_LastRun = "999999"   # change this when IC85_2015 season ends
+    IC86_5_LastRun = "127949"   # change this when IC85_2015 season ends
     # including IC86_2015_24hr test runs taken during the IC86_2014 season
     #IC86_2015_24hr_TestRuns = (126289,126290,126291)
 
