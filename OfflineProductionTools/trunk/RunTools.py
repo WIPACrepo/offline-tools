@@ -171,11 +171,11 @@ class RunTools(object):
             if len(InFiles) != FileParts[-1] + 1:
                 self.logger.warning( "Looks like we don't have all the files for this run")
                 MissingParts = (set(range(0,FileParts[-1] + 1))).difference(set(FileParts))
-                logger.warning("There are %s Missing Part(s):" % len(MissingParts))
+                self.logger.warning("There are %s Missing Part(s):" % len(MissingParts))
                 MissingParts = list(MissingParts)
                 MissingParts.sort()
                 for m in MissingParts:
-                    logger.warning(m)
+                    self.logger.warning(m)
                 return 0
            
             tmpfile = os.path.join(tmppath, 'tmp.xml')
