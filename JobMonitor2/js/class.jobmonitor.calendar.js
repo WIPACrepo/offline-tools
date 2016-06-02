@@ -46,7 +46,9 @@ function JobMonitorCalendar(url) {
 
     $('#jm-dialog-day').on('show.bs.modal', function (event) {
         iam._dayDialog($('.modal-title', this), $('.modal-body', this));
-    }).on('hidden.bs.popover', function () {
+    });
+
+    $('#jm-dialog-day').on('hidden.bs.modal', function () {
         iam.url.removeState('day');
         iam.url.pushState();
     });
