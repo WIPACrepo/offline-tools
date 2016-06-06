@@ -537,7 +537,7 @@ if __name__ == '__main__':
               dest="TEMPLATE", help="""use this option for comparing GCD files to previous GCD files.
                                        It is expected that the validity times will change but nothing else
                                        except a calibration insertion is done.""")
-    
+
     #-----------------------------------------------------------------
     # Parse cmd line args, exit if anything is not understood
     #-----------------------------------------------------------------
@@ -557,7 +557,27 @@ if __name__ == '__main__':
     V = options.VERBOSE
     
     T = options.TEMPLATE
-    
+
+    season = 2015 #default
+    # try to get season from GCD file name
+    seasonInfoFound = False
+
+    seasonFileName = os.path.basename(GCDFiles[0])
+
+    if seasonFileName.startswith('Level2_IC86'):
+        parts = seasonFileName.split('.')
+
+        if len(parts) >= 3:
+            try:
+                season = int(parts[1].split('_')[0])
+                print "Extracted season informatin from GCD file name: %s" % season
+                seasonInfoFound = True
+            except:
+                pass
+   
+    if not seasonInfoFound:
+        print "No season information could be extracted from GCD file name. Use default season: %s" % season;
+ 
     #t = datetime.datetime.now()
     
     BadDOMsList = []
@@ -599,7 +619,7 @@ if __name__ == '__main__':
     #print "\nCombined Return Value: %d"%(checkGeometry+checkDetStatus)
     #sys.exit(checkGeometry+checkDetStatus)
     
-    checkCalibration = CmpCalibration(GCDFiles,BadDOMsList,V,T)
+    checkCalibration = CmpCalibration(GCDFiles, BadDOMsList, V, T, season)
     print "Calibration check return: ",checkCalibration
     print "\nCombined Return Value: %d"%(checkGeometry+checkDetStatus+checkCalibration)
     sys.exit(checkGeometry+checkDetStatus+checkCalibration)
