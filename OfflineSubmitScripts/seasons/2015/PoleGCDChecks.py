@@ -54,8 +54,8 @@ def main(logger, StartRun = DEFAULT_START_RUN, dryrun=False):
     # no valid GCD files between season start (126378) and 126444
     # run when 'good' GCD files started flowing again from Pole (126445)
     runs_ = dbs4_.fetchall("""SELECT * FROM i3filter.grl_snapshot_info g
-                 where (good_it or good_i3) and run_id>=%d
-                 and PoleGCDCheck is NULL order by run_id """%StartRun, UseDict=True)
+                 where (good_it or good_i3) and run_id BETWEEN %d AND %d
+                 and PoleGCDCheck is NULL order by run_id """ % (StartRun, 127949), UseDict=True)
     
     run_id = [r['run_id'] for r in runs_]
     

@@ -48,7 +48,7 @@ dbs4_ = dbs4.MySQL()
 if __name__ == '__main__':
     #FIXME: adjust paths for season
     CONDOR_SUBMIT_FILE = os.path.join(get_tmpdir(), 'submit_GCD_2015.condor')
-    I3BUILD_DIR = '/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-06/'
+    I3BUILD_DIR = '/data/user/i3filter/IC86_OfflineProcessing/icerec/RHEL_6.4_IC2015-L2_V15-04-07/'
 
     #------------------------------------------------------------------
 
