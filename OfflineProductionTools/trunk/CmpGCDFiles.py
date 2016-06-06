@@ -53,8 +53,11 @@ def PrintVerboseDifference(GCDFiles,Keys1,Keys2):
             print t_d
 
 
-def CmpCalibration(GCDFiles,BadDOMsList=[],V=False,T=False):
-    
+def CmpCalibration(GCDFiles, BadDOMsList = [], V = False, T = False, Season = 2015):
+    """
+    Season is important for the QuadraticFit object since quad_fit_v has been renamed for season 2016 to quad_fit_c.
+    """
+
     print "\nComparing Calibration ......"
 
     checkFail = 0
@@ -99,9 +102,13 @@ def CmpCalibration(GCDFiles,BadDOMsList=[],V=False,T=False):
         
         #atwd_freq_fit_Check = list(itertools.chain.from_iterable([[DC1[k].atwd_freq_fit[i].quad_fit_a,DC1[k].atwd_freq_fit[i].quad_fit_b,DC1[k].atwd_freq_fit[i].quad_fit_v] for i in xrange(2)]))\
         #                      == list(itertools.chain.from_iterable([[DC2[k].atwd_freq_fit[i].quad_fit_a,DC2[k].atwd_freq_fit[i].quad_fit_b,DC2[k].atwd_freq_fit[i].quad_fit_v] for i in xrange(2)]))
-        DCal_Diff_Tdict['atwd_freq_fit_Check'] = list(itertools.chain.from_iterable([[DC1[k].atwd_freq_fit[i].quad_fit_a,DC1[k].atwd_freq_fit[i].quad_fit_b,DC1[k].atwd_freq_fit[i].quad_fit_c] for i in xrange(2)]))\
-                                                == list(itertools.chain.from_iterable([[DC2[k].atwd_freq_fit[i].quad_fit_a,DC2[k].atwd_freq_fit[i].quad_fit_b,DC2[k].atwd_freq_fit[i].quad_fit_c] for i in xrange(2)]))
-    
+
+        if Season <= 2015:
+            DCal_Diff_Tdict['atwd_freq_fit_Check'] = list(itertools.chain.from_iterable([[DC1[k].atwd_freq_fit[i].quad_fit_a,DC1[k].atwd_freq_fit[i].quad_fit_b,DC1[k].atwd_freq_fit[i].quad_fit_v] for i in xrange(2)]))\
+                                                    == list(itertools.chain.from_iterable([[DC2[k].atwd_freq_fit[i].quad_fit_a,DC2[k].atwd_freq_fit[i].quad_fit_b,DC2[k].atwd_freq_fit[i].quad_fit_v] for i in xrange(2)]))
+        elif Season >= 2016:
+            DCal_Diff_Tdict['atwd_freq_fit_Check'] = list(itertools.chain.from_iterable([[DC1[k].atwd_freq_fit[i].quad_fit_a,DC1[k].atwd_freq_fit[i].quad_fit_b,DC1[k].atwd_freq_fit[i].quad_fit_c] for i in xrange(2)]))\
+                                                    == list(itertools.chain.from_iterable([[DC2[k].atwd_freq_fit[i].quad_fit_a,DC2[k].atwd_freq_fit[i].quad_fit_b,DC2[k].atwd_freq_fit[i].quad_fit_c] for i in xrange(2)]))
         
         # only in old GCD
         #DCal_Diff_Tdict['tau_params_Check'] = [DC1[k].tau_parameters.p0,DC1[k].tau_parameters.p1,DC1[k].tau_parameters.p2,DC1[k].tau_parameters.p3,DC1[k].tau_parameters.p4,DC1[k].tau_parameters.p5,DC1[k].tau_parameters.tau_frac] \
