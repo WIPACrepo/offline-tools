@@ -26,7 +26,7 @@ dbs4_ = dbs4.MySQL()
 m_live = live.MySQL()
 dbs2_ = dbs2.MySQL()
 
-def send_check_notification(logger, dryrun, config):
+def send_check_notification(logger, dryrun, config, new_records, changed_records):
     sys.path.append(config.get('DEFAULT', 'ProductionToolsPath'))
     import SendNotification as SN
 
@@ -47,7 +47,10 @@ def send_check_notification(logger, dryrun, config):
         ***        GetRunInfo system of L2 Processing     *** <br><br>
         
         A new snapshot is available!
-        """
+
+        New Runs: %s
+        Changed Runs: %s
+        """ % (new_records, changed_records)
    
     logger.debug("Receivers: %s" % RECEIVERS)
  
@@ -183,7 +186,7 @@ def main(config, logger,dryrun = False, check = False):
 
     if check:
         logger.info("New records available. This was only a check. Do nothing. Exit.")
-        send_check_notification(logger, dryrun, config)
+        send_check_notification(logger, dryrun, config, NewRecords_, ChangedRecords_)
         exit(0)
     
     for r in RunNums_:
