@@ -165,6 +165,15 @@ if __name__ == '__main__':
         SUBMITFILE.close()
         ##
         if not dryrun:
+            if REPRODUCE:
+                logger.debug("Update grl_snapshot_info: GCDCheck = 0, BadDOMsCheck = 0, PoleGCDCheck = NULL, TemplateGCDCheck = NULL")
+                dbs4_.execute("""UPDATE grl_snapshot_info
+                                 SET GCDCheck = 0, BadDOMsCheck = 0, PoleGCDCheck = NULL, TemplateGCDCheck = NULL
+                                 WHERE run_id = %s 
+                                    AND snapshot_id = %s 
+                                    AND production_version = %s
+                              """ % (r, SId, PV))
+
             logger.debug("Execute `condor_submit %s`"%CONDOR_SUBMIT_FILE)
             processoutput = subprocess.check_output("condor_submit %s"%CONDOR_SUBMIT_FILE, shell = True, stderr=subprocess.STDOUT)
             logger.info(processoutput.strip())
