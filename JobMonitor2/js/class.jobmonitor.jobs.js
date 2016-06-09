@@ -16,6 +16,15 @@ function JobMonitorJobs() {
     this.data = undefined;
     this.dialogSelectedRun = undefined;
 
+    this.jobStatusCSSMapping = {
+        'NONE': '',
+        'IDLE': 'idle',
+        'OK': 'ok',
+        'PROCESSING': 'proc',
+        'PROCESSING/ERRORS': 'error',
+        'FAILED': 'failed'
+    };
+
     $('#jm-dialog').on('show.bs.modal', function (event) {
         iam._logDialog($('.modal-title', this), $('.modal-body', this), iam.data['runs'][iam.dialogSelectedRun]);
     });
@@ -114,7 +123,7 @@ JobMonitorJobs.prototype._createRunEntry = function(runId, value) {
     }
 
     var classes = [];
-
+    var jobState = '';
     if(value['jobs_states']['FAILED'] > 0) {
         classes.push('failed');
         classes.push('loginfo');
@@ -122,6 +131,8 @@ JobMonitorJobs.prototype._createRunEntry = function(runId, value) {
         classes.push('error');
         classes.push('loginfo');
     }
+
+    var jobState = this.jobStatusCSSMapping[value['status']['name']];
 
     var progressIndicator = Math.floor(value['jobs_states']['OK'] / value['sub_runs'] * 100);
 
@@ -136,7 +147,7 @@ JobMonitorJobs.prototype._createRunEntry = function(runId, value) {
         + '<td class="hidden-xs hidden-sm">' + this._createFailureList(value['failures']) + '</td>'
         + '<td class="hidden-xs hidden-sm">' + value['date'] + '</td>'
         + '<td class="hidden-xs hidden-sm">' + lastStatusChange + '</td>'
-        + '<td class="hidden-md hidden-lg">' + runId + (isNaN(progressIndicator) ? '' : ' (' + progressIndicator + ')') + '</td>'
+        + '<td class="hidden-md hidden-lg ' + jobState + '">' + runId + (isNaN(progressIndicator) ? '' : ' (' + progressIndicator + '%)') + '</td>'
         + '</tr>';
 
     return html;

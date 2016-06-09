@@ -1,11 +1,24 @@
 
-#jm-content-view-current-jobs tr.failed td {
+#jm-content-view-current-jobs tr.failed td, #jm-content-view-current-jobs tr td.failed {
     background-color: red;
     color: white;
 }
 
-#jm-content-view-current-jobs tr.error td {
+#jm-content-view-current-jobs tr.error td, #jm-content-view-current-jobs tr td.error {
     background-color: orange;
+}
+
+#jm-content-view-current-jobs tr.ok td, #jm-content-view-current-jobs tr td.ok {
+    background-color: green;
+    color: white;
+}
+
+#jm-content-view-current-jobs tr.proc td, #jm-content-view-current-jobs tr td.proc {
+    background-color: orange;
+}
+
+#jm-content-view-current-jobs tr.idle td, #jm-content-view-current-jobs tr td.idle {
+    background-color: #B3B7FF;
 }
 
 #jm-content-view-current-jobs tr.error td, #jm-content-view-current-jobs tr.failed td {
