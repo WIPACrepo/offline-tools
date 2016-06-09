@@ -28,7 +28,7 @@ JobMonitorDatasets.prototype.update = function(datasets) {
     datasetSelection += '<th>';
     datasetSelection += 'Dataset Id';
     datasetSelection += '</th>';
-    datasetSelection += '<th>';
+    datasetSelection += '<th class="hidden-xs">';
     datasetSelection += 'Description';
     datasetSelection += '</th>';
     datasetSelection += '</tr>';
@@ -58,7 +58,7 @@ JobMonitorDatasets.prototype.update = function(datasets) {
         datasetSelection += dataset['dataset_id'];
 
         datasetSelection += '</td>';
-        datasetSelection += '<td' + (dataset['supported'] ? '' : ' class="text-muted"') + '>';
+        datasetSelection += '<td class="hidden-xs' + (dataset['supported'] ? '' : ' text-muted') + '">';
         datasetSelection += dataset['description'];
         datasetSelection += '</td></tr>';
     }

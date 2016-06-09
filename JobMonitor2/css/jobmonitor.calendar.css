@@ -120,6 +120,7 @@
 
 #jm-content-view-calendar .jm-view-content #key {
     margin-top: 20px;
+    line-height: 40px;
 }
 
 #jm-content-view-calendar .jm-view-content #key .jm-label {
@@ -127,6 +128,18 @@
     border-radius: 5px;
     margin-right: 10px;
     padding: 5px;
+}
+
+@media (max-width: 767px) {
+    #jm-content-view-calendar .jm-view-content #key .jm-label {
+        margin-right: 0;
+        margin-bottom: 5px;
+        display: block;
+    }
+
+    #jm-content-view-calendar .jm-view-content #key {
+        line-height: initial;
+    }
 }
 
 #jm-content-view-calendar .jm-view-content #key .jm-label .icon {
