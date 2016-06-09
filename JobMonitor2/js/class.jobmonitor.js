@@ -9,7 +9,16 @@ function JobMonitor(params) {
 
     params = typeof params !== 'undefined' ? params : {};
 
-    this.apiVersion = parseInt($('#jm-api-version').html());
+    this.apiVersion = $('#jm-api-version').html().split('.');
+    try {
+        for(var i = 0; i < this.apiVersion.length; ++i) {
+            this.apiVersion[i] = parseInt(this.apiVersion[i]);
+        }
+    } catch(err) {
+        console.log(err);
+        alert('Cannot determine client API version.');
+        return;
+    }
 
     this.data = undefined;
 
@@ -32,6 +41,61 @@ function JobMonitor(params) {
         'calendarView': new JobMonitorCalendar(this.url),
         'jobsView': new JobMonitorJobs()
     };
+
+    this.staticPages = {
+        'api': $('#jm-dialog-api'),
+        'feedback': $('#jm-dialog-feedback'),
+        'version': $('#jm-dialog-version')
+    };
+
+    this._staticContent();
+}
+
+JobMonitor.prototype.checkAPIVersionCompatibility = function(dataAPIVersion) {
+    try {
+        dataAPIVersion = String(dataAPIVersion).split('.');
+
+        for(var i = 0; i < dataAPIVersion.length; ++i) {
+            dataAPIVersion[i] = parseInt(dataAPIVersion[i]);
+        }
+
+        if(this.apiVersion.length !== 2 || dataAPIVersion.length !== 2) {
+            console.log('No valid version numbers');
+            return false;
+        }
+
+        return dataAPIVersion[0] === this.apiVersion[0] && dataAPIVersion[1] >= this.apiVersion[1];
+    } catch(err) {
+        console.log(err);
+        return false;
+    }
+}
+
+JobMonitor.prototype._staticContent = function() {
+    var iam = this;
+
+    $.each(this.staticPages, function(name, obj) {
+        obj.on('shown.bs.modal', function (e) {
+            iam.url.setState('static', name);
+            iam.url.pushState();
+        });
+
+        obj.on('hidden.bs.modal', function (e) {
+            iam.url.removeState('static');
+            iam.url.pushState();
+        });
+    });
+
+    if(this.url.hasState('static')) {
+        var page = this.url.getState('static');
+
+        if($.inArray(page, Object.keys(this.staticPages)) !== -1) {
+            this.staticPages[page].modal();
+        } else {
+            this.url.removeState('static');
+            this.url.pushState();
+        }
+    }
 }
 
 JobMonitor.prototype._startLoading = function() {
@@ -53,12 +117,14 @@ JobMonitor.prototype._endLoading = function() {
 
     // Check if L3 dataset before 2015
     var showWarning = false;
-    $.each(this.data['data']['datasets'], function(dataset_id, value) {
-        if(value['selected'] && value['season'] < 2015 && value['type'] === 'L3') {
-            showWarning = true;
-            return;
-        }
-    });
+    if(typeof this.data !== 'undefined') {
+        $.each(this.data['data']['datasets'], function(dataset_id, value) {
+            if(value['selected'] && value['season'] < 2015 && value['type'] === 'L3') {
+                showWarning = true;
+                return;
+            }
+        });
+    }
 
     if(showWarning) {
         iam._showL3SeasonWarning();
@@ -84,9 +150,10 @@ JobMonitor.prototype._updateData = function(data) {
 
     // First check passed :)
     // Check of api version compatible
-    if(this.apiVersion != data['api_version']) {
+    if(!this.checkAPIVersionCompatibility(data['api_version'])) {
         alert('API version incompatible');
         console.log(data);
+        return;
     }
 
     // Update dataset list

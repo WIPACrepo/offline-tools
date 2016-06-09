@@ -272,7 +272,8 @@ JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day,
             html += '</td>';
             html += '<td>';
 
-            if(run['validated']) {
+            // TODO: Wrong folder path for L3 datasets. L2 is fine.
+            if(false && run['validated']) {
                 html += '<a href="#" onclick="return false" data-container="body" data-toggle="popover" data-placement="bottom" data-content="<b>Folder:</b> <code>' + folderPath + '</code>">';
                 html += '<span class="glyphicon glyphicon-folder-open" aria-hidden="true"></a>';
             }

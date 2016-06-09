@@ -30,6 +30,10 @@ JobMonitorLocation.prototype.getState = function(name, defaultValue) {
     }
 }
 
+JobMonitorLocation.prototype.hasState = function(name) {
+    return typeof this.state[name] !== 'undefined';
+}
+
 JobMonitorLocation.prototype.setState = function(name, value) {
     this.state[name] = value;
 }

@@ -21,8 +21,8 @@ try {
         $pjobs->set_dataset_id(filter_input(INPUT_GET, 'dataset_id'));
     }
    
-    if(isset($_GET['dataset_list_only'])) {
-        if(filter_input(INPUT_GET, 'dataset_list_only')) {
+    if(isset($_GET['dataset_list_only']) || !isset($_GET['dataset_id'])) {
+        if(filter_input(INPUT_GET, 'dataset_list_only') || !isset($_GET['dataset_id'])) {
             $pjobs->set_dataset_list_only(true);
         }
     }

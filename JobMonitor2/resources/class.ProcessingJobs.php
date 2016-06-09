@@ -350,6 +350,7 @@ class ProcessingJobs {
                 $row['selected'] = $row['dataset_id'] == $this->dataset_id;
                 $row['supported'] = false;
                 $row['season'] = null;
+                $row['type'] = null;
 
                 $list[$row['dataset_id']] = $row;
             }

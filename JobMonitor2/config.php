@@ -10,7 +10,7 @@ $CONFIG = array(
     'default_dataset_id' => -1,
     'default_completed_job_length' => 10,
     'L2_datasets' => array(1863, 1866, 1870, 1871, 1874, 1883, 1888),
-    'api_version' => 1,
+    'api_version' => '1.0',
     'svn' => '$Id$'
 );
 
