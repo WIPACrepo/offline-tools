@@ -14,7 +14,7 @@
 }
 
 #jm-content-view-current-jobs tr.proc td, #jm-content-view-current-jobs tr td.proc {
-    background-color: orange;
+    background-color: yellow;
 }
 
 #jm-content-view-current-jobs tr.idle td, #jm-content-view-current-jobs tr td.idle {
