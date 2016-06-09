@@ -123,17 +123,20 @@ JobMonitorJobs.prototype._createRunEntry = function(runId, value) {
         classes.push('loginfo');
     }
 
+    var progressIndicator = Math.floor(value['jobs_states']['OK'] / value['sub_runs'] * 100);
+
     var html = '<tr class="' + classes.join(' ') + '">'
-        + '<td>' + runId + '</td>'
-        + '<td>' + value['jobs_states']['OK'] + '</td>'
-        + '<td>' + value['jobs_states']['FAILED'] + '</td>'
-        + '<td>' + value['jobs_states']['PROCESSING'] + '</td>'
-        + '<td>' + value['sub_runs'] + '</td>'
-        + '<td>' + this._createStatusList(value['jobs_states']) + '</td>'
-        + '<td>' + this._createStatusList(value['jobs_prev_states']) + '</td>'
-        + '<td>' + this._createFailureList(value['failures']) + '</td>'
-        + '<td>' + value['date'] + '</td>'
-        + '<td>' + lastStatusChange + '</td>'
+        + '<td class="hidden-xs hidden-sm">' + runId + '</td>'
+        + '<td class="hidden-xs hidden-sm">' + value['jobs_states']['OK'] + '</td>'
+        + '<td class="hidden-xs hidden-sm">' + value['jobs_states']['FAILED'] + '</td>'
+        + '<td class="hidden-xs hidden-sm">' + value['jobs_states']['PROCESSING'] + '</td>'
+        + '<td class="hidden-xs hidden-sm">' + value['sub_runs'] + '</td>'
+        + '<td class="hidden-xs hidden-sm">' + this._createStatusList(value['jobs_states']) + '</td>'
+        + '<td class="hidden-xs hidden-sm">' + this._createStatusList(value['jobs_prev_states']) + '</td>'
+        + '<td class="hidden-xs hidden-sm">' + this._createFailureList(value['failures']) + '</td>'
+        + '<td class="hidden-xs hidden-sm">' + value['date'] + '</td>'
+        + '<td class="hidden-xs hidden-sm">' + lastStatusChange + '</td>'
+        + '<td class="hidden-md hidden-lg">' + runId + (isNaN(progressIndicator) ? '' : ' (' + progressIndicator + ')') + '</td>'
         + '</tr>';
 
     return html;
@@ -143,16 +146,17 @@ JobMonitorJobs.prototype._createTableHeader = function() {
     var html = '<table id="example" class="table table-striped table-bordered" cellspacing="0" width="100%">';
 
     html += '<thead><tr>'
-        + '<th>Run #</th>'
-        + '<th>OK</th>'
-        + '<th>FAILED</th>'
-        + '<th>PROCESSING</th>'
-        + '<th># of jobs</th>'
-        + '<th>Status</th>'
-        + '<th>Previous Status</th>'
-        + '<th>Failures</th>'
-        + '<th>Run Date</th>'
-        + '<th>Last Status Change</th>'
+        + '<th class="hidden-xs hidden-sm">Run #</th>'
+        + '<th class="hidden-xs hidden-sm">OK</th>'
+        + '<th class="hidden-xs hidden-sm">FAILED</th>'
+        + '<th class="hidden-xs hidden-sm">PROCESSING</th>'
+        + '<th class="hidden-xs hidden-sm"># of jobs</th>'
+        + '<th class="hidden-xs hidden-sm">Status</th>'
+        + '<th class="hidden-xs hidden-sm">Previous Status</th>'
+        + '<th class="hidden-xs hidden-sm">Failures</th>'
+        + '<th class="hidden-xs hidden-sm">Run Date</th>'
+        + '<th class="hidden-xs hidden-sm">Last Status Change</th>'
+        + '<th class="hidden-md hidden-lg">Run #</th>'
         + '</tr>'
         + '</thead>';
 
@@ -160,7 +164,7 @@ JobMonitorJobs.prototype._createTableHeader = function() {
 }
 
 JobMonitorJobs.prototype._createTableFooter = function() {
-    var html = '<tfoot><tr>'
+    var html = '<tfoot class="hidden-xs hidden-sm"><tr>'
         + '<th>Sums</th>'
         + '<th></th>'
         + '<th></th>'

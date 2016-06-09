@@ -1,5 +1,5 @@
 
-function JobMonitorCalendar(url) {
+function JobMonitorCalendar(url, isTouchDevice) {
     this.url = url;
 
     /** @private */ this.weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -38,6 +38,8 @@ function JobMonitorCalendar(url) {
                                 'In Preparation': 'day-none',
                                 'Not All Runs Submitted Yet': 'day-not-all-submitted',
                                 'Not All Runs Validated Yet': 'day-not-validated'};
+
+    this.isTouchDevice = isTouchDevice;
 
     this.calendarData = undefined;
     
@@ -97,40 +99,43 @@ JobMonitorCalendar.prototype.updateView = function(data) {
     });
 
     // Handle tooltips
-    $('[data-toggle=\'popover\']', this.getContent()).popover(
-        {
-            'trigger': 'hover',
-            'container': 'body',
-            'placement': 'bottom',
-            'html': true,
-            'title': function() {
-                var dateSplit = $(this).attr('data-jm-day').split('-');
+    // Only activate them if no touch device
+    if(!this.isTouchDevice) {
+        $('[data-toggle=\'popover\']', this.getContent()).popover(
+            {
+                'trigger': 'hover',
+                'container': 'body',
+                'placement': 'bottom',
+                'html': true,
+                'title': function() {
+                    var dateSplit = $(this).attr('data-jm-day').split('-');
 
-                if(dateSplit.length === 3) {
-                    try {
-                        var year = parseInt(dateSplit[0]);
-                        var month = parseInt(dateSplit[1]);
-                        var day = parseInt(dateSplit[2]);
-                        return 'Runs from ' + iam.months[month - 1] + ' ' + day + ', ' + year + ':';
-                    } catch(e) {
-                        console.log('catch ' + e);
-                        // Do nothing when parsing failed
+                    if(dateSplit.length === 3) {
+                        try {
+                            var year = parseInt(dateSplit[0]);
+                            var month = parseInt(dateSplit[1]);
+                            var day = parseInt(dateSplit[2]);
+                            return 'Runs from ' + iam.months[month - 1] + ' ' + day + ', ' + year + ':';
+                        } catch(e) {
+                            console.log('catch ' + e);
+                            // Do nothing when parsing failed
+                        }
                     }
-                }
-            },
-            'content': function() {
-                var dateSplit = $(this).attr('data-jm-day').split('-');
+                },
+                'content': function() {
+                    var dateSplit = $(this).attr('data-jm-day').split('-');
 
-                if(dateSplit.length === 3) {
-                    try {
-                        return iam._createDaySummaryTable(parseInt(dateSplit[0]), parseInt(dateSplit[1]), parseInt(dateSplit[2]));
-                    } catch(e) {
-                        // Do nothing when parsing failed
+                    if(dateSplit.length === 3) {
+                        try {
+                            return iam._createDaySummaryTable(parseInt(dateSplit[0]), parseInt(dateSplit[1]), parseInt(dateSplit[2]));
+                        } catch(e) {
+                            // Do nothing when parsing failed
+                        }
                     }
                 }
             }
-        }
-    );
+        );
+    }
 
     // Close popover on click outside of popover
     $('body').on('click', function (e) {
@@ -192,11 +197,11 @@ JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day,
     html += '</th>';
 
     if(verbose) {
-        html += '<th>';
+        html += '<th class="hidden-xs">';
         html += 'Snapshot Id';
         html += '</th>';
 
-        html += '<th>';
+        html += '<th class="hidden-xs">';
         html += 'Production Version';
         html += '</th>';
     }
@@ -209,10 +214,10 @@ JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day,
     html += '</th>';
 
     if(verbose) {
-        html += '<th>';
+        html += '<th class="hidden-xs">';
         html += 'Processing Completed';
         html += '</th>';
-        html += '<th>';
+        html += '<th class="hidden-xs">';
         html += '';
         html += '</th>';
     }
@@ -238,10 +243,10 @@ JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day,
         html += '</td>';
 
         if(verbose) {
-            html += '<td>';
+            html += '<td class="hidden-xs">';
             html += run['snapshot_id'];
             html += '</td>';
-            html += '<td>';
+            html += '<td class="hidden-xs">';
             html += run['production_version'];
             html += '</td>';
         }
@@ -267,10 +272,10 @@ JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day,
         html += '</td>';
         
         if(verbose) {
-            html += '<td>';
+            html += '<td class="hidden-xs">';
             html += run['status']['name'] === 'OK' ? run['last_status_change'] : 'N/A';
             html += '</td>';
-            html += '<td>';
+            html += '<td class="hidden-xs">';
 
             // TODO: Wrong folder path for L3 datasets. L2 is fine.
             if(false && run['validated']) {

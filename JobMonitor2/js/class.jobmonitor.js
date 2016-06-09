@@ -20,6 +20,8 @@ function JobMonitor(params) {
         return;
     }
 
+    this.isTouchDevice = ("ontouchstart" in window) || window.DocumentTouch && document instanceof DocumentTouch;
+
     this.data = undefined;
 
     this.url = new JobMonitorLocation();
@@ -38,7 +40,7 @@ function JobMonitor(params) {
     );
 
     this.views = {
-        'calendarView': new JobMonitorCalendar(this.url),
+        'calendarView': new JobMonitorCalendar(this.url, this.isTouchDevice),
         'jobsView': new JobMonitorJobs()
     };
 
