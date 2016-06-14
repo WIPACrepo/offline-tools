@@ -79,8 +79,10 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
                              (DatasetId,QueueId,os.path.basename(GCDFileName),"file:"+os.path.dirname(GCDFileName)+"/",GCDFileChkSum,str(os.path.getsize(GCDFileName))))
     
             if InFile in ExistingChkSums:
+                logger.debug("Use cached check sum for %s" % InFile)
                 InFileChkSum = str(ExistingChkSums[InFile])
             else:
+                logger.warning("No cached check sum for %s" % InFile)
                 InFileChkSum = str(FileTools(InFile, logger).md5sum())
     
             if not dryrun:
