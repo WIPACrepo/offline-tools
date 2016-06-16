@@ -57,7 +57,8 @@ def main(params, logger, DryRun):
             exit(1)
         elif not DryRun:
             dbs4_.execute("""UPDATE i3filter.grl_snapshot_info\
-                                 SET submitted=0 \
+                                 SET submitted=0, \
+                                     validated=0 \
                                  WHERE run_id BETWEEN %s AND %s AND (good_i3=1 OR good_it=1)"""%(START_RUN, END_RUN))
 
     ExistingChkSums = get_existing_check_sums(logger)
