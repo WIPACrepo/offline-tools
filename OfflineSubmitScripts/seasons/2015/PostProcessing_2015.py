@@ -91,6 +91,7 @@ if __name__ == '__main__':
         RunInfo = dbs4_.fetchall("""SELECT r.tStart,g.* FROM i3filter.grl_snapshot_info g
                                  join i3filter.run_info_summary r on r.run_id=g.run_id
                                  where g.submitted and (g.good_i3 or g.good_it or g.run_id in (126289,126290,126291)) and not validated
+                                 AND g.run_id <= 127949
                                  order by g.run_id""",UseDict=True)
 
     main(RunInfo,logger,dryrun=args.dryrun)
