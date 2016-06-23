@@ -9,6 +9,7 @@ import re
 import os
 import stat
 import subprocess as sub
+import sys
 
 from warnings import warn
 
@@ -16,6 +17,10 @@ try:
     from icecube import icetray,dataclasses,dataio
 except:
     warn("No env-shell loaded")
+
+import config
+sys.path.append(config.get_config().get('DEFAULT', 'ProductionToolsPath'))
+sys.path.append(config.get_config().get('DEFAULT', 'SQLClientPath'))
 
 import SQLClient_i3live as live
 import SQLClient_dbs4 as dbs4

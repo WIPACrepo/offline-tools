@@ -8,6 +8,10 @@ and run_info_summary on dbs4
 
 import os
 import re
+import sys
+from libs.files import get_logdir, get_tmpdir
+import libs.config
+sys.path.append(libs.config.get_config().get('DEFAULT', 'SQLClientPath'))
 import SQLClient_i3live as live
 import SQLClient_dbs4 as dbs4
 import SQLClient_dbs2 as dbs2
@@ -15,10 +19,8 @@ import SQLClient_dbs2 as dbs2
 from sys import exit
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
-from libs.files import get_logdir, get_tmpdir
 import libs.checks
 from RunTools import RunTools
-import libs.config
 
 import sys
 
