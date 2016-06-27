@@ -15,6 +15,7 @@ require_once('config.php');
     <link href="css/bootstrap-select.min.css" rel="stylesheet">
     <link href="css/dataTables.bootstrap.min.css" rel="stylesheet">
     <link href="css/font-awesome.min.css" rel="stylesheet">
+    <link href="css/awesome-bootstrap-checkbox.css" rel="stylesheet">
     <link href="css/jobmonitor2.css" rel="stylesheet">
 
     <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
@@ -114,7 +115,7 @@ require_once('config.php');
 
       <div class="panel panel-default" id="jm-content-view-current-jobs" style="display: none">
         <div class="panel-heading">
-          <h3 class="panel-title jm-view-header">Currently Processing or Failed Jobs</h3>
+          <h3 class="panel-title jm-view-header">Jobs</h3>
         </div>
         <div class="panel-body jm-view-content">
           Not loaded yet...

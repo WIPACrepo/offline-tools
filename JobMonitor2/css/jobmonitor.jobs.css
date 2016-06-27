@@ -1,29 +1,75 @@
 
-#jm-content-view-current-jobs tr.failed td, #jm-content-view-current-jobs tr td.failed {
+#jm-content-view-current-jobs tr.failed td,
+#jm-content-view-current-jobs tr td.failed {
     background-color: red;
     color: white;
 }
 
-#jm-content-view-current-jobs tr.error td, #jm-content-view-current-jobs tr td.error {
+#jm-content-view-current-jobs tr.failed.odd td,
+#jm-content-view-current-jobs tr.odd td.failed {
+    background-color: #C80000;
+    color: white;
+}
+
+#jm-content-view-current-jobs tr.error td,
+#jm-content-view-current-jobs tr td.error {
+    background-color: #FFC24A;
+}
+
+#jm-content-view-current-jobs tr.error.odd td,
+#jm-content-view-current-jobs tr.odd td.error {
     background-color: orange;
 }
 
-#jm-content-view-current-jobs tr.ok td, #jm-content-view-current-jobs tr td.ok {
+#jm-content-view-current-jobs tr.ok td:first-child,
+#jm-content-view-current-jobs tr td.ok {
+    background-color: #43A042;
+    color: white;
+}
+
+#jm-content-view-current-jobs tr.ok.odd td:first-child,
+#jm-content-view-current-jobs tr.odd td.ok {
     background-color: green;
     color: white;
 }
 
-#jm-content-view-current-jobs tr.proc td, #jm-content-view-current-jobs tr td.proc {
-    background-color: yellow;
+#jm-content-view-current-jobs tr.proc td:first-child,
+#jm-content-view-current-jobs tr td.proc {
+    background-color: #F9ED7F;
 }
 
-#jm-content-view-current-jobs tr.idle td, #jm-content-view-current-jobs tr td.idle {
+#jm-content-view-current-jobs tr.proc.odd td:first-child,
+#jm-content-view-current-jobs tr.odd td.proc {
+    background-color: #ffe400;
+}
+
+#jm-content-view-current-jobs tr.idle td:first-child,
+#jm-content-view-current-jobs tr td.idle {
+    background-color: #A1A6EE;
+    color: white;
+}
+
+#jm-content-view-current-jobs tr.idle.odd td:first-child,
+#jm-content-view-current-jobs tr.odd td.idle {
     background-color: #B3B7FF;
 }
 
-#jm-content-view-current-jobs tr.error td, #jm-content-view-current-jobs tr.failed td {
+#jm-content-view-current-jobs tr.error td,
+#jm-content-view-current-jobs tr.failed td {
     cursor: pointer;
     font-weight: bold;
+}
+
+#jm-content-view-current-jobs #example_length {
+    float: left;
+}
+
+#jm-content-view-current-jobs #example_filter {
+    float: right;
+}
+
+#jm-content-view-current-jobs .toolbar {
+    clear: left;
 }
 
 #jm-dialog #jm-dialog-log-content pre.log {

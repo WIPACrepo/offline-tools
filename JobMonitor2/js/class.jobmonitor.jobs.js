@@ -1,8 +1,23 @@
 
-function JobMonitorJobs() {
+function JobMonitorJobs(url) {
     var iam = this;
 
+    this.url = url;
+
+    this.dataCache = undefined;
+
     this.footerSumColumns = [1, 2, 3, 4];
+
+    this.jobOptions = {'completed': false,
+                        'failed': true,
+                        'processing': true,
+                        'idling': true};
+
+    // Initialize jobOptions with URL values
+    $.each(iam.jobOptions, function(name, value) {
+        iam.jobOptions[name] = iam.url.getState('show' + name[0].toUpperCase() + name.substring(1) + 'Jobs', String(iam.jobOptions[name])).toLowerCase() === 'true';
+    });
+    
 
     this.tableOptions = {
         'lengthMenu': [[10, 25, 50, -1], [10, 25, 50, 'All']],
@@ -10,7 +25,11 @@ function JobMonitorJobs() {
             var api = this.api();
             iam._createFooter(api, row, data, start, end, display);
         },
-        'order': [[9, 'desc']]
+        'order': [[9, 'desc']],
+        'dom': 'lf<"toolbar">rtip',
+        'initComplete': function(){
+            iam._createToolbar();
+        }
     };
 
     this.data = undefined;
@@ -34,6 +53,8 @@ JobMonitorJobs.prototype = new JobMonitorView('current-jobs');
 JobMonitorJobs.prototype.constructor = JobMonitorJobs;
 
 JobMonitorJobs.prototype.updateView = function(data) {
+    this.dataCache = data;
+
     var iam = this;
     var html = this._createTableHeader();
 
@@ -55,6 +76,45 @@ JobMonitorJobs.prototype.updateView = function(data) {
     $('tr.loginfo td', this.getContent()).click(function() {
         iam.dialogSelectedRun = $(this).parent().find('td:first-child').html();
         $('#jm-dialog').modal();
+    });
+}
+
+JobMonitorJobs.prototype._createToolbar = function() {
+    var iam = this;
+
+    var html = '';
+
+    html += '<div class="checkbox"><input type="checkbox" data-dest="completed" id="jm-jobs-show-completed-jobs"><label for="jm-jobs-show-completed-jobs">Show completed jobs</label></div>';
+    html += '<div class="checkbox"><input type="checkbox" data-dest="failed" id="jm-jobs-show-failed-jobs" checked><label for="jm-jobs-show-failed-jobs">Show failed jobs</label></div>';
+    html += '<div class="checkbox"><input type="checkbox" data-dest="processing" id="jm-jobs-show-processing-jobs" checked><label for="jm-jobs-show-processing-jobs">Show processing jobs</label></div>';
+    html += '<div class="checkbox"><input type="checkbox" data-dest="idling" id="jm-jobs-show-idling-jobs" checked><label for="jm-jobs-show-idling-jobs">Show idling jobs</label></div>';
+
+    var toolbar = $('div.toolbar', this.getContent()).html(html);
+
+    $(':checkbox', toolbar).each(function() {
+        var key = $(this).attr('data-dest');
+        $(this).prop('checked', iam.jobOptions[key]);
+    });
+
+    $(':checkbox', toolbar).change(function() {
+        var key = $(this).attr('data-dest');
+
+        if(key in iam.jobOptions) {
+            iam.jobOptions[key] = $(this).prop('checked');
+        } else {
+            console.log('Unknown key "' + key + '"');
+        }
+
+        // Propagate status to url
+        $.each(iam.jobOptions, function(name, value) {
+            iam.url.setState('show' + name[0].toUpperCase() + name.substring(1) + 'Jobs', value);
+        });
+
+        iam.url.pushState();
+
+        if(typeof iam.dataCache !== 'undefined') {
+            iam.updateView(iam.dataCache);
+        }
     });
 }
 
@@ -110,10 +170,43 @@ JobMonitorJobs.prototype._createFailureList = function(failures) {
 }
 
 JobMonitorJobs.prototype._createRunEntry = function(runId, value) {
-    // Take only processing or failed/error jobs/runs
+    // Display only runs that have a specific status. See jobOptions.
     // Check for values in resources/class.ProcessingJobs.php
-    if(value['status']['value'] <= 1) {
-        return '';
+    switch(value['status']['value']) {
+        case 0:
+            // Preparation state: Nothing to display
+            return '';
+            break;
+
+        case 1:
+            // 'OK' status
+            if(!this.jobOptions['completed']) {
+                return '';
+            }
+            break;
+
+        case 2:
+            // 'IDLE' status
+            if(!this.jobOptions['idling']) {
+                return '';
+            }
+            break;
+
+    
+        case 3:
+        case 4:
+            // 'PROCESSING' and 'PROCESSING/ERRORS' status
+            if(!this.jobOptions['processing']) {
+                return '';
+            }
+            break;
+
+        case 5:
+            // 'FAILED" status
+            if(!this.jobOptions['failed']) {
+                return '';
+            }
+            break;
     }
 
     var lastStatusChange = value['last_status_change'];
@@ -130,6 +223,12 @@ JobMonitorJobs.prototype._createRunEntry = function(runId, value) {
     } else if(value['jobs_states']['ERROR'] > 0) {
         classes.push('error');
         classes.push('loginfo');
+    } else if(value['status']['name'] === 'IDLE') {
+        classes.push('idle');
+    } else if(value['status']['name'] === 'OK') {
+        classes.push('ok');
+    } else if(value['status']['name'] === 'PROCESSING') {
+        classes.push('proc');
     }
 
     var jobState = this.jobStatusCSSMapping[value['status']['name']];

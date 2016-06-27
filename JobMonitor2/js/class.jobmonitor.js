@@ -41,7 +41,7 @@ function JobMonitor(params) {
 
     this.views = {
         'calendarView': new JobMonitorCalendar(this.url, this.isTouchDevice),
-        'jobsView': new JobMonitorJobs()
+        'jobsView': new JobMonitorJobs(this.url)
     };
 
     this.staticPages = {
