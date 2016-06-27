@@ -156,7 +156,7 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False):
     # make symlink to latest output dir
     baseDir = ICECUBE_DATADIR(r["tStart"].year) + "/%s%s"%\
               (str(r['tStart'].month).zfill(2),str(r['tStart'].day).zfill(2))
-    OutDirs = [g.split("_")[-1] for g in os.listdir(baseDir) if re.search(r"Run%s_[0-9]+"%str(r['run_id']).zfill(8), g)]
+    OutDirs = [g.split("_")[-1] for g in os.listdir(baseDir) if re.search(r"^Run%s_[0-9]+$"%str(r['run_id']).zfill(8), g)]
     OutDirs.sort(key=int)
     LatestDir = os.path.join(baseDir,"Run00%s_%s"%(r['run_id'],OutDirs[-1]))
     
