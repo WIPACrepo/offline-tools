@@ -169,7 +169,8 @@ JobMonitorCalendar.prototype._dayDialog = function(header, content) {
     content.html(this._createDaySummaryTable(this.selectedDay['year'], this.selectedDay['month'], this.selectedDay['day'], true));
     
     $('[data-toggle="popover"]', content).popover({'html': true});
-    
+    $('[data-toggle="tooltip"]', content).tooltip();
+
     // Close popover on click outside of popover
     $('body').on('click', function (e) {
         $('[data-toggle="popover"]', content).each(function () {
@@ -282,6 +283,9 @@ JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day,
                 html += '<a href="#" onclick="return false" data-container="body" data-toggle="popover" data-placement="bottom" data-content="<b>Folder:</b> <code>' + folderPath + '</code>">';
                 html += '<span class="glyphicon glyphicon-folder-open" aria-hidden="true"></a>';
             }
+
+            html += '<a href="https://live.icecube.wisc.edu/run/' + run['run_id'] + '/" target="_blank" data-container="body" data-toggle="tooltip" data-placement="bottom" title="More run information on i3live">';
+            html += '<span class="glyphicon glyphicon-info-sign" aria-hidden="true"></a>';
 
             html += '</td>';
         }
