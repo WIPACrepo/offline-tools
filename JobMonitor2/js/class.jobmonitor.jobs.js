@@ -391,9 +391,3 @@ JobMonitorJobs.prototype._logDialog = function(header, content, data) {
     $('select', menu).change();
     $('.selectpicker', menu).selectpicker();
 }
-
-JobMonitorJobs.prototype.init = function() {
-    JobMonitorView.prototype.init.call(this);
-
-    this.setVisible(false);
-}
