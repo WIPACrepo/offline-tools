@@ -28,6 +28,8 @@ JobMonitorDatasets.prototype.update = function(datasets) {
     datasetSelection += '<th>';
     datasetSelection += 'Dataset Id';
     datasetSelection += '</th>';
+    datasetSelection += '<th>';
+    datasetSelection += '</th>';
     datasetSelection += '<th class="hidden-xs">';
     datasetSelection += 'Description';
     datasetSelection += '</th>';
@@ -37,9 +39,21 @@ JobMonitorDatasets.prototype.update = function(datasets) {
     for(var i = 0; i < keys.length; ++i) {
         var dataset = datasets[keys[i]];
 
+        var labels = '';
+
+        if(typeof dataset['season'] !== 'undefined' && dataset['season'] !== null) {
+            labels += ' <span class="label label-info">' + dataset['season'] + '</span>';
+        }
+
+        if(typeof dataset['type'] !== 'undefined' && dataset['type'] !== null) {
+            labels += ' <span class="label label-info">' + dataset['type'] + '</span>';
+        }
+
         var text = '<a href="#">';
 
         text += '<b>' + dataset['dataset_id'] + '</b>: ' + dataset['description'];
+        
+        text += labels;
 
         text += '</a>';
 
@@ -56,6 +70,11 @@ JobMonitorDatasets.prototype.update = function(datasets) {
         datasetSelection += '<tr><td' + (dataset['supported'] ? '' : ' class="text-muted"') + '>';
 
         datasetSelection += dataset['dataset_id'];
+
+        datasetSelection += '</td>';
+        datasetSelection += '<td class="labels ' + (dataset['supported'] ? '' : ' text-muted') + '">';
+        
+        datasetSelection += labels;
 
         datasetSelection += '</td>';
         datasetSelection += '<td class="hidden-xs' + (dataset['supported'] ? '' : ' text-muted') + '">';

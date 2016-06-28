@@ -7,3 +7,7 @@
     cursor: not-allowed;
 }
 
+#jm-content-view-dataset-selection .jm-view-content table tbody tr td.labels {
+    width: 100px;
+    text-align: right;
+}
