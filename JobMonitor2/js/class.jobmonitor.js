@@ -27,7 +27,7 @@ function JobMonitor(params) {
     this.url = new JobMonitorLocation();
     this.url.init();
 
-    this.viewOptions = new JobMonitorViews();
+    this.viewOptions = new JobMonitorViews(this.url);
 
     this.datasets = new JobMonitorDatasets(function() {iam.updater.update(true);}, this.url, function(callback) {iam.updater.setNextAction(callback);});
 
@@ -198,12 +198,12 @@ JobMonitor.prototype._hideL3SeasonWarning = function() {
 JobMonitor.prototype.init = function () {
     this.updater.init();
     this.datasets.init();
-    this.viewOptions.init(this.views);
 
     $.each(this.views, function(name, view) {
         view.init();
     });
 
+    this.viewOptions.init(this.views);
     this.updater.update(false, true);
 }
 

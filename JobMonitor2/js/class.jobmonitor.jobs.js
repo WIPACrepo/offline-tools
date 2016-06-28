@@ -290,8 +290,6 @@ JobMonitorJobs.prototype._createTableFooter = function() {
 }
 
 JobMonitorJobs.prototype._logDialog = function(header, content, data) {
-    console.log(data);
-
     var allLogs = data['error_message']['ERROR'].concat(data['error_message']['FAILED']);
 
     var menu = $('#jm-dialog-log-menu', content);
@@ -394,3 +392,8 @@ JobMonitorJobs.prototype._logDialog = function(header, content, data) {
     $('.selectpicker', menu).selectpicker();
 }
 
+JobMonitorJobs.prototype.init = function() {
+    JobMonitorView.prototype.init.call(this);
+
+    this.setVisible(false);
+}
