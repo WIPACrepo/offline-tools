@@ -114,8 +114,18 @@ JobMonitorJobs.prototype._createToolbar = function() {
 
         if(typeof iam.dataCache !== 'undefined') {
             iam.updateView(iam.dataCache);
+            $('select').filter(function() {return !$(this).hasClass('selectpicker');}).addClass('selectpicker').selectpicker();
         }
     });
+
+    // Number of shown entries drop down
+    $('select[name="example_length"]').change(function() {
+        iam.url.setState('jobsLength', $(this).val());
+        iam.url.pushState();
+    });
+
+    var jobsLength = this.url.getState('jobsLength', this.tableOptions['lengthMenu'][0][0]);
+    $('select[name="example_length"]').val(jobsLength).change();
 }
 
 JobMonitorJobs.prototype._createFooter = function(api, row, data, start, end, display) {
