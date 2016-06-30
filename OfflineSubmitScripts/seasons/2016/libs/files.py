@@ -185,6 +185,9 @@ def GetSubRunStartStop(FileName,logger=DummyLogger(),fromgapsfile=True):
     if fromgapsfile:
         # attempt to get subrun start and stop times from gaps file ... cheaper
         gaps_file = str(FileName).replace(".i3.bz2","_gaps.txt")
+
+        logger.debug("gaps file: %s" % gaps_file)
+
         try:
             if os.path.isfile(gaps_file):
                 with open(gaps_file,"r") as g:
@@ -216,7 +219,7 @@ def GetSubRunStartStop(FileName,logger=DummyLogger(),fromgapsfile=True):
 
 ######################################################
 
-def GetGoodSubruns(OutFiles,GoodStartTime,GoodStopTime,ProdVersion):
+def GetGoodSubruns(OutFiles, GoodStartTime, GoodStopTime, ProdVersion, logger = DummyLogger()):
     """
     Find subruns of this run in the time range between "good" start and 
     stop time
@@ -239,7 +242,7 @@ def GetGoodSubruns(OutFiles,GoodStartTime,GoodStopTime,ProdVersion):
     firstGood = L2Files[0]
     thrownawaysome = False
     for f in L2Files:
-        start_,end_ = GetSubRunStartStop(f)
+        start_,end_ = GetSubRunStartStop(f, logger = logger)
         # There might be gaps! Don't ask why...
         if end_ <= GoodStartTime: # This clearly should be thrown away
             thrownawaysome = True
@@ -255,7 +258,7 @@ def GetGoodSubruns(OutFiles,GoodStartTime,GoodStopTime,ProdVersion):
     lastGood = L2Files[-1]
     thrownawaysome = False
     for f in reversed(L2Files):
-        start_,end_ = GetSubRunStartStop(f)
+        start_,end_ = GetSubRunStartStop(f, logger = logger)
         if start_ >= GoodStopTime: # This clearly should be thrown away
             thrownawaysome = True
             continue

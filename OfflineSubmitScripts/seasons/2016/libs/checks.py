@@ -31,6 +31,7 @@ dbs4_ = dbs4.MySQL()
 dbs2_ = dbs2.MySQL()    
 
 from RunTools import RunTools
+from FileTools import FileTools
 
 from libs.files import GetSubRunStartStop,GetGoodSubruns
 
@@ -152,7 +153,34 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False):
         logger.warning("Some file records don't exist for run=%s, production_version=%s" %(str(r['run_id']),str(r['production_version'])))
         PrintVerboseDifference(Files2Check,FilesInDb,logger) 
         return 1
-    
+   
+    # Check MD5 sums
+    outputFileInfos = dbs4_.fetchall("""SELECT sub_run, name, path, size, md5sum
+                                        FROM run r
+                                        JOIN urlpath u 
+                                            ON u.queue_id = r.queue_id 
+                                            AND u.dataset_id = r.dataset_id 
+                                        WHERE   r.dataset_id = %s 
+                                            AND type = 'PERMANENT' 
+                                            AND run_id = %s""" % (dataset_id, r['run_id']),
+                                    UseDict = True)
+
+    for subrunInfo in outputFileInfos:
+        path = os.path.join(subrunInfo['path'][5:], subrunInfo['name'])
+
+        if path in OutFiles:
+            md5sum = FileTools(FileName = path, logger = logger).md5sum()
+
+            # Check if checksum matches the checksum in DB
+            if md5sum == subrunInfo['md5sum']:
+                logger.debug("MD5 check sums match for %s" % path)
+            else:
+                logger.warning("MD5 check sum mismatch for %s" % path)
+                return 1
+        else:
+            logger.warning("File %s is listed in the database as PERMANENT but doesn not exist" % path)
+            return 1
+ 
     # make symlink to latest output dir
     baseDir = ICECUBE_DATADIR(r["tStart"].year) + "/%s%s"%\
               (str(r['tStart'].month).zfill(2),str(r['tStart'].day).zfill(2))

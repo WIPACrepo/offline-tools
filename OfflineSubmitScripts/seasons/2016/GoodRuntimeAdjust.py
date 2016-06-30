@@ -51,7 +51,7 @@ def main(RunNum, ProductionVersion, logger, dataset_id, dryrun = False):
     
     GoodStart = dataclasses.I3Time(RunInfo['good_tstart'].year,ComputeTenthOfNanosec(RunInfo['good_tstart'],RunInfo['good_tstart_frac'])) 
     GoodEnd = dataclasses.I3Time(RunInfo['good_tstop'].year,ComputeTenthOfNanosec(RunInfo['good_tstop'],RunInfo['good_tstop_frac'])) 
-    firstGood, lastGood, L2Files = GetGoodSubruns(OutFiles,GoodStart,GoodEnd,ProdVersion)
+    firstGood, lastGood, L2Files = GetGoodSubruns(OutFiles, GoodStart, GoodEnd, ProdVersion, logger = logger)
     logger.debug("""Database says GoodStart %s and GoodEnd %s""" %(GoodStart,GoodEnd))
     for file in [firstGood,lastGood]:
         start,stop = GetSubRunStartStop(file)

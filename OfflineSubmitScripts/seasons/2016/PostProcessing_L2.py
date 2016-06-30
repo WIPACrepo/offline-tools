@@ -78,7 +78,7 @@ def main_run(r, logger, dataset_id, season, dryrun = False):
     return
 
 def main(runinfo,logger,dryrun=False):
-    datasets = []
+    datasets = set()
 
     for run in runinfo:
         try:
@@ -88,7 +88,7 @@ def main(runinfo,logger,dryrun=False):
 
             # If the dataset id is good, add it to the list of processed dataset ids
             if dataset_id > 0:
-                datasets.append(dataset_id)
+                datasets.add(dataset_id)
             
             main_run(run, logger, dataset_id = dataset_id, season = season, dryrun = dryrun) 
         except Exception as e:
