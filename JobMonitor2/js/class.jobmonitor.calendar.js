@@ -231,8 +231,6 @@ JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day,
         var runStatusCSS = iam.runStatusCSSMapping[run['status']['name']];
         var progressIndicator = Math.floor(run['jobs_states']['OK'] / run['sub_runs'] * 100);
 
-        var folderPath = '/data/exp/IceCube/' + year + '/filtered/level2/' + (month < 10 ? '0' : '') + month + (day < 10 ? '0' : '') + day + '/Run00' + run['run_id'] + '/';
-
         html += '<tr>';
         html += '<td>';
         html += run['run_id'];
@@ -278,10 +276,14 @@ JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day,
             html += '</td>';
             html += '<td class="hidden-xs">';
 
-            // TODO: Wrong folder path for L3 datasets. L2 is fine.
-            if(false && run['validated']) {
-                html += '<a href="#" onclick="return false" data-container="body" data-toggle="popover" data-placement="bottom" data-content="<b>Folder:</b> <code>' + folderPath + '</code>">';
-                html += '<span class="glyphicon glyphicon-folder-open" aria-hidden="true"></a>';
+            if(run['gcd'] != null) {
+                html += '<a href="#" onclick="return false" data-container="body" data-toggle="popover" data-placement="bottom" data-content="<b>GCD file:</b> <code>' + run['gcd'] + '</code>">';
+                html +=  '<span class="badge">GCD</span></a> ';
+            }
+
+            if(run['path'] != null) {
+                html += '<a href="#" onclick="return false" data-container="body" data-toggle="popover" data-placement="bottom" data-content="<b>Folder:</b> <code>' + run['path'] + '</code>">';
+                html += '<span class="glyphicon glyphicon-folder-open" aria-hidden="true"></a> &nbsp;';
             }
 
             html += '<a href="https://live.icecube.wisc.edu/run/' + run['run_id'] + '/" target="_blank" data-container="body" data-toggle="tooltip" data-placement="bottom" title="More run information on i3live">';

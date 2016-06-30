@@ -59,7 +59,7 @@ class ProcessingJobs {
         $run_pattern = array('run_id' => null, 'sub_runs' => -1, 'date' => null, 'status' => null,
                              'jobs_states' => array(), 'jobs_prev_states' => array(), 'failures' => array(), 'validated' => false,
                              'submitted' => false, 'last_status_change' => '', 'error_message' => array(),
-                             'snapshot_id' => null, 'production_version' => null);
+                             'snapshot_id' => null, 'production_version' => null, 'path' => null, 'gcd' => null);
 
         $this->is_l2_dataset = in_array($this->dataset_id, $this->l2_dataset_ids);
 
@@ -69,6 +69,7 @@ class ProcessingJobs {
 
         if(!$this->dataset_list_only && !$this->result['error']) {
             $this->add_submitted_runs($run_pattern);
+            $this->add_paths();
             $this->add_good_run_list($run_pattern);
             $this->validate_runs();
             $this->set_run_states();
@@ -76,6 +77,66 @@ class ProcessingJobs {
         }
 
         return $this->result;
+    }
+
+    private function add_paths() {
+        // Add paths to run folder (L2/3)
+        $sql = "SELECT run_id,
+                    GROUP_CONCAT(DISTINCT path SEPARATOR '*') AS `paths` 
+                FROM urlpath u 
+                JOIN run r
+                    ON r.queue_id = u.queue_id 
+                    AND r.dataset_id = u.dataset_id 
+                WHERE r.dataset_id = {$this->dataset_id} 
+                AND type = 'PERMANENT' 
+                GROUP BY run_id";
+
+        $query = $this->mysql->query($sql);
+        while($run = $query->fetch_assoc()) {
+            $paths = explode('*', $run['paths']);
+            $path = $paths[0];
+
+            // If there are more than one path, take the shortest (e.g. if not validated yet,
+            // the run has only the folder Run00123456_XX. If validated, it has
+            // also the sym link Run00123456. The other path appears in this list
+            // since the post processing creates a GapsTar file and inserts it into this
+            // table and uses the shorter path.
+            if(count($paths) > 0) {
+                // Start at '1' since $path has been initialized with index '0'
+                for($i = 1; $i < count($paths); ++$i) {
+                    if(strlen($path) > strlen($paths[$i])) {
+                        $path = $paths[$i];
+                    }
+                }
+            }
+
+            // Since the path starts with a 'file:', remove it
+            $path = substr($path, 5);
+
+            // Add it to the list:
+            if(isset($this->result['data']['runs'][$run['run_id']])) {
+                $this->result['data']['runs'][$run['run_id']]['path'] = $path;
+            }
+        }
+
+        // Add paths to GCD files
+        $sql = "SELECT run_id, name, path 
+                FROM urlpath u 
+                JOIN run r 
+                    ON r.queue_id = u.queue_id 
+                    AND r.dataset_id = u.dataset_id 
+                WHERE name LIKE '%GCD%' 
+                AND r.dataset_id = {$this->dataset_id} 
+                AND type = 'INPUT' 
+                GROUP BY run_id;";
+
+        $query = $this->mysql->query($sql);
+        while($run = $query->fetch_assoc()) {
+            // Add it to the list:
+            if(isset($this->result['data']['runs'][$run['run_id']])) {
+                $this->result['data']['runs'][$run['run_id']]['gcd'] = self::join_paths(substr($run['path'], 5), $run['name']);
+            }
+        }
     }
 
     private function validate_datasets() {
@@ -442,6 +503,17 @@ class ProcessingJobs {
 
     public function set_dataset_list_only($only) {
         $this->dataset_list_only = (bool)$only;
+    }
+
+    public static function join_paths() {
+        // Found here: http://stackoverflow.com/a/15575293
+        $paths = array();
+    
+        foreach (func_get_args() as $arg) {
+            if ($arg !== '') { $paths[] = $arg; }
+        }
+    
+        return preg_replace('#/+#','/',join('/', $paths));
     }
 
     private static function get_status($name) {
