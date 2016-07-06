@@ -37,6 +37,7 @@ require_once('config.php');
     <script src="js/class.jobmonitor.jobs.js"></script>
     <script src="js/class.jobmonitor.updater.js"></script>
     <script src="js/class.jobmonitor.datasets.js"></script>
+    <script src="js/class.jobmonitor.search.js"></script>
     <script src="js/class.jobmonitor.js"></script>
     <script src="js/jobmonitor.js"></script>
   </head>
@@ -67,6 +68,7 @@ require_once('config.php');
             <li><a href="#" id="force-update"><i class="fa fa-refresh fa-lg fa-fw margin-bottom"></i></a></li>
           </ul>
           <ul class="nav navbar-nav navbar-right">
+            <li><a href="#" data-toggle="modal" data-target="#jm-dialog-search">Search</a></li>
             <li class="dropdown" id="jm-view-dropdown">
               <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">View <span class="caret"></span></a>
               <ul class="dropdown-menu">
@@ -130,6 +132,41 @@ require_once('config.php');
           Not loaded yet...
         </div>
       </div>    
+    </div>
+
+    <div class="modal fade" id="jm-dialog-search" tabindex="-1" role="dialog" aria-labelledby="jm-dialog-label">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Search</h4>
+          </div>
+          <div class="modal-body">
+            <div class="input-group">
+              <span class="input-group-addon" id="basic-addon3">Run-Id</span>
+              <input type="text" class="form-control" id="jm-search-run-id" aria-describedby="basic-addon3">
+            </div>
+
+            <div class="checkbox">
+              <input type="checkbox" data-dest="completed" id="jm-search-event-id-switch">
+              <label for="jm-search-event-id-switch">Search for an Event</label>
+            </div>
+
+            <div class="input-group" id="jm-search-event-id-wrapper" style="display: none;">
+              <span class="input-group-addon" id="basic-addon3">Event-Id</span>
+              <input type="text" class="form-control" id="jm-search-event-id" aria-describedby="basic-addon3">
+            </div>
+
+            <div id="jm-search-buttonbar">
+              <i class="fa fa-circle-o-notch fa-spin fa-2x fa-fw" id="jm-searching-indicator"></i><button type="button" class="btn btn-primary">Search</button>
+            </div>
+
+            <div id="jm-search-result-box">
+
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="modal fade" id="jm-dialog-feedback" tabindex="-1" role="dialog" aria-labelledby="jm-dialog-label">

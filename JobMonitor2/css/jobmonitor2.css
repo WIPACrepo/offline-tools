@@ -2,6 +2,7 @@
 @import url('jobmonitor.calendar.css');
 @import url('jobmonitor.datasets.css');
 @import url('jobmonitor.jobs.css');
+@import url('jobmonitor.search.css');
 
 body {
     padding-top: 70px;

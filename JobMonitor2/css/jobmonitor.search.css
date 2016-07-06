@@ -1,0 +1,21 @@
+
+#jm-dialog-search #jm-search-buttonbar {
+    margin-top: 10px;
+    text-align: right;
+    position: relative;
+}
+
+#jm-dialog-search #jm-search-buttonbar #jm-searching-indicator {
+    display: none;
+    left: 0;
+    position: absolute;
+    top: 2px;
+}
+
+#jm-dialog-search #jm-search-result-box {
+    margin-top: 20px;
+}
+
+#jm-dialog-search #jm-search-result-box table tbody tr td:first-child {
+    width: 80px;
+}

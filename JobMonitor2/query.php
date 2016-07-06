@@ -31,7 +31,8 @@ try {
 } catch(Exception $e) {
     $content = array('error' => 0, 'error_msg' => '', 'data' => array());
     $content['error'] = 1;
-    $content['error_msg'] = $e->getTraceAsString();
+    $content['error_msg'] = $e->getMessage();
+    $content['error_trace'] = $e->getTraceAsString();
 
     print(json_encode($content));
 }

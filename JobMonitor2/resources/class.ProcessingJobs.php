@@ -21,7 +21,7 @@ class ProcessingJobs {
 
     public function __construct($host, $user, $password, $db, $default_dataset_id, array $l2_dataset_ids, $api_version) {
         $this->mysql = @new mysqli($host, $user, $password, $db);
-        $this->result = array('api_version' => $api_version,'error' => 0, 'error_msg' => '', 'data' => array('runs' => array(), 'datasets' => array(), 'seasons' => array()));
+        $this->result = array('api_version' => $api_version,'error' => 0, 'error_msg' => '', 'error_trace' => '', 'data' => array('runs' => array(), 'datasets' => array(), 'seasons' => array()));
         $this->dataset_id = $default_dataset_id;
         $this->default_dataset_id = $default_dataset_id;
         $this->l2_dataset_ids = $l2_dataset_ids;

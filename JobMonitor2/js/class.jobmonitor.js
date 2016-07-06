@@ -31,6 +31,8 @@ function JobMonitor(params) {
 
     this.datasets = new JobMonitorDatasets(function() {iam.updater.update(true);}, this.url, function(callback) {iam.updater.setNextAction(callback);});
 
+    this.search = new JobMonitorSearch(this.url, function(runId) {return iam.findSeasonByRunId(runId);}, 'search.php', function(apiVersion) {return iam.checkAPIVersionCompatibility(apiVersion);});
+
     this.updater = new JobMonitorUpdater('query.php', this.url,
         function(data) {iam._updateData(data);},
         function() {iam._startLoading();},
@@ -47,10 +49,27 @@ function JobMonitor(params) {
     this.staticPages = {
         'api': $('#jm-dialog-api'),
         'feedback': $('#jm-dialog-feedback'),
-        'version': $('#jm-dialog-version')
+        'version': $('#jm-dialog-version'),
+        'search': $('#jm-dialog-search')
     };
 
     this._staticContent();
+}
+
+JobMonitor.prototype.findSeasonByRunId = function(runId) {
+    var foundSeason = -1;
+
+    $.each(this.data['data']['seasons'], function(year, season) {
+        if((runId >= season['first_run'] && season['first_run'] != "-1") || $.inArray(runId, season['test_runs']) !== -1) {
+            foundSeason = year;
+        }
+
+        if(runId < season['first'] && foundSeason > -1) {
+            return;
+        }
+    });
+
+    return foundSeason;
 }
 
 JobMonitor.prototype.checkAPIVersionCompatibility = function(dataAPIVersion) {
@@ -141,6 +160,8 @@ JobMonitor.prototype._updateData = function(data) {
     if(Object.keys(data).length === 0 ||
         typeof data['error'] === 'undefined' ||
         typeof data['error_msg'] === 'undefined' ||
+        typeof data['error_trace'] === 'undefined' ||
+        typeof data['api_version'] === 'undefined' ||
         typeof data['data'] === 'undefined' ||
         typeof data['data']['runs'] === 'undefined' ||
         typeof data['data']['datasets'] === 'undefined') {
@@ -178,6 +199,8 @@ JobMonitor.prototype._updateData = function(data) {
             view.show();
             view.updateView(data['data']);
         });
+
+        this.search.updateData(data['data']);
     }
 
     $('select').filter(function() {return !$(this).hasClass('selectpicker');}).addClass('selectpicker').selectpicker();
@@ -198,6 +221,7 @@ JobMonitor.prototype._hideL3SeasonWarning = function() {
 JobMonitor.prototype.init = function () {
     this.updater.init();
     this.datasets.init();
+    this.search.init();
 
     $.each(this.views, function(name, view) {
         view.init();
