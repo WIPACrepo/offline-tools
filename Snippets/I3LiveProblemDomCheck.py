@@ -13,6 +13,7 @@ import os
 
 import SQLClient_dbs4 as dbs4
 
+import urllib
 import urllib2 as u
 import json
 
@@ -20,6 +21,16 @@ import json
 auth_payload = "user=icecube&pass=skua"
 # URL with placeholder for run_num
 url_pat = "https://hercules.icecube.wisc.edu/run_doms/%s/" 
+
+def get_grl_info(run_number, logger):
+    req = u.Request('https://live.icecube.wisc.edu/snapshot-export/', urllib.urlencode({'user': 'icecube', 'pass': 'skua', 'start_run': run_number, 'end_run': run_number}))
+    response = u.urlopen(req).read()
+    d = json.loads(response)
+
+    if len(d['runs']) != 1:
+        raise
+
+    return d['runs'][0]
 
 def get_bd_list_from_i3live(run_number, logger):
     url = url_pat % run_number
@@ -41,7 +52,12 @@ def get_bd_list_from_i3live(run_number, logger):
 
     resp_text = response.read() 
 
+    with open("run_%s.txt" % run_number, 'w') as f:
+        f.write(resp_text)
+
     run_doms = json.loads(resp_text)
+
+    GRL = get_grl_info(run_number, logger)
 
     bdlist = []
     unconf_doms = []
@@ -54,18 +70,23 @@ def get_bd_list_from_i3live(run_number, logger):
 
     logger.debug("unconfigured_doms: %s"%len(run_doms['unconfigured_doms']))
    
-    counter = 0 
+    counter = 0
+
+    print "start time: %s; end time: %s" % (GRL['good_tstart'], GRL['good_tstop'])
+
     for key, src in run_doms['dropped_doms'].iteritems():
         for om in src:
-            counter = counter + 1
-            bdlist.append(icetray.OMKey(om['dom_string'], om['dom_position']))
-            dropped_doms.append(icetray.OMKey(om['dom_string'], om['dom_position']))
+            print "if %s >= %s and %s <= %s:" % ( om['drop_time'], GRL['good_tstart'], om['drop_time'], GRL['good_tstop'])
+            if om['drop_time'] >= GRL['good_tstart'] and om['drop_time'] <= GRL['good_tstop']:
+                counter = counter + 1
+                bdlist.append(icetray.OMKey(om['dom_string'], om['dom_position']))
+                dropped_doms.append(icetray.OMKey(om['dom_string'], om['dom_position']))
     
-    logger.debug("dropped_doms: %s"%counter)
+    logger.info("dropped_doms: %s"%counter)
 
     counter = 0
-    for key, type in run_doms['problem_doms'].iteritems():
-        for key, om in type.iteritems():
+    for type in ['No HV']:
+        for key, om in run_doms['problem_doms'][type].iteritems():
             counter = counter + 1
             bdlist.append(icetray.OMKey(om['string'], om['position']))
             problem_doms.append(icetray.OMKey(om['string'], om['position']))
@@ -73,6 +94,11 @@ def get_bd_list_from_i3live(run_number, logger):
     logger.debug("problem_doms: %s"%counter)
 
     bdlist = [dom for dom in bdlist if dom.string > 0]
+
+    sorted(bdlist)
+    sorted(unconf_doms)
+    sorted(dropped_doms)
+    sorted(problem_doms)
 
     return bdlist, set(unconf_doms), set(dropped_doms), set(problem_doms)
 
@@ -86,6 +112,12 @@ def get_bd_list_from_gcd(filename, logger):
                     break
     if not bdl:
             logger.error('No bad dom list found')
+
+    sorted(bdl)
+
+    logger.debug("GCD bdl:")
+    for om in bdl:
+        logger.debug(om)
 
     return [om for om in bdl]
 
@@ -152,10 +184,17 @@ def main(start_run, end_run, dryrun, logger):
             logger.info("GCD and i3live bd lists are equal")
         else:
             logger.error("GCD and i3live bd lists are not equal")
+            diff = gcd_bdlist - final_live
+            diff = list(diff) + list(final_live - gcd_bdlist)
 
-        intersection = gcd_bdlist & live_bdlist
-        difference = gcd_bdlist - live_bdlist
-        difference2 = live_bdlist - gcd_bdlist
+            for om in sorted(diff):
+                s = "Difference dom: %s -> InGCD = %s, I3LUnconf = %s, I3LDropped = %s, I3LProblem = %s" % (om, om in gcd_bdlist, om in live_unconf_doms, om in live_dropped_doms, om in live_problem_doms)
+
+                logger.error(s)
+
+        intersection = sorted(gcd_bdlist & live_bdlist)
+        difference = sorted(gcd_bdlist - live_bdlist)
+        difference2 = sorted(live_bdlist - gcd_bdlist)
 
         logger.debug('===============================================')
         logger.debug("Common DOMs (%s):"%len(intersection))
@@ -179,9 +218,9 @@ def main(start_run, end_run, dryrun, logger):
         for dom in icetop:
             logger.debug(dom)
 
-        unconf_intersection = live_unconf_doms & gcd_unconf_doms
-        unconf_diff = gcd_unconf_doms - live_unconf_doms
-        unconf_diff2 = live_unconf_doms - gcd_unconf_doms
+        unconf_intersection = sorted(live_unconf_doms & gcd_unconf_doms)
+        unconf_diff = sorted(gcd_unconf_doms - live_unconf_doms)
+        unconf_diff2 = sorted(live_unconf_doms - gcd_unconf_doms)
 
         logger.debug('===============================================')
         logger.debug("Unconfigured doms: live (%s), GCD (%s)" % (len(live_unconf_doms), len(gcd_unconf_doms)))
@@ -199,9 +238,11 @@ def main(start_run, end_run, dryrun, logger):
         for dom in unconf_diff2:
             logger.debug(dom)
 
-        missing_live_doms = goodSlcOnlyKeys & difference
-        missing_live_doms_diff = difference - goodSlcOnlyKeys
-        missing_live_doms_diff2 = goodSlcOnlyKeys - difference
+        difference = set(difference)
+
+        missing_live_doms = sorted(goodSlcOnlyKeys & difference)
+        missing_live_doms_diff = sorted(difference - goodSlcOnlyKeys)
+        missing_live_doms_diff2 = sorted(goodSlcOnlyKeys - difference)
 
         logger.debug('===============================================')
         logger.debug("goodSlcOnlyKeys in GCD: %s" % len(goodSlcOnlyKeys))
