@@ -273,14 +273,32 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
         html += (typeof data['data']['result']['sub_run'] !== 'undefined' ? data['data']['result']['sub_run'] : 'not found');
         html += '</td>';
         html += '</tr>';
-        html += '<tr>';
-        html += '<td>';
-        html += '<strong>File</strong> <span class="label label-info">L2</span>';
-        html += '</td>';
-        html += '<td>';
-        html += '<code>' + (typeof data['data']['result']['file'] !== 'undefined' ? data['data']['result']['file'] : 'not found') + '</code>';
-        html += '</td>';
-        html += '</tr>';
+
+        data['data']['result']['files'].forEach(function(file) {
+            html += '<tr>';
+            html += '<td colspan="2">';
+            html += '<strong>File for dataset ' + file['dataset_id'] + '</strong>';
+
+            if(typeof iam.data['datasets'][file['dataset_id']] !== 'undefined') {
+                html += ' <span class="label label-info">' + iam.data['datasets'][file['dataset_id']]['type'] + '</span>';
+            }
+
+            html += '</td>';
+            html += '</tr>';
+            html += '<tr>';
+            html += '<td colspan="2">';
+            html += '<code>' + file['file'] + '</code>';
+            html += '</td>';
+            html += '</tr>';
+        });
+
+        if(data['data']['result']['files'].length > 0) {
+            html += '<tr>';
+            html += '<td colspan="2">';
+            html += '<small class="text-muted"><strong>Note:</strong> The list of paths can be a subset of the list of datasets. Paths are only shown if the run has already been processed.</small>';
+            html += '</td>';
+            html += '</tr>';
+        }
     } else if(typeof data['data']['result']['paths'] !== 'undefined' && data['data']['result']['successfully']) {
         data['data']['result']['paths'].forEach(function(path) {
             html += '<tr>';

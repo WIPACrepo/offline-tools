@@ -148,6 +148,29 @@ class Search {
         return false;
     }
 
+    private function get_files_for_subrun_and_run($run_id, $sub_run) {
+        $sql = "SELECT r.dataset_id, path, name 
+                FROM run r 
+                JOIN urlpath u 
+                    ON r.dataset_id = u.dataset_id 
+                    AND r.queue_id = u.queue_id 
+                WHERE run_id = $run_id 
+                    AND sub_run = $sub_run 
+                    AND type = 'PERMANENT'";
+
+        $result = array();
+
+        $query = $this->mysql->query($sql);
+        while($info = $query->fetch_assoc()) {
+            // Filter EHE and IT and other extensions files
+            if(is_numeric(substr($info['name'], -8, 1)) && substr($info['name'], -7) === '.i3.bz2') {
+                $result[] = array('dataset_id' => $info['dataset_id'], 'file' => ProcessingJobs::join_paths(substr($info['path'], 5), $info['name']));
+            }
+        }
+
+        return $result;
+    }
+
     private function get_event($str) {
         $event = -1;
 
@@ -201,9 +224,12 @@ class Search {
 
             if(false !== $gaps_file) {
                 $this->result['data']['result']['successfully'] = true;
-                $this->result['data']['result']['file'] = substr($gaps_file, 0, -9) . '.i3.bz2';
+
                 $this->result['data']['result']['sub_run'] = intval(substr($gaps_file, -17, 8));
                 $this->result['data']['result']['message'] = "Event {$this->event_id} was successfully found in sub run {$this->result['data']['result']['sub_run']} of run {$this->run_id}";
+
+                $files = $this->get_files_for_subrun_and_run($this->run_id, $this->result['data']['result']['sub_run']);
+                $this->result['data']['result']['files'] = $files;
             }
         } else {
             // Search for run id
