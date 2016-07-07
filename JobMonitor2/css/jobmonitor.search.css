@@ -19,3 +19,12 @@
 #jm-dialog-search #jm-search-result-box table tbody tr td:first-child {
     width: 80px;
 }
+
+#jm-dialog-search #jm-search-result-box .run-ok {
+    color: green;
+}
+
+#jm-dialog-search #jm-search-result-box .run-bad {
+    color: red;
+}
+

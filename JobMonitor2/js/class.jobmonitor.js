@@ -31,7 +31,11 @@ function JobMonitor(params) {
 
     this.datasets = new JobMonitorDatasets(function() {iam.updater.update(true);}, this.url, function(callback) {iam.updater.setNextAction(callback);});
 
-    this.search = new JobMonitorSearch(this.url, function(runId) {return iam.findSeasonByRunId(runId);}, 'search.php', function(apiVersion) {return iam.checkAPIVersionCompatibility(apiVersion);});
+    this.search = new JobMonitorSearch(this.url,
+        function(runId) {return iam.findSeasonByRunId(runId);},
+        function(season) {return iam.findDatasetsBySeason(season);},
+        'search.php',
+        function(apiVersion) {return iam.checkAPIVersionCompatibility(apiVersion);});
 
     this.updater = new JobMonitorUpdater('query.php', this.url,
         function(data) {iam._updateData(data);},
@@ -70,6 +74,18 @@ JobMonitor.prototype.findSeasonByRunId = function(runId) {
     });
 
     return foundSeason;
+}
+
+JobMonitor.prototype.findDatasetsBySeason = function(season) {
+    var datasets = [];
+
+    $.each(this.data['data']['datasets'], function(datasetId, dataset) {
+        if(dataset['season'] == season) {
+            datasets.push(datasetId);
+        }
+    });
+
+    return datasets;
 }
 
 JobMonitor.prototype.checkAPIVersionCompatibility = function(dataAPIVersion) {

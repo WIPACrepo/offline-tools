@@ -90,3 +90,20 @@ JobMonitorLocation.prototype.getQueryStrings = function() {
     return assoc; 
 } 
 
+JobMonitorLocation.prototype.getUrlWithoutQueryString = function() {
+    return [location.protocol, '//', location.host, location.pathname].join('');
+}
+
+JobMonitorLocation.prototype.getStates = function() {
+    return this.state;
+}
+
+JobMonitorLocation.prototype.createQueryString = function(states) {
+    var qs = [];
+
+    $.each(states, function(key, value) {
+        qs.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));
+    });
+
+    return qs.join('&');
+}
