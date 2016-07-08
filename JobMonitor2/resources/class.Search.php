@@ -184,7 +184,13 @@ class Search {
     }
 
     private function get_grl_info($run_id) {
-        $sql = "SELECT UNIX_TIMESTAMP(good_tstart) AS `date`, good_i3, good_it FROM grl_snapshot_info WHERE run_id = $run_id ORDER BY production_version DESC LIMIT 1";
+        $sql = "SELECT UNIX_TIMESTAMP(good_tstart) AS `date`,
+                    good_i3,
+                    good_it 
+                FROM grl_snapshot_info 
+                WHERE run_id = $run_id 
+                ORDER BY production_version DESC 
+                LIMIT 1";
 
         $result = array();
 
@@ -199,6 +205,38 @@ class Search {
         return $result;
     }
 
+    private function get_gcd_files($run_id, $date_raw) {
+        // Date format is YYYY-MM-DD
+        $date = explode('-', $date_raw);
+
+        if(count($date) != 3) {
+            throw new InvalidArgumentException("Cannot search for GCD files since date format is not as expected: $date_raw");
+        }
+
+        $year = intval($date[0]);
+        $month = intval($date[1]);
+        $day = intval($date[2]);
+
+        // Path depends on date
+        $paths = array();
+        if(($year == 2011 && $month <=5) || ($year < 2011 && $year >= 2007)) {
+            $path[] = "/data/exp/IceCube/$year/filtered/level2a/{$date[1]}{$date[2]}/*{$run_id}*_GCD.i3*";
+            $path[] = "/data/exp/IceCube/$year/filtered/level2/{$date[1]}{$date[2]}/*{$run_id}*_GCD.i3*";
+        }
+
+        if($year >= 2011) {
+            $paths[] = "/data/exp/IceCube/$year/filtered/level2/AllGCD/*{$run_id}*_GCD.i3*";
+        }
+
+        $files = array();
+
+        foreach($paths as $path) {
+            $files = array_merge($files, glob($path));
+        }
+
+        return $files;
+    }
+
     public function execute() {
         if(is_null($this->run_id) && !is_null($this->event_id)) {
             throw new InvalidArgumentException('Run id is required for event search');
@@ -209,49 +247,57 @@ class Search {
         }
 
         $this->result['data']['result'] = array('successfully' => false,
-                                                'message' => "");
-
-
-        // Search modes
-        if(!is_null($this->run_id) && !is_null($this->event_id)) {
-            // Search for event id
-            $this->result['data']['query'] = array('run_id' => $this->run_id, 'event_id' => $this->event_id);
-
-            $gaps_files = $this->get_gaps_files($this->run_id);
-            $gaps_file = $this->get_subrun_by_event_id_and_gaps_files($gaps_files, $this->event_id);
-
-            $this->result['data']['result']['message'] = "Event {$this->event_id} was not found in run {$this->run_id}";
-
-            if(false !== $gaps_file) {
-                $this->result['data']['result']['successfully'] = true;
-
-                $this->result['data']['result']['sub_run'] = intval(substr($gaps_file, -17, 8));
-                $this->result['data']['result']['message'] = "Event {$this->event_id} was successfully found in sub run {$this->result['data']['result']['sub_run']} of run {$this->run_id}";
-
-                $files = $this->get_files_for_subrun_and_run($this->run_id, $this->result['data']['result']['sub_run']);
-                $this->result['data']['result']['files'] = $files;
-            }
-        } else {
-            // Search for run id
-            $this->result['data']['query'] = array('run_id' => $this->run_id);
-
-            $this->result['data']['result']['message'] = "Run {$this->run_id} was not found";
-
-            $paths = $this->get_paths_and_datasets($this->run_id);
-
-            if(count($paths) > 0) {
-                $this->result['data']['result']['successfully'] = true;
-                $this->result['data']['result']['message'] = "Run {$this->run_id} was successfully found in " . count($paths) . " datasets";
-                $this->result['data']['result']['paths'] = $paths;
-            }
-        }
+                                                'message' => "Run {$this->run_id} was not found");
 
         $gr_info = $this->get_grl_info($this->run_id);
 
         if(count($gr_info) > 0) {
+            $this->result['data']['result']['successfully'] = true;
             $this->result['data']['result']['good_it'] = (bool)($gr_info[0]['good_it']);
             $this->result['data']['result']['good_i3'] = (bool)($gr_info[0]['good_i3']);
             $this->result['data']['result']['date'] = $gr_info[0]['date'];
+    
+            $this->result['data']['result']['message'] = "Run {$this->run_id} was found.";
+
+            // GCD files
+            /* Doesn't work now since we don't have access to the /data/ file system.
+            $gcd_files = $this->get_gcd_files($this->run_id, $gr_info[0]['date']);
+            if(count($gcd_files) > 0) {
+                $this->result['data']['result']['gcd_files'] = $gcd_files;
+            }
+            */
+
+            // Search modes
+            if(!is_null($this->run_id) && !is_null($this->event_id)) {
+                // Search for event id
+                $this->result['data']['query'] = array('run_id' => $this->run_id, 'event_id' => $this->event_id);
+    
+                $gaps_files = $this->get_gaps_files($this->run_id);
+                $gaps_file = $this->get_subrun_by_event_id_and_gaps_files($gaps_files, $this->event_id);
+    
+                $this->result['data']['result']['successfully'] = false;
+                $this->result['data']['result']['message'] = "Event {$this->event_id} was not found in run {$this->run_id}";
+    
+                if(false !== $gaps_file) {
+                    $this->result['data']['result']['successfully'] = true;
+    
+                    $this->result['data']['result']['sub_run'] = intval(substr($gaps_file, -17, 8));
+                    $this->result['data']['result']['message'] = "Event {$this->event_id} was successfully found in sub run {$this->result['data']['result']['sub_run']} of run {$this->run_id}";
+    
+                    $files = $this->get_files_for_subrun_and_run($this->run_id, $this->result['data']['result']['sub_run']);
+                    $this->result['data']['result']['files'] = $files;
+                }
+            } else {
+                // Search for run id
+                $this->result['data']['query'] = array('run_id' => $this->run_id);
+    
+                $paths = $this->get_paths_and_datasets($this->run_id);
+    
+                if(count($paths) > 0) {
+                    $this->result['data']['result']['message'] = "Run {$this->run_id} was successfully found in " . count($paths) . " dataset" . (count($paths) > 1 ? 's' : '');
+                    $this->result['data']['result']['paths'] = $paths;
+                }
+            }
         }
 
         return $this->result;

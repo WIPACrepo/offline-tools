@@ -256,7 +256,8 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
             html += '<a href="' + tmpUrl + '"' + (tooltip.length > 0 ? ' title="' + tooltip + '" data-toggle="tooltip" data-placement="bottom"' : '') + '>' + dataset + '</a>';
         });
 
-        html += '<br/><small class="text-muted"><strong>Note:</strong> The list doesn\'t necessarily mean that the run is already processed in the displayed datasets</small>';
+        html += '<br/><small class="text-muted"><strong>Note:</strong> The list doesn\'t necessarily mean that the run is already processed in the displayed datasets.';
+        html += ' Also consider that only good runs will be processed.</small>';
     } else {
         html += 'No datasets found';
     }
