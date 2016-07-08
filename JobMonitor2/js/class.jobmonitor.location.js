@@ -95,7 +95,8 @@ JobMonitorLocation.prototype.getUrlWithoutQueryString = function() {
 }
 
 JobMonitorLocation.prototype.getStates = function() {
-    return this.state;
+    // return a copy of the object to prevent state changes
+    return jQuery.extend(true, {}, this.state);
 }
 
 JobMonitorLocation.prototype.createQueryString = function(states) {
