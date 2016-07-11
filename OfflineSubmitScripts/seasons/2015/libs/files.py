@@ -93,9 +93,9 @@ def MakeRunInfoFile(dryrun=False):
         ActiveInIceDOMs = "    "
         if RunInfoDict[k]['ActiveInIceDOMs'] is not None :  ActiveInIceDOMs = str(RunInfoDict[k]['ActiveInIceDOMs'])
 
-        OutDir = LEVEL2_DIR(StartTime.year) + "/%s%s/Run00%s/"%\
+        OutDir = os.path.join(LEVEL2_DIR(StartTime.year), "%s%s/Run00%s/"%\
                  (str(StartTime.month).zfill(2),\
-                  str(StartTime.day).zfill(2),k)
+                  str(StartTime.day).zfill(2),k))
     
         RI_File.write("\n%s     %s        %s        %s           %s          %s         %s          %s    %s"%\
                     (k,RunInfoDict[k]['good_i3'],RunInfoDict[k]['good_it'],\
