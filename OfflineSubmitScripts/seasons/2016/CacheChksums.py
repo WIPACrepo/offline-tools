@@ -9,6 +9,7 @@ Usually this script is called by cron.
 """
 
 import sys, os
+import time
 from os.path import expandvars, join, exists
 import glob
 import cPickle
@@ -33,9 +34,11 @@ def main(logger, dryrun):
 
     look_back_in_days = config.getint('CacheCheckSums', 'LookBack')
     dump_interval = config.getint('CacheCheckSums', 'DumpInterval')
-
+    hold_off_interval = config.getint('CacheCheckSums', 'HoldOffInterval')
+    
     logger.debug("LookBack in days: %s" % look_back_in_days)
     logger.debug("DumpInterval: %s" % dump_interval)
+    logger.debug("Hold-Off Interval: %s seconds" % hold_off_interval)
 
     if look_back_in_days < 0:
         logger.critical("Invalid value for LookBack: %s" % look_back_in_days)
@@ -86,6 +89,15 @@ def main(logger, dryrun):
                     logger.debug("File has no MD5 sum in cache")
 
                     try:
+                        # Check if file is old enought to avoid MD5 sums of incompleted files
+                        last_mod = os.stat(File).st_mtime
+                        current_time = time.time()
+                        if current_time - last_mod < hold_off_interval:
+                            # File is not old enough
+                            logger.debug("File's last modification was at %s. Its age is %s seconds. Min age is %s seconds." % (last_mod, current_time - last_mod, hold_off_interval))
+                            logger.debug('File is not old enough. Skip it.')
+                            continue
+
                         ChkSums[File] = str(FileTools.FileTools(File, logger).md5sum())
                         logger.info("md5sum('%s'): %s"%(File, ChkSums[File]))
                     except Exception, err:
