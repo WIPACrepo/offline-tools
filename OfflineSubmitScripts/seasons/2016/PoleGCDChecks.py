@@ -10,20 +10,20 @@ import datetime
 import glob
 import json
 import subprocess as sub
-
 from libs.files import get_tmpdir, get_logdir
-from RunTools import *
-from FileTools import *
-from DbTools import *
-from libs.logger import get_logger
-from libs.argparser import get_defaultparser
-import libs.process
 import libs.config
 
 CONFIG = libs.config.get_config()
 
 sys.path.append(CONFIG.get('DEFAULT', 'SQLClientPath'))
 sys.path.append(CONFIG.get('DEFAULT', 'ProductionToolsPath'))
+
+from RunTools import *
+from FileTools import *
+from DbTools import *
+from libs.logger import get_logger
+from libs.argparser import get_defaultparser
+import libs.process
 
 import SendNotification as SN
 
