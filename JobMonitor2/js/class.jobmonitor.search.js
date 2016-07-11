@@ -182,20 +182,40 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
     html += '<strong>Status</strong>';
     html += '</td>';
     html += '<td>';
-    html += 'InIce: ' + (data['data']['result']['good_i3'] ? '<span class="run-ok">&#10003;</span>' : '<span class="run-bad">&#10007;</span>') + ' ';
-    html += 'IceTop: ' + (data['data']['result']['good_it'] ? '<span class="run-ok">&#10003;</span>' : '<span class="run-bad">&#10007;</span>') + ' ';
+
+    html += 'InIce: ';
+    if(typeof data['data']['result']['good_i3'] === 'undefined') {
+        html += '<strong>?</strong> ';
+    } else if(data['data']['result']['good_i3']) {
+        html += '<span class="run-ok">&#10003;</span> ';
+    } else {
+        html += '<span class="run-bad">&#10007;</span> ';
+    }
+    
+    html += 'IceTop: ';
+    if(typeof data['data']['result']['good_it'] === 'undefined') {
+        html += '<strong>?</strong> ';
+    } else if(data['data']['result']['good_it']) {
+        html += '<span class="run-ok">&#10003;</span> ';
+    } else {
+        html += '<span class="run-bad">&#10007;</span> ';
+    }
+
     html += '<a href="https://live.icecube.wisc.edu/run/' + data['data']['query']['run_id'] + '/" target="_blank" data-container="body" data-toggle="tooltip" data-placement="bottom" title="More run information on i3live">';
     html += '<span class="glyphicon glyphicon-info-sign" aria-hidden="true"></a>';
     html += '</td>';
-    html += '<tr>';
-    html += '<td>';
-    html += '<strong>Date</strong>';
-    html += '</td>';
-    html += '<td>';
-    html += data['data']['result']['date'];
-    html += '</td>';
-    html += '</tr>';
-    html += '</tr>';
+
+    if(typeof data['data']['result']['date'] !== 'undefined') {
+        html += '<tr>';
+        html += '<td>';
+        html += '<strong>Date</strong>';
+        html += '</td>';
+        html += '<td>';
+        html += data['data']['result']['date'];
+        html += '</td>';
+        html += '</tr>';
+        html += '</tr>';
+    }
 
     if(eventIdSearch) {
         html += '<tr>';
@@ -225,24 +245,11 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
     html += '</td>';
     html += '<td>';
     
-    if(datasets.length > 0 && data['data']['result']['successfully']) {
+    if(datasets.length > 0) {
         var url = this.url.getUrlWithoutQueryString() + '?';
         var states = this.url.getStates();
 
         datasets.forEach(function(dataset, index) {
-            // Set current dataset id in states object
-            // in order to build the correct url
-            states['dataset'] = dataset;
-
-            // Remove 'static' attribute in order to avoid displaying the search window
-            delete states['static'];
-
-            // Add day detail pop up
-            states['day'] = data['data']['result']['date'];
-
-            // Build a tmp url
-            var tmpUrl = url + iam.url.createQueryString(states);
-
             if(index > 0) {
                 html += ', ';
             }
@@ -253,7 +260,24 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
                 tooltip = 'Dataset type is ' + iam.data['datasets'][dataset]['type'];
             }
 
-            html += '<a href="' + tmpUrl + '"' + (tooltip.length > 0 ? ' title="' + tooltip + '" data-toggle="tooltip" data-placement="bottom"' : '') + '>' + dataset + '</a>';
+            if(typeof data['data']['result']['date'] !== 'undefined') {
+                // Set current dataset id in states object
+                // in order to build the correct url
+                states['dataset'] = dataset;
+
+                // Remove 'static' attribute in order to avoid displaying the search window
+                delete states['static'];
+
+                // Add day detail pop up
+                states['day'] = data['data']['result']['date'];
+
+                // Build a tmp url
+                var tmpUrl = url + iam.url.createQueryString(states);
+
+                html += '<a href="' + tmpUrl + '"' + (tooltip.length > 0 ? ' title="' + tooltip + '" data-toggle="tooltip" data-placement="bottom"' : '') + '>' + dataset + '</a>';
+            } else {
+                html += '<span title="' + tooltip + '" data-toggle="tooltip" data-placement="bottom">' + dataset + '</span>';
+            }
         });
 
         html += '<br/><small class="text-muted"><strong>Note:</strong> The list doesn\'t necessarily mean that the run is already processed in the displayed datasets.';

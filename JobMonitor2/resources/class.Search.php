@@ -7,6 +7,7 @@ class Search {
     private $event_id;
 
     private $mysql;
+    private $live;
     private $result;
 
     private $api_version;
@@ -15,8 +16,9 @@ class Search {
    
     public static $result_pattern = array('api_version' => null,'error' => 0, 'error_msg' => '', 'error_trace' => '', 'data' => array('query' => array(), 'result' => null));
  
-    public function __construct($host, $user, $password, $db, $datawarehouse_prefix, $api_version) {
+    public function __construct($host, $user, $password, $db, $datawarehouse_prefix, $api_version, $live_host, $live_user, $live_password, $live_db) {
         $this->mysql = @new mysqli($host, $user, $password, $db);
+        $this->live = @new mysqli($live_host, $live_user, $live_password, $live_db);
         $this->result = self::$result_pattern;
 
         $this->result['api_version'] = $api_version;
@@ -184,17 +186,19 @@ class Search {
     }
 
     private function get_grl_info($run_id) {
-        $sql = "SELECT UNIX_TIMESTAMP(good_tstart) AS `date`,
+        $sql = "SELECT UNIX_TIMESTAMP(tstart) AS `date`,
                     good_i3,
                     good_it 
-                FROM grl_snapshot_info 
-                WHERE run_id = $run_id 
-                ORDER BY production_version DESC 
+                FROM    livedata_snapshotrun s
+                JOIN    livedata_run r
+                    ON s.run_id = r.id
+                WHERE runNumber = $run_id 
+                ORDER BY snapshot_id DESC 
                 LIMIT 1";
 
         $result = array();
 
-        $query = $this->mysql->query($sql);
+        $query = $this->live->query($sql);
         while($info = $query->fetch_assoc()) {
             // Format date
             $info['date'] = date('Y-m-d', $info['date']);
@@ -249,6 +253,12 @@ class Search {
         $this->result['data']['result'] = array('successfully' => false,
                                                 'message' => "Run {$this->run_id} was not found");
 
+        $this->result['data']['query'] = array('run_id' => $this->run_id);
+
+        if(!is_null($this->event_id)) {
+            $this->result['data']['query']['event_id'] = $this->event_id;
+        }
+
         $gr_info = $this->get_grl_info($this->run_id);
 
         if(count($gr_info) > 0) {
@@ -266,37 +276,38 @@ class Search {
                 $this->result['data']['result']['gcd_files'] = $gcd_files;
             }
             */
+        }
 
-            // Search modes
-            if(!is_null($this->run_id) && !is_null($this->event_id)) {
-                // Search for event id
-                $this->result['data']['query'] = array('run_id' => $this->run_id, 'event_id' => $this->event_id);
-    
-                $gaps_files = $this->get_gaps_files($this->run_id);
-                $gaps_file = $this->get_subrun_by_event_id_and_gaps_files($gaps_files, $this->event_id);
-    
-                $this->result['data']['result']['successfully'] = false;
-                $this->result['data']['result']['message'] = "Event {$this->event_id} was not found in run {$this->run_id}";
-    
-                if(false !== $gaps_file) {
-                    $this->result['data']['result']['successfully'] = true;
-    
-                    $this->result['data']['result']['sub_run'] = intval(substr($gaps_file, -17, 8));
-                    $this->result['data']['result']['message'] = "Event {$this->event_id} was successfully found in sub run {$this->result['data']['result']['sub_run']} of run {$this->run_id}";
-    
-                    $files = $this->get_files_for_subrun_and_run($this->run_id, $this->result['data']['result']['sub_run']);
-                    $this->result['data']['result']['files'] = $files;
-                }
-            } else {
-                // Search for run id
-                $this->result['data']['query'] = array('run_id' => $this->run_id);
-    
-                $paths = $this->get_paths_and_datasets($this->run_id);
-    
-                if(count($paths) > 0) {
-                    $this->result['data']['result']['message'] = "Run {$this->run_id} was successfully found in " . count($paths) . " dataset" . (count($paths) > 1 ? 's' : '');
-                    $this->result['data']['result']['paths'] = $paths;
-                }
+        // Search modes
+        if(!is_null($this->run_id) && !is_null($this->event_id)) {
+            // Search for event id
+            $this->result['data']['query'] = array('run_id' => $this->run_id, 'event_id' => $this->event_id);
+
+            $gaps_files = $this->get_gaps_files($this->run_id);
+            $gaps_file = $this->get_subrun_by_event_id_and_gaps_files($gaps_files, $this->event_id);
+
+            $this->result['data']['result']['successfully'] = false;
+            $this->result['data']['result']['message'] = "Event {$this->event_id} was not found in run {$this->run_id}";
+
+            if(false !== $gaps_file) {
+                $this->result['data']['result']['successfully'] = true;
+
+                $this->result['data']['result']['sub_run'] = intval(substr($gaps_file, -17, 8));
+                $this->result['data']['result']['message'] = "Event {$this->event_id} was successfully found in sub run {$this->result['data']['result']['sub_run']} of run {$this->run_id}";
+
+                $files = $this->get_files_for_subrun_and_run($this->run_id, $this->result['data']['result']['sub_run']);
+                $this->result['data']['result']['files'] = $files;
+            }
+        } else {
+            // Search for run id
+            $this->result['data']['query'] = array('run_id' => $this->run_id);
+
+            $paths = $this->get_paths_and_datasets($this->run_id);
+
+            if(count($paths) > 0) {
+                $this->result['data']['result']['successfully'] = true;
+                $this->result['data']['result']['message'] = "Run {$this->run_id} was successfully found in " . count($paths) . " dataset" . (count($paths) > 1 ? 's' : '');
+                $this->result['data']['result']['paths'] = $paths;
             }
         }
 

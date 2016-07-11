@@ -11,7 +11,11 @@ try {
                                 $CONFIG['db_password'],
                                 $CONFIG['db_database'],
                                 $CONFIG['data_warehouse'],
-                                $CONFIG['api_version']);
+                                $CONFIG['api_version'],
+                                $CONFIG['live_db_host'],
+                                $CONFIG['live_db_username'],
+                                $CONFIG['live_db_password'],
+                                $CONFIG['live_db_database']);
     
     if(isset($_GET['run_id']) && trim($_GET['run_id']) !== '') {
         $search->set_run_id(filter_input(INPUT_GET, 'run_id'));
