@@ -44,6 +44,8 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--endrun", type=int, required = True, default=-1,
                       dest="ENDRUN", help="End fixing GCD files at this run")
     
+    parser.add_argument('--l3muon', help="Repair L3 Muon",dest="l3muon",action="store_true",default=False)  
+    
     args = parser.parse_args()
     LOGFILE=os.path.join(get_logdir(), 'LeapSecondCopyBadSubruns_')
     logger = get_logger(args.loglevel,LOGFILE)
@@ -81,7 +83,10 @@ if __name__ == "__main__":
         date = run['good_tstart']
 
         # Run base dir
-        basedir = "/data/exp/IceCube/%s/filtered/level2/%s%s"%(str(date.year), str(date.month).zfill(2), str(date.day).zfill(2))
+        if args.l3muon:
+            basedir = "/data/ana/Muon/level3/exp/%s/%s%s"%(str(date.year), str(date.month).zfill(2), str(date.day).zfill(2))
+        else:
+            basedir = "/data/exp/IceCube/%s/filtered/level2/%s%s"%(str(date.year), str(date.month).zfill(2), str(date.day).zfill(2))
         
         rundir = os.path.join(basedir, "Run%s"%str(run['run_id']).zfill(8))
         bad_subrun_dir = rundir + '_bad_subrun_leap_second' 
@@ -108,7 +113,10 @@ if __name__ == "__main__":
                 logger.error("No file sfound for run %s"%run['run_id'])
 
             last_subrun_path = [file for file in all_run_files if '_IT.i3.bz2' in file][-1][:-10] + '*'
-            
+           
+            if args.l3muon:
+                last_subrun_path = os.path.join(basedir, "Run%s" % str(run['run_id']).zfill(8), os.path.basename(last_subrun_path).replace('Level2', 'Level3'))
+ 
             logger.info("Searching for last sub run: %s"%last_subrun_path)
 
             last_subrun = glob.glob(last_subrun_path)
@@ -128,6 +136,9 @@ if __name__ == "__main__":
             logger.info("First subrun is affected")
             first_subrun_path = [file for file in all_run_files if '_IT.i3.bz2' in file][0][:-10] + '*'
             
+            if args.l3muon:
+                first_subrun_path = os.path.join(basedir, "Run%s" % str(run['run_id']).zfill(8), os.path.basename(first_subrun_path).replace('Level2', 'Level3'))
+ 
             logger.info("Searching for first sub run: %s"%first_subrun_path)
 
             first_subrun = glob.glob(first_subrun_path)
