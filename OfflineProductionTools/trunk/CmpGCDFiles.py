@@ -132,7 +132,9 @@ def CmpCalibration(GCDFiles, BadDOMsList = [], V = False, T = False, Season = 20
         
         DCal_Diff_Tdict['dom_cal_version_Check'] = DC1[k].dom_cal_version==DC2[k].dom_cal_version
         
-        DCal_Diff_Tdict['dom_noise_rate_Check'] = DC1[k].dom_noise_rate==DC2[k].dom_noise_rate
+        # Noise rates don't have to be compared since those aren't inserted/needed in the south and
+        # therefore, the check always fails.
+        # DCal_Diff_Tdict['dom_noise_rate_Check'] = DC1[k].dom_noise_rate==DC2[k].dom_noise_rate
         
         DCal_Diff_Tdict['relative_dom_eff_Check'] = DC1[k].relative_dom_eff==DC2[k].relative_dom_eff
         
