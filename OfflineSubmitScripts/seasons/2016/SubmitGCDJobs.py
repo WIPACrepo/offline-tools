@@ -105,10 +105,13 @@ if __name__ == '__main__':
     logger.debug("PyScripts: %s", PYTHONSCRIPTDIR)
  
     GRLInfo_ = dbs4_.fetchall("""SELECT r.run_id,r.tStart,g.production_version,g.snapshot_id
-                              FROM i3filter.grl_snapshot_info g join i3filter.run_info_summary r
-                              on r.run_id=g.run_id
-                              where ((not g.GCDCheck and not g.BadDOMsCheck and not g.submitted) or %s)
-                              and g.run_id>=%s and g.run_id<=%s"""%(REPRODUCE,START_RUN,END_RUN),UseDict=True)
+                              FROM i3filter.grl_snapshot_info g
+                              JOIN i3filter.run_info_summary r
+                                ON r.run_id=g.run_id
+                              WHERE ((NOT g.GCDCheck AND NOT g.BadDOMsCheck AND NOT g.submitted) OR %s)
+                                AND (g.good_it OR g.good_i3)
+                                AND g.run_id>=%s
+                                AND g.run_id<=%s""" % (REPRODUCE, START_RUN, END_RUN), UseDict = True)
     
     if not len(GRLInfo_):
         logger.warning("no runs meet input criteria for GCD generation ... exiting")
