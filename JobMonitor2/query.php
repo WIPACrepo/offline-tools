@@ -12,7 +12,11 @@ try {
                                 $CONFIG['db_database'],
                                 $CONFIG['default_dataset_id'],
                                 $CONFIG['L2_datasets'],
-                                $CONFIG['api_version']);
+                                $CONFIG['api_version'],
+                                $CONFIG['live_db_host'],
+                                $CONFIG['live_db_username'],
+                                $CONFIG['live_db_password'],
+                                $CONFIG['live_db_database']);
     
     // Set defaults
     $pjobs->set_dataset_id($CONFIG['default_dataset_id']);

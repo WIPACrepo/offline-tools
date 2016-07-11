@@ -246,7 +246,12 @@ JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day,
             html += run['snapshot_id'];
             html += '</td>';
             html += '<td class="hidden-xs">';
-            html += run['production_version'];
+
+            if(run['production_version'] < 0) {
+                html += 'N/A';
+            } else {
+                html += run['production_version'];
+            }
             html += '</td>';
         }
 
