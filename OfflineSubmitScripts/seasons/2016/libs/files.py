@@ -22,7 +22,7 @@ except:
 RUNINFODIR = lambda year : "/data/exp/IceCube/%s/filtered/level2/RunInfo/" %str(year)
 LEVEL2_DIR = lambda year : "/data/exp/IceCube/%s/filtered/level2/" %str(year)
 
-def MakeRunInfoFile(dbs4_, dataset_id, dryrun=False):
+def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
     """
     Write the 'goodrun list': start stop and string information for every run
 
@@ -106,19 +106,33 @@ def MakeRunInfoFile(dbs4_, dataset_id, dryrun=False):
     RI_File.close()
     RI_FileV.close()
     
-    LatestGoodRunInfo = glob.glob(RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_2*"%(ProductionYear,LatestProductionVersion))
+    LatestGoodRunInfo = glob.glob(RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_2*" % (ProductionYear, LatestProductionVersion))
     LatestGoodRunInfo.sort(key=lambda x: os.path.getmtime(x))
     LatestGoodRunInfo = LatestGoodRunInfo[-1]
-    if os.path.lexists(LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt"%(ProductionYear)):
-        if not dryrun: sub.call(["rm",LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt"%(ProductionYear)])
-    if not dryrun: sub.call(["ln","-s","%s"%LatestGoodRunInfo, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt"%(ProductionYear)])
+    LatestGoodRunInfoRelativePath = LatestGoodRunInfo.replace(LEVEL2_DIR(ProductionYear), '')
+
+    logger.debug("Sym link command: ln -s %s %s" % (LatestGoodRunInfoRelativePath, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt" % (ProductionYear)))
+
+    if os.path.lexists(LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt" % (ProductionYear)):
+        if not dryrun:
+            sub.call(["rm", LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt" % (ProductionYear)])
+
+    if not dryrun:
+        sub.call(["ln", "-s", "%s" % LatestGoodRunInfoRelativePath, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt" % (ProductionYear)])
        
-    LatestGoodRunInfoV = glob.glob(RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_Versioned*"%(ProductionYear,LatestProductionVersion))
+    LatestGoodRunInfoV = glob.glob(RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_Versioned*" % (ProductionYear, LatestProductionVersion))
     LatestGoodRunInfoV.sort(key=lambda x: os.path.getmtime(x))
     LatestGoodRunInfoV = LatestGoodRunInfoV[-1]
-    if os.path.lexists(LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt"%(ProductionYear)):
-        if not dryrun: sub.call(["rm",LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt"%(ProductionYear)])
-    if not dryrun: sub.call(["ln","-s","%s"%LatestGoodRunInfoV, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt"%(ProductionYear)])
+    LatestGoodRunInfoVRelativePath = LatestGoodRunInfoV.replace(LEVEL2_DIR(ProductionYear), '')
+
+    logger.debug("Sym link command: ln -s %s %s" % (LatestGoodRunInfoVRelativePath, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt" % (ProductionYear)))
+
+    if os.path.lexists(LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt" % (ProductionYear)):
+        if not dryrun:
+            sub.call(["rm", LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt" % (ProductionYear)])
+
+    if not dryrun:
+        sub.call(["ln", "-s", "%s" % LatestGoodRunInfoVRelativePath, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt" % (ProductionYear)])
 
 def MakeTarGapsTxtFile(dbs4_, StartTime, RunId, datasetid, dryrun = False, logger = DummyLogger()):
     """

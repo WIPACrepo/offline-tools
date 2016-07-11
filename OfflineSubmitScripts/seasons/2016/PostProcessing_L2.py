@@ -100,7 +100,7 @@ def main(runinfo,logger,dryrun=False):
     if runinfo:
         # Create run info files for all dataset ids thta are affected
         for dataset in datasets:
-            MakeRunInfoFile(dbs4_, dataset_id = dataset, dryrun = dryrun) 
+            MakeRunInfoFile(dbs4_, dataset_id = dataset, logger = logger, dryrun = dryrun) 
 
 
 if __name__ == '__main__':
