@@ -137,6 +137,8 @@ JobMonitor.prototype._staticContent = function() {
 
 JobMonitor.prototype._startLoading = function() {
     this.datasets.startLoading();
+    this._loadingErrorHide();
+    this.hideError();
 
     $.each(this.views, function(name, view) {
         view.startLoading();
@@ -153,20 +155,39 @@ JobMonitor.prototype._endLoading = function() {
     });
 
     // Check if L3 dataset before 2015
-    var showWarning = false;
+    var showL3Warning = false;
     if(typeof this.data !== 'undefined') {
         $.each(this.data['data']['datasets'], function(dataset_id, value) {
             if(value['selected'] && value['season'] < 2015 && value['type'] === 'L3') {
-                showWarning = true;
+                showL3Warning = true;
                 return;
             }
         });
     }
 
-    if(showWarning) {
+    if(showL3Warning) {
         iam._showL3SeasonWarning();
     } else {
         iam._hideL3SeasonWarning();
+    }
+
+    // Check if L2 dataset of season 2010 or 2012
+    var showL2Warning = false;
+    if(typeof this.data !== 'undefined') {
+        $.each(this.data['data']['datasets'], function(dataset_id, value) {
+            if(value['selected'] && (value['season'] == 2010 || value['season'] == 2012) && value['type'] === 'L2') {
+                showL2Warning = true;
+                return;
+            }
+        });
+    }
+
+    console.log(showL2Warning);
+
+    if(showL2Warning) {
+        iam._showL2Season1012Warning();
+    } else {
+        iam._hideL2Season1012Warning();
     }
 }
 
@@ -181,8 +202,9 @@ JobMonitor.prototype._updateData = function(data) {
         typeof data['data'] === 'undefined' ||
         typeof data['data']['runs'] === 'undefined' ||
         typeof data['data']['datasets'] === 'undefined') {
-        // TODO: Better handling
-        alert("Bad data");
+
+        this.showError('Data looks unexpected.');
+
         console.log(data);
         return;
     }
@@ -190,7 +212,7 @@ JobMonitor.prototype._updateData = function(data) {
     // First check passed :)
     // Check of api version compatible
     if(!this.checkAPIVersionCompatibility(data['api_version'])) {
-        alert('API version incompatible');
+        this.showError('API version incompatible');
         console.log(data);
         return;
     }
@@ -226,12 +248,33 @@ JobMonitor.prototype._loadingError = function() {
     $('#jm-loading-error').show('slow');
 }
 
+JobMonitor.prototype._loadingErrorHide = function() {
+    $('#jm-loading-error').hide('slow');
+}
+
+JobMonitor.prototype.showError = function(msg) {
+    $('#jm-loading-error-customized span').html(msg);
+    $('#jm-loading-error-customized').show('slow');
+}
+
+JobMonitor.prototype.hideError = function(msg) {
+    $('#jm-loading-error-customized').hide('slow');
+}
+
 JobMonitor.prototype._showL3SeasonWarning = function() {
     $('#jm-l3-pre-2015-season-note').show('slow');
 }
 
 JobMonitor.prototype._hideL3SeasonWarning = function() {
     $('#jm-l3-pre-2015-season-note').hide('slow');
+}
+
+JobMonitor.prototype._showL2Season1012Warning = function() {
+    $('#jm-l2-2010-2012-season-note').show('slow');
+}
+
+JobMonitor.prototype._hideL2Season1012Warning = function() {
+    $('#jm-l2-2010-2012-season-note').hide('slow');
 }
 
 JobMonitor.prototype.init = function () {

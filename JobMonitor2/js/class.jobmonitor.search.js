@@ -330,7 +330,7 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
             html += '<td colspan="2">';
             html += '<strong>Path for dataset ' + path['dataset_id'] + '</strong>';
 
-            if(typeof iam.data['datasets'][path['dataset_id']] !== 'undefined') {
+            if(typeof iam.data['datasets'][path['dataset_id']] !== 'undefined' && iam.data['datasets'][path['dataset_id']]['type'] !== null) {
                 html += ' <span class="label label-info">' + iam.data['datasets'][path['dataset_id']]['type'] + '</span>';
             }
 

@@ -102,8 +102,16 @@ require_once('config.php');
         <strong>Note:</strong> You are watching a L3 dataset before season 2015. For those runs no validation flag exists. Therefore, all runs are maked as validated by default.
       </div>
 
+      <div class="alert alert-warning" role="alert" id="jm-l2-2010-2012-season-note" style="display: none;">
+        <strong>Note:</strong> You are watching a L2 dataset for that no validation information is available. Therefore, all runs are maked as validated by default.
+      </div>
+
       <div class="alert alert-danger" role="alert" id="jm-loading-error" style="display: none;">
         <strong>Error:</strong> An error occurred while loading data.
+      </div>
+
+      <div class="alert alert-danger" role="alert" id="jm-loading-error-customized" style="display: none;">
+        <strong>Error:</strong> <span></span>
       </div>
 
       <div class="panel panel-default" id="jm-content-view-calendar" style="display: none">

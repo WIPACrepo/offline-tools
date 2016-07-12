@@ -151,7 +151,8 @@ class ProcessingJobs {
         $sql = "SELECT d.dataset_id, ds.season, ds.dataset_type
                 FROM dataset d
                 JOIN offline_dataset_season ds
-                    ON d.dataset_id = ds.dataset_id";
+                    ON d.dataset_id = ds.dataset_id
+                WHERE ds.enabled";
 
         $query = $this->mysql->query($sql);
         while($validated = $query->fetch_assoc()) {
@@ -281,12 +282,12 @@ class ProcessingJobs {
 
             // Check if there is already a first run (> 0) for the next season
             if(intval($next_season['first_run']) > 0) {
-                $last_run_id = $next_season['first_run'];
+                $last_run_id = $next_season['first_run'] - 1;
             }
 
             // Exclude test runs of next season
-            $next_season_test_runs = implode(',', $season_info['test_runs']);
-            if(count($season_info['test_runs'])) {
+            $next_season_test_runs = implode(',', $next_season['test_runs']);
+            if(count($next_season['test_runs'])) {
                 $next_season_test_runs .= ',';
             }
         }
@@ -346,23 +347,27 @@ class ProcessingJobs {
             }
         } else if($season >= 2010) {
             // Data source is live and validateData
-
-            $sql = "SELECT  run_id,
-                            validation_status AS `validated`
-                    FROM validateData
-                    WHERE   (
-                                run_id BETWEEN $first_run_id AND $last_run_id OR
-                                run_id IN ($season_test_runs -1) /* Have at least -1 to avoid bad SQL */
-                            ) AND
-                            run_id NOT IN ($next_season_test_runs -1) /* Have at least -1 to avoid bad SQL */
-                    GROUP BY run_id
-                    ORDER BY run_id ASC";
+            // validateData has only data for season 2011
+            // 2010 and 2013 are getting only data from i3live and any other is default.
 
             $tmpRuns = array();
 
-            $query = $this->mysql->query($sql);
-            while($row = $query->fetch_assoc()) {
-                $tmpRuns[$row['run_id']] = $row;
+            if($season == 2011) {
+                $sql = "SELECT  run_id,
+                                validation_status AS `validated`
+                        FROM validateData
+                        WHERE   (
+                                    run_id BETWEEN $first_run_id AND $last_run_id OR
+                                    run_id IN ($season_test_runs -1) /* Have at least -1 to avoid bad SQL */
+                                ) AND
+                                run_id NOT IN ($next_season_test_runs -1) /* Have at least -1 to avoid bad SQL */
+                        GROUP BY run_id
+                        ORDER BY run_id ASC";
+
+                $query = $this->mysql->query($sql);
+                while($row = $query->fetch_assoc()) {
+                    $tmpRuns[$row['run_id']] = $row;
+                }
             }
 
             // So, now the data from I3Live are still missing
@@ -382,8 +387,10 @@ class ProcessingJobs {
 
             $query = $this->live->query($sql);
             while($row = $query->fetch_assoc()) {
-                if(isset($tmpRuns[$row['run_id']])) {
+                if(isset($tmpRuns[$row['run_id']]) && $season == 2011) {
                     $runs[] = array_merge($tmpRuns[$row['run_id']], $row, array('production_version' => -1, 'submitted' => true));
+                } else if($season != 2011) {
+                    $runs[] = array_merge($row, array('validated' => 1, 'production_version' => -1, 'submitted' => true));
                 }
             }
         } else {
