@@ -215,8 +215,6 @@ JobMonitor.prototype._endLoading = function() {
         });
     }
 
-    console.log(showL2Warning);
-
     if(showL2Warning) {
         iam._showL2Season1012Warning();
     } else {

@@ -254,7 +254,7 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
 
             var tooltip = '';
 
-            if(typeof iam.data['datasets'][dataset] !== 'undefined') {
+            if(typeof iam.data !== 'undefined' && typeof iam.data['datasets'][dataset] !== 'undefined') {
                 tooltip = 'Dataset type is ' + iam.data['datasets'][dataset]['type'];
             }
 
@@ -286,6 +286,33 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
 
     html += '</td>';
     html += '</tr>';
+
+    if(typeof data['data']['result']['gcd_files'] !== 'undefined') {
+        html += '<tr>';
+        html += '<td>';
+        html += '<strong>GCD files</strong>';
+        html += '</td>';
+        html += '<td>';
+
+        if(data['data']['result']['gcd_files'].length > 0) {
+            var first = true;
+
+            data['data']['result']['gcd_files'].forEach(function(file) {
+                if(first) {
+                    first = false;
+                } else {
+                    html += '<hr>';
+                }
+
+                html += '<code>' + file + '</code><br/>';
+            });
+        } else {
+            html += 'No GCD files found';
+        }
+
+        html += '</td>';
+        html += '</tr>';
+    }
 
     if(eventIdSearch && data['data']['result']['successfully']) {
         html += '<tr>';

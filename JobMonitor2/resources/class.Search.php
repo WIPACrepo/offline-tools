@@ -209,36 +209,25 @@ class Search {
         return $result;
     }
 
-    private function get_gcd_files($run_id, $date_raw) {
-        // Date format is YYYY-MM-DD
-        $date = explode('-', $date_raw);
+    private function get_gcd_files($run_id) {
+        $sql = "SELECT name, path 
+                FROM urlpath u 
+                JOIN run r 
+                    ON r.queue_id = u.queue_id 
+                    AND r.dataset_id = u.dataset_id 
+                WHERE name LIKE '%GCD%' 
+                    AND r.run_id = $run_id 
+                    AND type = 'INPUT'
+                GROUP BY name";
 
-        if(count($date) != 3) {
-            throw new InvalidArgumentException("Cannot search for GCD files since date format is not as expected: $date_raw");
-        }
-
-        $year = intval($date[0]);
-        $month = intval($date[1]);
-        $day = intval($date[2]);
-
-        // Path depends on date
         $paths = array();
-        if(($year == 2011 && $month <=5) || ($year < 2011 && $year >= 2007)) {
-            $path[] = "/data/exp/IceCube/$year/filtered/level2a/{$date[1]}{$date[2]}/*{$run_id}*_GCD.i3*";
-            $path[] = "/data/exp/IceCube/$year/filtered/level2/{$date[1]}{$date[2]}/*{$run_id}*_GCD.i3*";
+
+        $query = $this->mysql->query($sql);
+        while($run = $query->fetch_assoc()) {
+            $paths[] = ProcessingJobs::join_paths(substr($run['path'], 5), $run['name']);
         }
 
-        if($year >= 2011) {
-            $paths[] = "/data/exp/IceCube/$year/filtered/level2/AllGCD/*{$run_id}*_GCD.i3*";
-        }
-
-        $files = array();
-
-        foreach($paths as $path) {
-            $files = array_merge($files, glob($path));
-        }
-
-        return $files;
+        return $paths;
     }
 
     public function execute() {
@@ -270,12 +259,10 @@ class Search {
             $this->result['data']['result']['message'] = "Run {$this->run_id} was found.";
 
             // GCD files
-            /* Doesn't work now since we don't have access to the /data/ file system.
             $gcd_files = $this->get_gcd_files($this->run_id, $gr_info[0]['date']);
             if(count($gcd_files) > 0) {
                 $this->result['data']['result']['gcd_files'] = $gcd_files;
             }
-            */
         }
 
         // Search modes
