@@ -1,10 +1,11 @@
 
-function JobMonitorDatasets(updateCallback, url, nextActionCallback) {
+function JobMonitorDatasets(updateCallback, url, nextActionCallback, main) {
     this.datasetList = $('#jm-dataset-dropdown');
     this.currentDataset = $('#current-dataset', this.datasetList);
     this.title = $('#jm-dataset-title');
     this.updateCallback = updateCallback;
     this.url = url;
+    this.main = main;
     this.nextActionCallback = nextActionCallback;
 }
 
@@ -42,11 +43,11 @@ JobMonitorDatasets.prototype.update = function(datasets) {
         var labels = '';
 
         if(typeof dataset['season'] !== 'undefined' && dataset['season'] !== null) {
-            labels += ' <span class="label label-info">' + dataset['season'] + '</span>';
+            labels += ' ' + this.main.createLabelSeason(dataset['season']);
         }
 
         if(typeof dataset['type'] !== 'undefined' && dataset['type'] !== null) {
-            labels += ' <span class="label label-info">' + dataset['type'] + '</span>';
+            labels += ' ' + this.main.createLabelDatasetType(dataset['type']);
         }
 
         var text = '<a href="#">';
@@ -136,10 +137,10 @@ JobMonitorDatasets.prototype.update = function(datasets) {
         title += '</strong>: ' + datasets[datasetId]['description'];
         title += '</h3>';
         title += '<p>';
-        title += '<span class="label label-info">Season ' + datasets[datasetId]['season'] + '</span>';
+        title += this.main.createLabelSeason(datasets[datasetId]['season'], true);
 
         if(typeof datasets[datasetId]['type'] !== 'undefined') {
-            title += ' <span class="label label-info">Type ' + datasets[datasetId]['type'] + '</span>';
+            title += ' ' + this.main.createLabelDatasetType(datasets[datasetId]['type'], true);
         }
 
         title += '</p>';

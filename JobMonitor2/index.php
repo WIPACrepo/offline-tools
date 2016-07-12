@@ -68,7 +68,7 @@ require_once('config.php');
             <li><a href="#" id="force-update"><i class="fa fa-refresh fa-lg fa-fw margin-bottom"></i></a></li>
           </ul>
           <ul class="nav navbar-nav navbar-right">
-            <li><a href="#" data-toggle="modal" data-target="#jm-dialog-search">Search</a></li>
+            <li><a href="#" data-toggle="modal" data-target="#jm-dialog-search">Search <span class="glyphicon glyphicon-search" aria-hidden="true"></span></a></li>
             <li class="dropdown" id="jm-view-dropdown">
               <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">View <span class="caret"></span></a>
               <ul class="dropdown-menu">

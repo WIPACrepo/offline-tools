@@ -29,13 +29,9 @@ function JobMonitor(params) {
 
     this.viewOptions = new JobMonitorViews(this.url);
 
-    this.datasets = new JobMonitorDatasets(function() {iam.updater.update(true);}, this.url, function(callback) {iam.updater.setNextAction(callback);});
+    this.datasets = new JobMonitorDatasets(function() {iam.updater.update(true);}, this.url, function(callback) {iam.updater.setNextAction(callback);}, this);
 
-    this.search = new JobMonitorSearch(this.url,
-        function(runId) {return iam.findSeasonByRunId(runId);},
-        function(season) {return iam.findDatasetsBySeason(season);},
-        'search.php',
-        function(apiVersion) {return iam.checkAPIVersionCompatibility(apiVersion);});
+    this.search = new JobMonitorSearch(this.url, 'search.php', this);
 
     this.updater = new JobMonitorUpdater('query.php', this.url,
         function(data) {iam._updateData(data);},
@@ -58,6 +54,43 @@ function JobMonitor(params) {
     };
 
     this._staticContent();
+}
+
+JobMonitor.prototype.createLabelSeason = function(season, verbose) {
+    verbose = typeof verbose !== 'undefined' ? verbose : false;
+
+    var text = '';
+
+    if(verbose) {
+        text = 'Season ';
+    }
+
+    return '<span class="label label-info">' + text + season + '</span>';
+}
+
+JobMonitor.prototype.createLabelDatasetType = function(type, verbose) {
+    verbose = typeof verbose !== 'undefined' ? verbose : false;
+
+    var colorClass = 'label-default';
+    var text = '';
+
+    if(verbose) {
+        text = 'Type ';
+    }
+
+    type = type.toUpperCase();
+
+    switch(type) {
+        case 'L2':
+            colorClass = 'label-success';
+            break;
+
+        case 'L3':
+            colorClass = 'label-warning';
+            break;
+    }
+
+    return '<span class="label ' + colorClass + '">' + text + type + '</span>';
 }
 
 JobMonitor.prototype.findSeasonByRunId = function(runId) {

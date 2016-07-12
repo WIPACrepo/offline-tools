@@ -1,10 +1,8 @@
 
-function JobMonitorSearch(url, findSeasonByRunIdCallback, findDatasetsBySeasonCallback, searchUrl, apiCompatibilityCheckerCallback) {
+function JobMonitorSearch(url, searchUrl, main) {
     this.url = url;
-    this.findSeasonByRunIdCallback = findSeasonByRunIdCallback;
-    this.findDatasetsBySeasonCallback = findDatasetsBySeasonCallback;
+    this.main = main;
     this.searchUrl = searchUrl;
-    this.apiCompatibilityCheckerCallback = apiCompatibilityCheckerCallback;
 
     this.inputRunId = $('#jm-dialog-search #jm-search-run-id');
     this.inputEventId = $('#jm-dialog-search #jm-search-event-id');
@@ -128,7 +126,7 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
         return;
     }
 
-    if(!this.apiCompatibilityCheckerCallback(data['api_version'])) {
+    if(!this.main.checkAPIVersionCompatibility(data['api_version'])) {
         console.log(data);
         this._error('Client version is not compatible with data. Force a page reload and try again.');
         return;
@@ -147,12 +145,12 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
     }
 
     // Season and dataset information
-    var season =  this.findSeasonByRunIdCallback(data['data']['query']['run_id']);
+    var season =  this.main.findSeasonByRunId(data['data']['query']['run_id']);
     var datasets = [];
 
     // If no season has been found, -1 is returned
     if(season > -1) {
-        datasets = this.findDatasetsBySeasonCallback(season);
+        datasets = this.main.findDatasetsBySeason(season);
     }
 
     // Ok, we have a result. Let's build the result HTML...
@@ -305,7 +303,7 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
             html += '<strong>File for dataset ' + file['dataset_id'] + '</strong>';
 
             if(typeof iam.data['datasets'][file['dataset_id']] !== 'undefined') {
-                html += ' <span class="label label-info">' + iam.data['datasets'][file['dataset_id']]['type'] + '</span>';
+                html += ' ' + iam.main.createLabelDatasetType(iam.data['datasets'][file['dataset_id']]['type']);
             }
 
             html += '</td>';
@@ -331,7 +329,7 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
             html += '<strong>Path for dataset ' + path['dataset_id'] + '</strong>';
 
             if(typeof iam.data['datasets'][path['dataset_id']] !== 'undefined' && iam.data['datasets'][path['dataset_id']]['type'] !== null) {
-                html += ' <span class="label label-info">' + iam.data['datasets'][path['dataset_id']]['type'] + '</span>';
+                html += ' ' + iam.main.createLabelDatasetType(iam.data['datasets'][path['dataset_id']]['type']);
             }
 
             html += '</td>';
