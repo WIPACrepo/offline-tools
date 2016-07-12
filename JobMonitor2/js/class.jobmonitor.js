@@ -68,6 +68,30 @@ JobMonitor.prototype.createLabelSeason = function(season, verbose) {
     return '<span class="label label-info">' + text + season + '</span>';
 }
 
+JobMonitor.prototype.createLabelWorkingGroup = function(workingGroup, verbose) {
+    verbose = typeof verbose !== 'undefined' ? verbose : false;
+
+    var text = '';
+
+    if(verbose) {
+        text = 'Working Group: ';
+    }
+
+    return '<span class="label label-default">' + text + workingGroup + '</span>';
+}
+
+JobMonitor.prototype.createLabelComment = function(comment, verbose) {
+    verbose = typeof verbose !== 'undefined' ? verbose : false;
+
+    var text = '';
+
+    if(verbose) {
+        text = 'Comment: ';
+    }
+
+    return '<span class="label jm-label-comment">' + text + comment + '</span>';
+}
+
 JobMonitor.prototype.createLabelDatasetType = function(type, verbose) {
     verbose = typeof verbose !== 'undefined' ? verbose : false;
 

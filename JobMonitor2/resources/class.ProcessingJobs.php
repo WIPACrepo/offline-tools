@@ -148,10 +148,12 @@ class ProcessingJobs {
             return;
         }
 
-        $sql = "SELECT d.dataset_id, ds.season, ds.dataset_type
+        $sql = "SELECT d.dataset_id, ds.season, ds.dataset_type, g.name, ds.comment
                 FROM dataset d
                 JOIN offline_dataset_season ds
                     ON d.dataset_id = ds.dataset_id
+                JOIN offline_working_groups g
+                    ON ds.working_group = g.wid
                 WHERE ds.enabled";
 
         $query = $this->mysql->query($sql);
@@ -159,6 +161,11 @@ class ProcessingJobs {
             $this->result['data']['datasets'][$validated['dataset_id']]['supported'] = true;
             $this->result['data']['datasets'][$validated['dataset_id']]['season'] = $validated['season'];
             $this->result['data']['datasets'][$validated['dataset_id']]['type'] = $validated['dataset_type'];
+            $this->result['data']['datasets'][$validated['dataset_id']]['comment'] = $validated['comment'];
+
+            if($validated['dataset_type'] === 'L3') {
+                $this->result['data']['datasets'][$validated['dataset_id']]['working_group'] = $validated['name'];
+            }
         }
 
         $validated = true;
@@ -504,6 +511,7 @@ class ProcessingJobs {
                 $row['supported'] = false;
                 $row['season'] = null;
                 $row['type'] = null;
+                $row['comment'] = '';
 
                 $list[$row['dataset_id']] = $row;
             }

@@ -8,6 +8,10 @@
 }
 
 #jm-content-view-dataset-selection .jm-view-content table tbody tr td.labels {
-    width: 100px;
+    width: 175px;
     text-align: right;
+}
+
+.jm-label-comment {
+    background-color: #c8bf86;
 }

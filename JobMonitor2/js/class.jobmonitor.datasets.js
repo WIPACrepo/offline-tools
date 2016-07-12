@@ -17,10 +17,23 @@ JobMonitorDatasets.prototype.update = function(datasets) {
     var menu = $('.dropdown-menu', this.datasetList).empty();
     var selected = -1;
 
-    // We want a sorted list
+    // We want a sorted list (by season, dataset id)
     var keys = Object.keys(datasets);
-    keys.sort();
+
+    for(var i = 0; i < keys.length; ++i) {
+        keys[i] = [keys[i], 0];
+
+        if(typeof datasets[keys[i][0]]['season'] !== undefined && datasets[keys[i][0]]['season'] !== null) {
+            keys[i][1] = datasets[keys[i][0]]['season'];
+        }
+    }
+
+    keys.sort(function(a, b) {return a[1] - b[1];});
     keys.reverse();
+
+    for(var i = 0; i < keys.length; ++i) {
+        keys[i] = keys[i][0];
+    }
 
     // Dataset selection view
     var datasetSelection = '<table class="table table-hover">';
@@ -50,9 +63,21 @@ JobMonitorDatasets.prototype.update = function(datasets) {
             labels += ' ' + this.main.createLabelDatasetType(dataset['type']);
         }
 
+        if(typeof dataset['working_group'] !== 'undefined') {
+            labels += ' ' + this.main.createLabelWorkingGroup(dataset['working_group']);
+        }
+
+        if(typeof dataset['comment'] !== 'undefined' && dataset['comment'] !== '') {
+            labels += ' ' + this.main.createLabelComment(dataset['comment']);
+        }
+
         var text = '<a href="#">';
 
-        text += '<b>' + dataset['dataset_id'] + '</b>: ' + dataset['description'];
+        text += '<b>' + dataset['dataset_id'] + '</b>: ';
+
+        if(labels.length === 0) {
+            text += dataset['description'];
+        }
         
         text += labels;
 
@@ -141,6 +166,14 @@ JobMonitorDatasets.prototype.update = function(datasets) {
 
         if(typeof datasets[datasetId]['type'] !== 'undefined') {
             title += ' ' + this.main.createLabelDatasetType(datasets[datasetId]['type'], true);
+        }
+
+        if(typeof datasets[datasetId]['working_group'] !== 'undefined') {
+            title += ' ' + this.main.createLabelWorkingGroup(datasets[datasetId]['working_group'], true);
+        }
+
+        if(typeof datasets[datasetId]['comment'] !== 'undefined' && datasets[datasetId]['comment'] !== '') {
+            title += ' ' + this.main.createLabelComment(datasets[datasetId]['comment']);
         }
 
         title += '</p>';
