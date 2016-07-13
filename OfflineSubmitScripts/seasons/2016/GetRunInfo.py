@@ -231,9 +231,10 @@ def main(config, logger,dryrun = False, check = False):
         fileChkRlt = libs.checks.pffilt_size_and_permission(r, RunInfo_[r]['tStart'].year, RunInfo_[r]['tStart'].month, RunInfo_[r]['tStart'].day, logger, False)
         if len(fileChkRlt['empty']) + len(fileChkRlt['permission']) + len(fileChkRlt['emptyAndPermission']) > 0:
             logger.warning("Run %s has issues with PFFilt files" % r)
+
             logger.warning('  Empty files w/o reading permission:')
-    	for file in fileChkRlt['emptyAndPermission']:
-    	    logger.warning('    ' + file)
+            for file in fileChkRlt['emptyAndPermission']:
+                logger.warning('    ' + file)
     
             logger.warning('  Empty files w/ reading permission:')
             for file in fileChkRlt['empty']:  
