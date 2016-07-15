@@ -87,7 +87,12 @@ def main_cmp(fileDict, sRuns, dryrun):
 
         currentFile = fileDict[sRun][0]
         templateFile = fileDict[sRuns[sRuns.index(sRun)-1]][0]
-    
+   
+        logger.debug("fileDict = %s" % fileDict)
+
+        logger.debug("currentFile = %s" % currentFile)
+        logger.debug("templateFile = %s" % templateFile)
+ 
         logger.info("current File: %s"%currentFile)
         logger.info("template File: %s "%templateFile)
     
@@ -102,14 +107,13 @@ def main_cmp(fileDict, sRuns, dryrun):
             
             try:
                 RV = sub.call([ENVSHELL, "python", os.path.join(OFFLINEPRODUCTIONTOOLS, CMPGCD),
-                                        "-f", "%s %s"%(currentFile,templateFile),"-v","-t"],stdout=oL, stderr=oL)
+                                        "-f", currentFile, templateFile,"-v","-t"],stdout=oL, stderr=oL)
                 
                 if not dryrun:
                     dbs4_.execute("""update i3filter.grl_snapshot_info g
                                     set TemplateGCDCheck=%s where run_id=%s"""%(RV,sRun))
                 
                 if RV:
-                    
                     [notIceTop,changedVariables] = parse_logs(outLog, logger)
                     
                     message = ""
@@ -137,7 +141,7 @@ def main_cmp(fileDict, sRuns, dryrun):
                     message = SN.CreateMsg(DOMAIN, SENDER, RECEIVERS, subject,messageBody,mimeVersion,contentType)
     
                     if len(message) and not dryrun:
-                        SN.SendMsg(sender,receivers,message)
+                        SN.SendMsg(SENDER, RECEIVERS, message)
     
                 
             except Exception, err:
