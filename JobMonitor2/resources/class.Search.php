@@ -186,7 +186,7 @@ class Search {
     }
 
     private function get_grl_info($run_id) {
-        $sql = "SELECT UNIX_TIMESTAMP(tstart) AS `date`,
+        $sql = "SELECT DATE(tstart) AS `date`,
                     good_i3,
                     good_it 
                 FROM    livedata_snapshotrun s
@@ -200,34 +200,58 @@ class Search {
 
         $query = $this->live->query($sql);
         while($info = $query->fetch_assoc()) {
-            // Format date
-            $info['date'] = date('Y-m-d', $info['date']);
-
             $result[] = $info;
         }
 
         return $result;
     }
 
-    private function get_gcd_files($run_id) {
-        $sql = "SELECT name, path 
-                FROM urlpath u 
-                JOIN run r 
-                    ON r.queue_id = u.queue_id 
-                    AND r.dataset_id = u.dataset_id 
-                WHERE name LIKE '%GCD%' 
-                    AND r.run_id = $run_id 
-                    AND type = 'INPUT'
-                GROUP BY name";
+    private function get_gcd_files_from_convey($path, $run_id) {
+        // Get folder listing
+        $folder = file($this->datawarehouse_prefix . $path);
 
-        $paths = array();
+        $files = array();
 
-        $query = $this->mysql->query($sql);
-        while($run = $query->fetch_assoc()) {
-            $paths[] = ProcessingJobs::join_paths(substr($run['path'], 5), $run['name']);
+        foreach($folder as &$line) {
+            $matches = null;
+            if(preg_match('/\<a\ href\=\"([_a-zA-Z0-9-\.]+Run[0]*' . $run_id . '[_a-zA-Z0-9-\.]+)\"\>/', $line, $matches)) {
+                $files[] = ProcessingJobs::join_paths($path, $matches[1]);
+            }
         }
 
-        return $paths;
+        return $files;
+    }
+
+    private function get_gcd_files($run_id, $date_raw) {
+        // Date format is YYYY-MM-DD
+        $date = explode('-', $date_raw);
+
+        if(count($date) != 3) {
+            throw new InvalidArgumentException("Cannot search for GCD files since date format is not as expected: $date_raw");
+        }
+
+        $year = intval($date[0]);
+        $month = intval($date[1]);
+        $day = intval($date[2]);
+
+        // Path depends on date
+        $paths = array();
+        if(($year == 2011 && $month <=5) || ($year < 2011 && $year >= 2007)) {
+            $path[] = "/data/exp/IceCube/$year/filtered/level2a/{$date[1]}{$date[2]}/";
+            $path[] = "/data/exp/IceCube/$year/filtered/level2/{$date[1]}{$date[2]}/";
+        }
+
+        if($year >= 2011) {
+            $paths[] = "/data/exp/IceCube/$year/filtered/level2/AllGCD/";
+        }
+
+        $files = array();
+
+        foreach($paths as $path) {
+            $files = array_merge($files, $this->get_gcd_files_from_convey($path, $run_id));
+        }
+
+        return $files;
     }
 
     public function execute() {
