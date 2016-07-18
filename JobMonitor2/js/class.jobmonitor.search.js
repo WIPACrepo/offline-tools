@@ -256,6 +256,10 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
 
             if(typeof iam.data !== 'undefined' && typeof iam.data['datasets'][dataset] !== 'undefined') {
                 tooltip = 'Dataset type is ' + iam.data['datasets'][dataset]['type'];
+
+                if(typeof iam.data['datasets'][dataset]['working_group'] !== 'undefined' && iam.data['datasets'][dataset]['working_group'] !== null) {
+                    tooltip += ' (' + iam.data['datasets'][dataset]['working_group'] + ')';
+                }
             }
 
             if(typeof data['data']['result']['date'] !== 'undefined') {
