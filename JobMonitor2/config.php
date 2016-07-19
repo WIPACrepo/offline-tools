@@ -3,6 +3,11 @@
 // Config
 
 $CONFIG = array(
+    'offline_processing_personnel' => array('name' => 'Jan Oertlin',
+                                            'email' => 'jan.oertlin@icecube.wisc.edu',
+                                            'slack' => array('user' => '@jan',
+                                                             'channel' => '#data-processing')
+                                           ),
     'db_username' => 'i3filter_ro',
     'db_password' => 'Z&F7?Hu"',
     'db_host' => 'dbs4',
@@ -16,6 +21,7 @@ $CONFIG = array(
     'L2_datasets' => array(1863, 1866, 1870, 1871, 1874, 1883, 1888),
     'api_version' => '1.1',
     'svn' => '$Id$',
+    'svn_url' => 'http://code.icecube.wisc.edu/projects/icecube/browser/IceCube/sandbox/jan/JobMonitor2',
     'data_warehouse' => 'http://icecube:skua@128.104.255.226'
 );
 

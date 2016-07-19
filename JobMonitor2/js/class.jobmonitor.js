@@ -20,6 +20,12 @@ function JobMonitor(params) {
         return;
     }
 
+    this.personnelData = $('#jm-personnel');
+    this.personnel = {'name': this.personnelData.attr('data-jm-name'),
+                      'email': this.personnelData.attr('data-jm-email'),
+                      'slack_user': this.personnelData.attr('data-jm-slack-user'),
+                      'slack_channel': this.personnelData.attr('data-jm-slack-channel'),};
+
     this.isTouchDevice = ("ontouchstart" in window) || window.DocumentTouch && document instanceof DocumentTouch;
 
     this.data = undefined;
@@ -54,6 +60,10 @@ function JobMonitor(params) {
     };
 
     this._staticContent();
+}
+
+JobMonitor.prototype.getPersonnelData = function(key) {
+    return this.personnel[key];
 }
 
 JobMonitor.prototype.createLabelSeason = function(season, verbose) {

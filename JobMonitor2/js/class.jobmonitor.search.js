@@ -291,13 +291,13 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
     html += '</td>';
     html += '</tr>';
 
-    if(typeof data['data']['result']['gcd_files'] !== 'undefined') {
-        html += '<tr>';
-        html += '<td>';
-        html += '<strong>GCD files</strong>';
-        html += '</td>';
-        html += '<td>';
+    html += '<tr>';
+    html += '<td>';
+    html += '<strong>GCD files</strong>';
+    html += '</td>';
+    html += '<td>';
 
+    if(typeof data['data']['result']['gcd_files'] !== 'undefined') {
         if(data['data']['result']['gcd_files'].length > 0) {
             var first = true;
 
@@ -313,10 +313,16 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
         } else {
             html += 'No GCD files found';
         }
+    } else {
+        html += 'Talk to ' + iam.main.getPersonnelData('name') + ' if you need a GCD file for this run ';
+        html += '(<a href="mailto:' + iam.main.getPersonnelData('email') + '">email</a>, ';
+        html += '<a href="https://icecube-spno.slack.com/messages/' + iam.main.getPersonnelData('slack_channel').substr(1) + '/" target="_blank">' + iam.main.getPersonnelData('slack_channel') + '</a>, ';
+        html += '<a href="https://icecube-spno.slack.com/messages/' + iam.main.getPersonnelData('slack_user') + '/" target="_blank">' + iam.main.getPersonnelData('slack_user') + '</a>)';
 
-        html += '</td>';
-        html += '</tr>';
     }
+
+    html += '</td>';
+    html += '</tr>';
 
     if(eventIdSearch && data['data']['result']['successfully']) {
         html += '<tr>';

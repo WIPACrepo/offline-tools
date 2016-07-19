@@ -43,6 +43,7 @@ require_once('config.php');
   </head>
   <body>
     <div class="jm-invisible" id="jm-api-version"><?php print($CONFIG['api_version']); ?></div>
+    <div class="jm-invisible" id="jm-personnel" data-jm-name="<?php print($CONFIG['offline_processing_personnel']['name']); ?>" data-jm-email="<?php print($CONFIG['offline_processing_personnel']['email']); ?>" data-jm-slack-user="<?php print($CONFIG['offline_processing_personnel']['slack']['user']); ?>" data-jm-slack-channel="<?php print($CONFIG['offline_processing_personnel']['slack']['channel']); ?>"></div>
     <nav class="navbar navbar-default navbar-fixed-top">
       <div class="container-fluid">
         <!-- Brand and toggle get grouped for better mobile display -->
@@ -84,7 +85,7 @@ require_once('config.php');
             <li>
               <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><span class="glyphicon glyphicon-question-sign"></span></a>
               <ul class="dropdown-menu">
-                <li><a href="#" data-toggle="modal" data-target="#jm-dialog-feedback">Feedback</a></li>
+                <li><a href="#" data-toggle="modal" data-target="#jm-dialog-feedback">Feedback & Help</a></li>
                 <li><a href="#" data-toggle="modal" data-target="#jm-dialog-api">API</a></li>
                 <li role="separator" class="divider"></li>
                 <li><a href="#" data-toggle="modal" data-target="#jm-dialog-version" target="_blank">Rev <?php print($CONFIG['svn']['rev']); ?> (<?php print($CONFIG['svn']['date']); ?>)</a></li>
@@ -191,7 +192,7 @@ require_once('config.php');
               <li>You couldn't find what you were looking for?</li>
             </ul>
 
-            <p>Write me an <a href="mailto:jan.oertlin@icecube.wisc.edu">email</a> or on Slack <a href="https://icecube-spno.slack.com/messages/@jan/">@jan</a>.</p>
+            <p>Write me an <a href="mailto:<?php print($CONFIG['offline_processing_personnel']['email']); ?>">email</a> or on Slack in <a href="https://icecube-spno.slack.com/messages/<?php print(substr($CONFIG['offline_processing_personnel']['slack']['channel'], 1)); ?>/" target="_blank"><?php print($CONFIG['offline_processing_personnel']['slack']['channel']); ?></a> or <a href="https://icecube-spno.slack.com/messages/<?php print($CONFIG['offline_processing_personnel']['slack']['user']); ?>/"><?php print($CONFIG['offline_processing_personnel']['slack']['user']); ?></a>.</p>
           </div>
         </div>
       </div>
@@ -212,7 +213,7 @@ require_once('config.php');
               API version: <?php print($CONFIG['api_version']); ?>
             </p>
             <p>
-              Repository: <a href="http://code.icecube.wisc.edu/projects/icecube/browser/IceCube/sandbox/jan/JobMonitor2" target="_blank">JobMonitor2</a>
+              Repository: <a href="<?php print($CONFIG['svn_url']); ?>" target="_blank">JobMonitor2</a>
             </p>
           </div>
         </div>
