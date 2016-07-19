@@ -180,24 +180,6 @@ JobMonitorDatasets.prototype.update = function(data) {
             labels += ' ' + this.main.createLabelComment(dataset['comment']);
         }
 
-        var text = '<a href="#">';
-
-        text += '<b>' + dataset['dataset_id'] + '</b>: ';
-
-        if(labels.length === 0) {
-            text += dataset['description'];
-        }
-        
-        text += labels;
-
-        text += '</a>';
-
-        if(!dataset['supported']) {
-            //$(menu).append($('<li></li>').addClass('disabled').data('value', dataset['dataset_id']).html(text));
-        } else {
-            //$(menu).append($('<li></li>').data('value', dataset['dataset_id']).html(text));
-        }
-        
         if(dataset['selected']) {
             selected = dataset['dataset_id'];
         }
@@ -223,8 +205,6 @@ JobMonitorDatasets.prototype.update = function(data) {
         $('a', menu).removeClass('bg-info');
 
         var datasetId = $(this).attr('data-jm-dataset-id');
-
-        console.log('Dataset id = ' + datasetId);
 
         $(iam.currentDataset).html(datasetId).data('value', datasetId);
         $('a', this).addClass('bg-info');
