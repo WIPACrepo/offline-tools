@@ -15,3 +15,44 @@
 .jm-label-comment {
     background-color: #c8bf86;
 }
+
+.jm-label-working-group {
+    background-color: #9a9a9a;
+}
+
+#jm-dataset-dropdown .dropdown-menu table.table.jm-dataset-list {
+    width: 400px;
+}
+
+#jm-dataset-dropdown .dropdown-menu table.table.jm-dataset-list tr td.jm-dataset-type {
+
+}
+
+#jm-dataset-dropdown .dropdown-menu table.table.jm-dataset-list tr td.jm-dataset {
+    border: none;
+}
+
+#jm-dataset-dropdown .dropdown-menu {
+
+}
+
+@media screen and (max-height: 1000px) {
+    #jm-dataset-dropdown .dropdown-menu {
+        max-height: 745px;
+        overflow-y: scroll;
+    }
+}
+
+@media screen and (max-height: 800px) {
+    #jm-dataset-dropdown .dropdown-menu {
+        max-height: 545px;
+        overflow-y: scroll;
+    }
+}
+
+@media screen and (max-height: 600px) {
+    #jm-dataset-dropdown .dropdown-menu {
+        max-height: 300px;
+        overflow-y: scroll;
+    }
+}

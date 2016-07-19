@@ -12,8 +12,12 @@ function JobMonitorDatasets(updateCallback, url, nextActionCallback, main) {
 JobMonitorDatasets.prototype = new JobMonitorView('dataset-selection');
 JobMonitorDatasets.prototype.constructor = JobMonitorDatasets;
 
-JobMonitorDatasets.prototype.update = function(datasets) {
+JobMonitorDatasets.prototype.update = function(data) {
     var iam = this; 
+
+    var datasets = data['datasets'];
+    var seasons = data['seasons'];
+
     var menu = $('.dropdown-menu', this.datasetList).empty();
     var selected = -1;
 
@@ -34,6 +38,111 @@ JobMonitorDatasets.prototype.update = function(datasets) {
     for(var i = 0; i < keys.length; ++i) {
         keys[i] = keys[i][0];
     }
+
+    // DropDown
+    var orderedDatasets = {};
+    
+    $.each(seasons, function(season, value) {
+        orderedDatasets[season] = {};
+
+        $.each(datasets, function(datasetId, dataset) {
+            if(dataset['supported'] && dataset['season'] == season) {
+                if(typeof orderedDatasets[season][dataset['type']] === 'undefined') {
+                    orderedDatasets[season][dataset['type']] = [];
+                }
+
+                orderedDatasets[season][dataset['type']].push(dataset);
+            }
+        });
+    });
+
+    var dropDownHtml = '<li><table class="table jm-dataset-list">';
+
+    // Loop ordered over the ordereddatasets
+    var seasonSorted = Object.keys(orderedDatasets);
+    seasonSorted.sort();
+    seasonSorted.reverse();
+
+    var makeNiceL2DatasetList = function(list) {
+        var html = '';
+
+        var first = true;
+
+        list.forEach(function(dataset) {
+            if(first) {
+                first = false;
+            } else {
+                html += ', ';
+            }
+
+            html += '<a href="#">';
+
+            html += dataset['dataset_id'];
+
+            if(dataset['comment'] !== '') {
+                html += ' (' + dataset['comment'] + ')';
+            }
+
+            html += '</a>';
+        });
+
+        return html;
+    };
+
+    seasonSorted.forEach(function(season) {
+        var numOfLines = 1;
+
+        if(typeof orderedDatasets[season]['L2'] !== 'undefined') {
+            numOfLines += orderedDatasets[season]['L2'].length;
+        }
+
+        if(typeof orderedDatasets[season]['L3'] !== 'undefined') {
+            numOfLines += orderedDatasets[season]['L3'].length + 1;
+        }
+
+        dropDownHtml += '<tr>';
+        dropDownHtml += '<td rowspan="' + numOfLines + '"><strong>' + season + '</strong></td>';
+
+        var first = true;
+
+        ['L2', 'L3'].forEach(function(type) {
+            if(typeof orderedDatasets[season][type] !== 'undefined') {
+                if(first) {
+                    first = false;
+                } else {
+                    dropDownHtml += '<tr>';
+                }
+
+                dropDownHtml += '<td class="jm-dataset-type">';
+                dropDownHtml += '<strong>' + type + ' Datasets</strong>';
+                dropDownHtml += '</td>';
+                dropDownHtml += '</tr>';
+
+                orderedDatasets[season][type].forEach(function(dataset) {
+                    dropDownHtml += '<tr>';
+                    dropDownHtml += '<td class="jm-dataset">';
+                    dropDownHtml += '<a data-jm-dataset-id="' + dataset['dataset_id'] + '" href="#">';
+                    dropDownHtml += dataset['dataset_id'];
+                    dropDownHtml += '</a>';
+
+                    if(typeof dataset['working_group'] !== 'undefined') {
+                        dropDownHtml += ' ' + iam.main.createLabelWorkingGroup(dataset['working_group']);
+                    }
+                    
+                    if(dataset['comment'] !== '') {
+                        dropDownHtml += ' ' + iam.main.createLabelComment(dataset['comment']);
+                    }
+
+                    dropDownHtml += '</td>';
+                    dropDownHtml += '</tr>';
+                });
+            }
+            });
+    });
+
+    dropDownHtml += '</table></li>';
+
+    menu.html(dropDownHtml);
 
     // Dataset selection view
     var datasetSelection = '<table class="table table-hover">';
@@ -84,9 +193,9 @@ JobMonitorDatasets.prototype.update = function(datasets) {
         text += '</a>';
 
         if(!dataset['supported']) {
-            $(menu).append($('<li></li>').addClass('disabled').data('value', dataset['dataset_id']).html(text));
+            //$(menu).append($('<li></li>').addClass('disabled').data('value', dataset['dataset_id']).html(text));
         } else {
-            $(menu).append($('<li></li>').data('value', dataset['dataset_id']).html(text));
+            //$(menu).append($('<li></li>').data('value', dataset['dataset_id']).html(text));
         }
         
         if(dataset['selected']) {
@@ -110,23 +219,25 @@ JobMonitorDatasets.prototype.update = function(datasets) {
 
     datasetSelection += '</tbody></table>';
 
-    $('li', menu).click(function(e) {
-        $('li', menu).each(function() {
-            $('a', this).removeClass('bg-info');
-        });
+    $('a', menu).click(function(e) {
+        $('a', menu).removeClass('bg-info');
 
-        $(iam.currentDataset).html($(this).data('value')).data('value', $(this).data('value'));
+        var datasetId = $(this).attr('data-jm-dataset-id');
+
+        console.log('Dataset id = ' + datasetId);
+
+        $(iam.currentDataset).html(datasetId).data('value', datasetId);
         $('a', this).addClass('bg-info');
         iam.updateCallback();
         e.preventDefault();
 
         // Modify URL
-        iam.url.setState('dataset', $(this).data('value'));
+        iam.url.setState('dataset', datasetId);
         iam.url.pushState();
     });
 
-    $('li', menu).each(function() {
-        if($(this).data('value') == selected) {
+    $('a', menu).each(function() {
+        if($(this).attr('data-jm-dataset-id') == selected) {
             $(this).click();
             return;
         }
@@ -144,8 +255,8 @@ JobMonitorDatasets.prototype.update = function(datasets) {
     
         var datasetId = $(datasetId).html();
 
-        $('li', menu).each(function() {
-            if($(this).data('value') == datasetId) {
+        $('a', menu).each(function() {
+            if($(this).attr('data-jm-dataset-id') == datasetId) {
                 $(this).click();
                 return;
             }
@@ -192,8 +303,8 @@ JobMonitorDatasets.prototype.update = function(datasets) {
 
             var validDataset = false;
 
-            $('li', menu).each(function() {
-                if($(this).data('value') == preselection && datasets[$(this).data('value')]['supported']) {
+            $('a', menu).each(function() {
+                if($(this).attr('data-jm-dataset-id') == preselection && datasets[$(this).attr('data-jm-dataset-id')]['supported']) {
                     var click = this;
 
                     iam.nextActionCallback(function() {

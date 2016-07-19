@@ -77,7 +77,7 @@ JobMonitor.prototype.createLabelWorkingGroup = function(workingGroup, verbose) {
         text = 'Working Group: ';
     }
 
-    return '<span class="label label-default">' + text + workingGroup + '</span>';
+    return '<span class="label jm-label-working-group">' + text + workingGroup + '</span>';
 }
 
 JobMonitor.prototype.createLabelComment = function(comment, verbose) {
@@ -92,8 +92,9 @@ JobMonitor.prototype.createLabelComment = function(comment, verbose) {
     return '<span class="label jm-label-comment">' + text + comment + '</span>';
 }
 
-JobMonitor.prototype.createLabelDatasetType = function(type, verbose) {
+JobMonitor.prototype.createLabelDatasetType = function(type, verbose, customText) {
     verbose = typeof verbose !== 'undefined' ? verbose : false;
+    customText = typeof customText !== 'undefined' ? customText : false;
 
     var colorClass = 'label-default';
     var text = '';
@@ -112,6 +113,11 @@ JobMonitor.prototype.createLabelDatasetType = function(type, verbose) {
         case 'L3':
             colorClass = 'label-warning';
             break;
+    }
+
+    if(customText !== false) {
+        text = customText;
+        type = '';
     }
 
     return '<span class="label ' + colorClass + '">' + text + type + '</span>';
@@ -275,8 +281,8 @@ JobMonitor.prototype._updateData = function(data) {
     // Update dataset list
     this.data = data;
 
-    if(typeof data['data']['datasets'] !== 'undefined') {
-        this.datasets.update(data['data']['datasets']);
+    if(typeof data['data']['datasets'] !== 'undefined' && typeof data['data']['seasons'] !== 'undefined') {
+        this.datasets.update(data['data']);
     }
 
     if(typeof this.datasets.getSelectedDataset() === 'undefined') {
