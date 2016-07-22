@@ -35,7 +35,7 @@ from FileTools import *
 
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
-from libs.files import get_logdir
+from libs.files import get_logdir, get_tmpdir, write_meta_xml_post_processing
 from libs.runs import set_post_processing_state, get_validated_runs
 import libs.config
 
@@ -85,7 +85,7 @@ def main(args, logger):
         L = G.readlines()
         GoodRuns = [int(l.split()[0]) for l in L if l.split()[0].isdigit()]
 
-    # Get validated runs that we don't validate it another time
+    # Get validated runs in order to avoid validating them another time
     validated_runs = {}
     for run in get_validated_runs(DDatasetId, dbs4_, True, logger):
         validated_runs[int(run['run_id'])] = run
@@ -104,8 +104,6 @@ def main(args, logger):
                 logger.debug("Run %s was already validated on %s" % (RunId, validated_runs[int(RunId)]['date_of_validation']))
                 continue
             
-            logger.info("Verifying processing for run %s..." % RunId)
-        
             sRunInfo = dbs4_.fetchall("""SELECT * FROM i3filter.run r join i3filter.urlpath u on r.queue_id=u.queue_id
                                        join i3filter.job j on j.queue_id=u.queue_id 
                                          where j.dataset_id=%s and r.dataset_id=%s and u.dataset_id=%s and r.run_id=%s and j.status="OK"
@@ -118,21 +116,42 @@ def main(args, logger):
                                          order by r.sub_run
                                               """%(DDatasetId,DDatasetId,DDatasetId,RunId),UseDict=True)
 
+            if not len(dRunInfo):
+                logger.info("No processing information found in DB. Run %s may hav not been submitted yet. Skip this run." % RunId)
+                continue
+
+            logger.info("Verifying processing for run %s..." % RunId)
+        
+            # Output directory
+            # Look for PERMANENT entries in urlpath
+            outdir = None
+            for entry in dRunInfo:
+                if entry['type'] == 'PERMANENT':
+                    outdir = entry['path']
+                    break
+
+            if outdir is None:
+                logger.critical("Could not determine output directory")
+                exit(1)
+
+            # Since there is a 'file:' at the beginning of the path...
+            outdir = outdir[5:]
+
+            logger.debug("outdir: %s" % outdir)
+
             # Check GCD file in L3 out dir.
             gInfo = [s for s in sRunInfo if "GCD" in s['name']] # GCD file from L2 source
             gInfo = gInfo[0]
             
             # get GCD file linked from L3 dir.
-            linkedGCD = []
-            linkedGCD = [s for s in dRunInfo if "Level3" in s['name']]
-            linkedGCD = glob.glob(linkedGCD[0]['path'].split("file:")[1]+"/*GCD*")
+            linkedGCD = glob.glob(os.path.join(outdir, '*GCD*'))
             if not len(linkedGCD):
                 verified = 0
                 logger.error("no GCD file linked from out dir. for run %s" % RunId)
             elif not os.path.isfile(linkedGCD[0]):
                 verified = 0
                 logger.error("Listed GCD file in DB not in output dir. for run %s" % RunId)
-            elif gInfo['md5sum']!=FileTools(linkedGCD[0], logger).md5sum():
+            elif gInfo['md5sum'] != FileTools(linkedGCD[0], logger).md5sum():
                 verified = 0
                 logger.error("GCD file linked from L3 dir. has different md5sum from source L2 dir. for run %s. Source: %s, linked: %s" % (RunId, gInfo, linkedGCD[0]))
             else:
@@ -219,6 +238,21 @@ def main(args, logger):
 
                
             if verified:
+                if not args.NOMETADATA:
+                    dest_folder = ''
+                    if args.dryrun:
+                        dest_folder = get_tmpdir()
+                    else:
+                        dest_folder = outdir
+
+                    write_meta_xml_post_processing(dest_folder = dest_folder,
+                                                   level = 'L3',
+                                                   script_file = __file__,
+                                                   logger = logger)
+                    
+                else:
+                    logger.info("No meta data files will be written")
+
                 logger.info("Succesfully Verified processing for run %s" % RunId)
             else:
                 logger.error("Failed Verification for run %s, see other logs" % RunId)
@@ -250,6 +284,9 @@ if __name__ == '__main__':
     parser.add_argument("--mergehdf5", action="store_true", default=False,
               dest="MERGEHDF5", help="merge hdf5 files, useful when files are really small")
     
+    parser.add_argument("--nometadata", action="store_true", default=False,
+              dest="NOMETADATA", help="Don't write meta data files")
+
     args = parser.parse_args()
     LOGFILE=os.path.join(get_logdir(sublogpath = 'L3Processing'), "PostProcessing_%s_%s_" % (args.SDATASETID, args.DDATASETID))
     logger = get_logger(args.loglevel,LOGFILE)

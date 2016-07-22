@@ -27,7 +27,7 @@ dbs2_ = dbs2.MySQL()
 
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
-from libs.files import get_logdir
+from libs.files import get_logdir, get_tmpdir, write_meta_xml_main_processing
 from libs.runs import get_run_status as GetRunStatus
 from libs.dbtools import max_queue_id as MaxQId
 import libs.config
@@ -79,7 +79,7 @@ def CleanRun(DatasetId,Run,CLEAN_DW,logger,dryrun=False):
         dbs4_.execute("""delete from i3filter.run where dataset_id=%s and queue_id in (%s)"""%(DatasetId,CleanListStr))
         
 
-def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, linkonlygcd, dryrun=False):
+def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, linkonlygcd, nometadata, dryrun=False):
     """
     Submit a run for Level3 processing
 
@@ -170,6 +170,25 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
         
     if not dryrun: dbs4_.execute("""insert into i3filter.run (run_id,dataset_id,queue_id,sub_run,date) values (%s,%s,%s,%s,"%s")"""%(Run,DDatasetId,QId,p[0]['sub_run'],q['date']))
 
+    if not nometadata:
+        meta_file_dest = ''
+        if dryrun:
+            meta_file_dest = get_tmpdir()
+        else:
+            meta_file_dest = OutDir
+
+        run_times = RunTools(Run, logger).GetRunTimes()
+
+        write_meta_xml_main_processing(dest_folder = meta_file_dest,
+                                       dataset_id = DDatasetId,
+                                       run_id = Run,
+                                       level = 'L3',
+                                       run_start_time = run_times['tStart'],
+                                       run_end_time = run_times['tStop'],
+                                       logger = logger)
+    else:
+        logger.info("No meta data files will be written")
+
 def main(params, outdir, logger,dryrun=False):
     
     SDatasetId = params.SDatasetId
@@ -202,7 +221,7 @@ def main(params, outdir, logger,dryrun=False):
     for s in sourceInfo:
         CleanRun(DDatasetId,s['run_id'],CLEAN_DW,logger,dryrun=DryRun)
         QId = MaxQId(dbs4_,DDatasetId)
-        SubmitRunL3(DDatasetId, SDatasetId, s['run_id'], QId, OUTDIR, AGGREGATE, logger, params.LINK_ONLY_GCD, dryrun=DryRun)
+        SubmitRunL3(DDatasetId, SDatasetId, s['run_id'], QId, OUTDIR, AGGREGATE, logger, params.LINK_ONLY_GCD, nometadata = params.NOMETADATA, dryrun=DryRun)
             
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__,dryrun=True)
@@ -213,6 +232,7 @@ if __name__ == '__main__':
     parser.add_argument("-a", "--aggregate", type=int, default=1,dest="AGGREGATE", help="number of subruns to aggregate to form one job, needed when processing 1 subrun is really short")
     parser.add_argument("-c", "--cleandatawarehouse", action="store_true", default=False,dest="CLEAN_DW", help="clean output files in datawarehouse as part of (re)submission process")
     parser.add_argument("--linkonlygcd", action="store_true", default=False, dest="LINK_ONLY_GCD", help="No jobs will be submitted but the GCD file(s) will be linked. Useful if some links are missing")
+    parser.add_argument("--nometadata", action="store_true", default=False, dest="NOMETADATA", help="Don't write meta data files")
     args = parser.parse_args()
 
     # Check of only GCDs should be linked

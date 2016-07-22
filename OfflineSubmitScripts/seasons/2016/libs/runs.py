@@ -50,8 +50,10 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
         GCDFileChkSum = str(FileTools(GCDFileName, logger).md5sum())
         
         lnGCDFile = os.path.join(OutputDir,os.path.basename(GCDFileName))
-        lnCmd = "ln -sf %s %s"%(GCDFileName,lnGCDFile)
-        os.system(lnCmd)
+        
+        if not dryrun:
+            lnCmd = "ln -sf %s %s"%(GCDFileName,lnGCDFile)
+            os.system(lnCmd)
     else:
         GCDFileName = ""
     

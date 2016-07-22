@@ -35,8 +35,6 @@ class ExtParser(ConfigParser.SafeConfigParser):
                 else:
                     raise ConfigParser.InterpolationDepthError, (option, section, r_opt)
 
-
-
         m_old = re.findall(re_oldintp, r_opt)
         if m_old:
             for l_option in m_old:
@@ -211,13 +209,13 @@ def get_season_by_run(run_id):
 
 def get_dataset_id_by_run(run_id):
     """
-    Returns the dataset id identified by the run number with respect to the test runs.
+    Returns the L2 dataset id identified by the run number with respect to the test runs.
 
     Args:
         run_id (int): Run number
 
     Returns:
-        int: Datset id. If no dataset id found, -1 will be returned.
+        int: L2 Datset id. If no dataset id found, -1 will be returned.
     """
     datasets = get_var_dict(section = 'DEFAULT', name = 'Season', keytype = int, valtype = 'json')
 

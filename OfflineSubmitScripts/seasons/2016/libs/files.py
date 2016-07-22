@@ -5,6 +5,8 @@ Tools to work with files
 import os,time,glob
 import subprocess as sub
 
+import datetime
+
 from warnings import warn
 from logger import DummyLogger
 
@@ -510,6 +512,167 @@ def get_existing_check_sums(logger, ChkSumFile = config.get_config().get('CacheC
         logger.error('Return empty dict: {}')
         logger.exception(Exception)
         return ExistingChkSums
+
+#############################################
+
+def write_meta_xml_post_processing(dest_folder, level, script_file, logger):
+    import xml.etree.ElementTree as ET
+    import xml.dom.minidom as minidom
+    import libs.svn
+
+    svn = libs.svn.SVN(get_rootdir(), logger)
+
+    # Since it is the post processing, there should already be a meta file
+    # If there is no meta file, display a warning.
+    file_name = '' # assigned later
+
+    if level not in ['L2', 'L3']:
+        logger.critical("Level '%s' is not valid" % level)
+        exit(1)
+    else:
+        if level == 'L2':
+            file_name = config.get_config().get('L2', 'MetaFileName')
+        elif level == 'L3':
+            file_name = config.get_config().get('L3', 'MetaFileName')
+    
+    path = os.path.join(dest_folder, file_name)
+    if not os.path.isfile(path):
+        logger.warning("Meta file '%s' does not exist. That means that no meta information are avilable from main processing, and we can not proceed adding information." % path)
+        logger.warning("Post processing of this run will continue but no meta information will be written.")
+        return
+
+    # Adding post processing information
+    xml_tree = ET.parse(path)
+    xml_root = xml_tree.getroot()
+    xml_post_processing = ET.Element('Project')
+
+    xml_name = ET.Element('Name')
+    xml_version = ET.Element('Version')
+    xml_date_time = ET.Element('DateTime')
+
+    xml_name.text = os.path.join(svn.get('URL'), os.path.basename(script_file))
+    xml_version.text = "Revision %s" % svn.get('Revision')
+    xml_date_time.text = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+
+    # Finding Plus section
+    xml_plus = xml_root.find('Plus')
+    if xml_plus is None:
+        logger.critical("Cannot find 'Plus' elemnt in meta xml file %s" % path)
+        exit(1)
+
+    # The actual adding
+    xml_post_processing.append(xml_name)
+    xml_post_processing.append(xml_version)
+    xml_post_processing.append(xml_date_time)
+
+    xml_plus.append(xml_post_processing)
+
+    # Writing file
+    with open(path, 'w') as file:
+        formatted_xml = minidom.parseString(ET.tostring(xml_root)).toprettyxml(indent = '    ')
+
+        # It contains empty lines. Remove them
+        formatted_xml = os.linesep.join([s for s in formatted_xml.splitlines() if s.strip()])
+
+        logger.debug("Write meta file: %s" % path)
+        file.write(formatted_xml)
+
+def write_meta_xml_main_processing(dest_folder, dataset_id, run_id, level, run_start_time, run_end_time, logger):
+    """
+    Writes a meta XML file for a specific run.
+
+    Utilizes a lot of information from the config/offline_processing.cfg, which also specifies
+    which template file should be used.
+
+    Args:
+        dest_folder (str): Folder in which the file should be written
+        dataset_id (int): The dataset id if the run
+        run_id (int): The run id
+        level (str): Can be 'L2' or 'L3'
+        run_start_time (datetime.datetime): Start time of run
+        run_end_time (datetime.datetime): End time of run
+        logger (logger.Logger): The logger
+    """
+
+    conf = config.get_config()
+
+    # Get all information that is required
+    now = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+    season = config.get_season_by_run(run_id)
+    ts_first_name = conf.get('PERSONNEL', 'FirstName')
+    ts_last_name = conf.get('PERSONNEL', 'LastName')
+    ts_email = conf.get('PERSONNEL', 'eMail')
+    dif_creation_date = run_start_time.strftime('%Y-%m-%d')
+    start_date_time = run_start_time.strftime('%Y-%m-%dT%H:%M:%S')
+    end_date_time = run_end_time.strftime('%Y-%m-%dT%H:%M:%S')
+    subcategory = '' # assigned later
+    subcategory_capitalized = '' # assigned later
+    icerec_version = '' # assigned later
+    file_name = '' # assigned later
+    template_file = conf.get('DEFAULT', 'MetaFileTemplateMainProcessing')
+    working_group = None # Will be assigned automatically if it is a L3 dataset
+
+    template = ''
+    with open(template_file, 'r') as file:
+        template = file.read()
+
+    if season == -1:
+        logger.critical("Could not determine season for run %s. Check the run number and the config file." % run_id)
+        exit(1)
+
+    if level not in ['L2', 'L3']:
+        logger.critical("Level '%s' is not valid" % level)
+        exit(1)
+    else:
+        if level == 'L2':
+            subcategory = 'level2'
+            file_name = conf.get('L2', 'MetaFileName')
+
+            icerec_version = os.path.basename(conf.get('L2', 'I3_SRC'))
+        elif level == 'L3':
+            subcategory = 'level3'
+            
+            l3_datasets = config.get_var_dict('L3', 'I3_SRC_', keytype = int)
+            if dataset_id not in l3_datasets.keys():
+                logger.critical("Dataset %s is not configured in config file." % dataset_id)
+                exit(1)
+
+            icerec_version = os.path.basename(l3_datasets[dataset_id])
+            file_name = conf.get('L3', 'MetaFileName')
+
+    subcategory_capitalized = subcategory.title()
+
+    if level == 'L3':
+        working_groups = config.get_var_dict('L3', 'WG', keytype = int)
+
+        if working_groups[dataset_id] is None:
+            logger.critical("Working group name is not defined for dataset %s. Check config file." % dataset_id)
+            exit(1)
+
+        subcategory_capitalized = "%s (%s)" % (subcategory_capitalized, working_groups[dataset_id])
+
+    if not os.path.isdir(dest_folder):
+        logger.critical("Folder '%s' does not exist" % dest_folder)
+        exit(1)
+
+    # Fill the template
+    meta_file_content = template % (season, subcategory_capitalized, run_id,
+                                    season, subcategory_capitalized, run_id,
+                                    ts_first_name,
+                                    ts_last_name,
+                                    ts_email,
+                                    dif_creation_date,
+                                    start_date_time,
+                                    end_date_time,
+                                    subcategory,
+                                    run_id,
+                                    icerec_version,
+                                    now)
+
+    path = os.path.join(dest_folder, file_name)
+    with open(path, 'w') as file:
+        logger.debug("Write meta file: %s" % path)
+        file.write(meta_file_content)
 
 #############################################
 

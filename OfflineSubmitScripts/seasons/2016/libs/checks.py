@@ -26,14 +26,12 @@ import SQLClient_i3live as live
 import SQLClient_dbs4 as dbs4
 import SQLClient_dbs2 as dbs2
 
-m_live = live.MySQL()    
 dbs4_ = dbs4.MySQL()   
-dbs2_ = dbs2.MySQL()    
 
 from RunTools import RunTools
 from FileTools import FileTools
 
-from libs.files import GetSubRunStartStop,GetGoodSubruns
+from libs.files import GetSubRunStartStop, GetGoodSubruns
 
 ICECUBE_GCDDIR = lambda x : "/data/exp/IceCube/%s/filtered/level2/VerifiedGCD" %str(x)
 ICECUBE_DATADIR = lambda x : "/data/exp/IceCube/%s/filtered/level2/" %str(x)

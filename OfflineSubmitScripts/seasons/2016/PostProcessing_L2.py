@@ -17,7 +17,7 @@ from DbTools import *
 
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
-from libs.files import get_logdir,MakeTarGapsTxtFile,MakeRunInfoFile
+from libs.files import get_tmpdir, get_logdir, MakeTarGapsTxtFile, MakeRunInfoFile, write_meta_xml_post_processing
 from libs.checks import CheckFiles
 from libs.config import get_season_info, get_config, get_dataset_id_by_run, get_season_by_run
 from GoodRuntimeAdjust import main as GoodRuntimeAdjust
@@ -30,7 +30,7 @@ m_live = live.MySQL()
 dbs4_ = dbs4.MySQL()   
 dbs2_ = dbs2.MySQL()    
 
-def main_run(r, logger, dataset_id, season, dryrun = False):
+def main_run(r, logger, dataset_id, season, nometadata, dryrun = False):
     logger.info("======= Checking %s %s ==========="  %(str(r['run_id']),str(r['production_version'])))
 
     if dataset_id < 0:
@@ -73,11 +73,30 @@ def main_run(r, logger, dataset_id, season, dryrun = False):
                          where run_id=%s and production_version=%s"""%\
                      (r['run_id'],str(r['production_version'])))
 
+    if not nometadata:
+        dest_folder = ''
+        if dryrun:
+            dest_folder = get_tmpdir()
+        else:
+            sDay = r['tStart']
+            sY = sDay.year
+            sM = str(sDay.month).zfill(2)
+            sD = str(sDay.day).zfill(2)
+
+            dest_folder = "/data/exp/IceCube/%s/filtered/level2/%s%s/Run00%s_%s" % (sY, sM, sD, r['run_id'], r['production_version'])
+
+        write_meta_xml_post_processing(dest_folder = dest_folder,
+                                       level = 'L2',
+                                       script_file = __file__,
+                                       logger = logger)
+    else:
+        logger.info("No meta data files will be written")
+
     logger.info("Checks passed")
     logger.info("======= End Checking %i %i ======== " %(r['run_id'],r['production_version'])) 
     return
 
-def main(runinfo,logger,dryrun=False):
+def main(runinfo, logger, nometadata, dryrun = False):
     datasets = set()
 
     for run in runinfo:
@@ -90,7 +109,7 @@ def main(runinfo,logger,dryrun=False):
             if dataset_id > 0:
                 datasets.add(dataset_id)
             
-            main_run(run, logger, dataset_id = dataset_id, season = season, dryrun = dryrun) 
+            main_run(run, logger, dataset_id = dataset_id, season = season, nometadata = nometadata, dryrun = dryrun) 
         except Exception as e:
             logger.exception("Exception %s thrown for: Run=%s, production_version=%s" %(e.__repr__(),run['run_id'],str(run['production_version'])))
    
@@ -106,6 +125,7 @@ def main(runinfo,logger,dryrun=False):
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__,dryrun=True)
     parser.add_argument('-r',nargs="?", help="run to postprocess",dest="run",type=int)
+    parser.add_argument("--nometadata", action="store_true", default=False, dest="NOMETADATA", help="Don't write meta data files")
     args = parser.parse_args()
     LOGFILE=os.path.join(get_logdir(sublogpath = 'PostProcessing'), 'PostProcessing_')
     logger = get_logger(args.loglevel, LOGFILE)
@@ -128,4 +148,4 @@ if __name__ == '__main__':
                                  WHERE g.submitted AND (g.good_i3 OR g.good_it OR g.run_id IN (%s)) AND NOT validated
                                  ORDER BY g.run_id""" % ','.join([str(r) for r in test_runs]), UseDict=True)
 
-    main(RunInfo, logger, dryrun = args.dryrun)
+    main(RunInfo, logger, args.NOMETADATA, dryrun = args.dryrun)

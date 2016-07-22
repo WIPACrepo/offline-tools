@@ -6,7 +6,7 @@ import logging
 import os.path
 from datetime import datetime
 import sys
-from __init__ import __version__
+from svn import SVN
 
 # add logtime
 LOGFORMAT = '[%(asctime)s] %(levelname)s: %(module)s(%(lineno)d):   %(message)s'
@@ -52,6 +52,8 @@ def get_logger(loglevel,logfile):
         logfile (str): write logging to this file as well as stdout
 
     """   
+
+    from files import get_rootdir
     
     def exception_handler(exctype, value, tb):
         logger.critical("Uncaught exception", exc_info=(exctype, value, tb))
@@ -87,7 +89,10 @@ def get_logger(loglevel,logfile):
     sys.excepthook = exception_handler
     firstlog = " ".join(sys.argv)
     logger.info("Starting " + firstlog)
-    logger.info("SVN Revision %s" % __version__)
+
+    svn = SVN(get_rootdir(), logger)
+
+    logger.info("SVN Revision %s" % svn.get('Revision'))
     return logger
 
 

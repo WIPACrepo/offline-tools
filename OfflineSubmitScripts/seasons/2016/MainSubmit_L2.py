@@ -19,7 +19,7 @@ from RunTools import *
 from FileTools import *
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
-from libs.files import get_logdir, get_existing_check_sums
+from libs.files import get_logdir, get_tmpdir, get_existing_check_sums, write_meta_xml_main_processing
 from libs.checks import runs_already_submitted
 from libs.runs import get_run_status, clean_run, submit_run
 from libs.dbtools import max_queue_id 
@@ -74,33 +74,54 @@ def main(params, logger, DryRun):
             else:
                 logger.info("Dataset id of run %s was determined to %s" % (Run, dataset_id))
 
-        if DryRun:
-            logger.info(Run)
-        else:
-            logger.info("************** Attempting to (Re)submit %s"%(Run))
+        logger.info("************** Attempting to (Re)submit %s"%(Run))
 
-            GRLInfo = dbs4_.fetchall("""select g.*,r.tStart,r.FilesComplete from i3filter.grl_snapshot_info g
-                                    join i3filter.run_info_summary r on r.run_id=g.run_id
-                                    where g.run_id=%s and not submitted"""%(Run),UseDict=True)
+        GRLInfo = dbs4_.fetchall("""select g.*,r.tStart, r.tStop, r.FilesComplete from i3filter.grl_snapshot_info g
+                                join i3filter.run_info_summary r on r.run_id=g.run_id
+                                where g.run_id=%s and not submitted"""%(Run),UseDict=True)
         
-            if not len(GRLInfo):
-                logger.info("Run %s already submitted or no information for new submission "%Run)
-                continue
+        if not len(GRLInfo):
+            logger.info("Run %s already submitted or no information for new submission "%Run)
+            continue
+        
+        for g in GRLInfo:
+            status = get_run_status(g)
+           
+            clean_run(dbs4_, dataset_id, Run,params.CLEANDW, g, logger, DryRun)
+        
+            QId = max_queue_id(dbs4_, dataset_id)
             
-            for g in GRLInfo:
-                status = get_run_status(g)
-               
-                clean_run(dbs4_, dataset_id, Run,params.CLEANDW, g, logger, DryRun)
-            
-                QId = max_queue_id(dbs4_, dataset_id)
+            submit_run(dbs4_, g, status, dataset_id, QId, ExistingChkSums, DryRun, logger)
+        
+            if not args.NOMETADATA:
+                meta_file_dest = ''
+                if DryRun:
+                    meta_file_dest = get_tmpdir()
+                else:
+                    sDay = g['tStart']      # run start date
+                    sY = sDay.year
+                    sM = str(sDay.month).zfill(2)
+                    sD = str(sDay.day).zfill(2)
+    
+                    meta_file_dest = "/data/exp/IceCube/%s/filtered/level2/%s%s/Run00%s_%s" % (sY, sM, sD, g['run_id'], g['production_version'])
+
+                write_meta_xml_main_processing(dest_folder = meta_file_dest,
+                                               dataset_id = dataset_id,
+                                               run_id = g['run_id'],
+                                               level = 'L2',
+                                               run_start_time = g['tStart'],
+                                               run_end_time = g['tStop'],
+                                               logger = logger)
+            else:
+                logger.info("No meta data files will be written")
+   
+            if not DryRun: 
+                dbs4_.execute("""update i3filter.grl_snapshot_info\
+                                 set submitted=1 \
+                                 where run_id=%s and production_version=%s"""%\
+                                 (g['run_id'],g['production_version']))
+
                 
-                submit_run(dbs4_, g, status, dataset_id, QId, ExistingChkSums, DryRun, logger)
-               
-                if not DryRun: 
-                    dbs4_.execute("""update i3filter.grl_snapshot_info\
-                                     set submitted=1 \
-                                     where run_id=%s and production_version=%s"""%\
-                                     (g['run_id'],g['production_version']))
 
                 logger.info("**************")
 
@@ -129,6 +150,8 @@ if __name__ == '__main__':
     parser.add_argument("-o", "--outputlog", default='',
                                       dest="OUTPUTLOG", help="Submission log file, default is time-stamped file name with log folder as location.")
 
+    parser.add_argument("--nometadata", action="store_true", default=False,
+              dest="NOMETADATA", help="Don't write meta data files")
 
     args = parser.parse_args()
 
@@ -140,6 +163,6 @@ if __name__ == '__main__':
     logger = get_logger(args.loglevel, LOGFILE)
 
     if args.DATASETID is None:
-        logger.info("No dataset id is specified. The config file will checked for each run to which dataset it belongs.")
+        logger.info("No dataset id is specified. The config file will be checked for each run to which dataset it belongs.")
 
     main(args, logger, args.dryrun)
