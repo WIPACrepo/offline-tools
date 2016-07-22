@@ -228,8 +228,17 @@ JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day,
     html += '<tbody>';
 
     dayData['runs'].forEach(function(run) {
+        // We need to process all sub runs except for them with...
+        var subRunsToProcess = run['sub_runs'] -
+                               run['jobs_states']['IDLEShortRun'] - 
+                               run['jobs_states']['IDLENoFiles'] -
+                               run['jobs_states']['IDLETestRun'] -
+                               run['jobs_states']['IDLELid'] -
+                               run['jobs_states']['BadRun'] -
+                               run['jobs_states']['FailedRun'];
+
         var runStatusCSS = iam.runStatusCSSMapping[run['status']['name']];
-        var progressIndicator = Math.floor(run['jobs_states']['OK'] / run['sub_runs'] * 100);
+        var progressIndicator = Math.floor(run['jobs_states']['OK'] / subRunsToProcess * 100);
 
         html += '<tr>';
         html += '<td>';

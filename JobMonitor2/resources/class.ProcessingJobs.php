@@ -54,7 +54,7 @@ class ProcessingJobs {
         $status = array_pop($parts);
         $basic = $state_column_key_mapping[implode('_', $parts)];
 
-        return array('category' => $basic, 'status' => $status, 'value' => $value);
+        return array('category' => $basic, 'status' => $status, 'value' => intval($value));
     }
 
     public function execute() {
