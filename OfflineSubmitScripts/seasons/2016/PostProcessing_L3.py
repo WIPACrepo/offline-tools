@@ -168,10 +168,16 @@ def main(args, logger):
 
                 if len(nRecord)!=1:
                     # may just be a subrun that is good in L2 but bad in L3 e.g. really small L2 output so no L3 events
-                    badRun = [d for d in dRunInfo if d['name']==sr['name']] # if no L3 output, check for L2 input record   
-                    if badRun[0]['status'] == "BadRun":
+                    badRunL3 = [d for d in dRunInfo if d['name']==sr['name']]   
+                    if len(badRunL3) and badRunL3[0]['status'] == "BadRun":
+                        logger.info("Skipped sub run %s since it is declared as bad in L3" % sr['sub_run'])
+                        continue
+
+                    # Sometimes a sub run has been discarded in L2 post processing
+                    logger.debug("sr = %s" % sr)
+                    if sr['status'] == "BadRun":
                         logger.info("Skipped sub run %s since it is declared as bad in L2" % sr['sub_run'])
-                        continue           # skip subrun that has been declared bad
+                        continue
 
                     verified = 0
                     logger.error("no DB record (or more than 1) for in/output %s/%s dir. for run %s" % (sr['name'], nName, RunId))
