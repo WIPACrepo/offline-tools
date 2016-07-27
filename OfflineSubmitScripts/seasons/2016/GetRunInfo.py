@@ -130,7 +130,7 @@ def main(config, logger,dryrun = False, check = False):
 
     # Need to catch all run id/snapshot id combinations of all runs
     # That means that it needs to be aware of that one run can have several entries/snapshot ids
-    Run_SSId = []
+    Run_SSId = {}
 
     for r_ in tmp_i3_:
         for k in r_.keys():
@@ -139,12 +139,12 @@ def main(config, logger,dryrun = False, check = False):
         RunInfo_[r_['runNumber']] = r_
 
         # Add run id/snapshot id combination
-        Run_SSId.append((r_['runNumber'], r_['snapshot_id']))
+        Run_SSId[r_['runNumber']] = r_['snapshot_id']
     
     RunNums_ = RunInfo_.keys()
     RunNums_.sort()
     
-    Run_SSId_Str_ = ",".join(["'%s_%s'" % (r[0], r[1]) for r in Run_SSId])
+    Run_SSId_Str_ = ",".join(["'%s_%s'" % (r, Run_SSId[r]) for r in Run_SSId.keys()])
     RunStr_ = ",".join([str(r) for r in RunNums_])
 
     # get all previous runs from dbs4 and check if entries in live are different
@@ -153,32 +153,67 @@ def main(config, logger,dryrun = False, check = False):
     tRecords_ = [t_['run_id'] for t_ in tmpRecords_]
     NewRecords_ = list(set(RunNums_).difference(set(tRecords_)))
     NewRecords_.sort()
-    
-    oRecords_ = dbs4_.fetchall("""select run_id from i3filter.grl_snapshot_info
-                             where concat(run_id,"_",snapshot_id) in (%s)
-                             order by run_id"""%Run_SSId_Str_,UseDict=True)
+   
+    oRecordsSQL = """SELECT run_id FROM i3filter.grl_snapshot_info
+                             WHERE CONCAT(run_id, "_", snapshot_id) IN (%s)
+                             ORDER BY run_id""" % Run_SSId_Str_
+    oRecords_ = dbs4_.fetchall(oRecordsSQL, UseDict = True)
+
     OldRecords_ = [o_['run_id'] for o_ in oRecords_]
+
+    logger.debug("SQL to get old data from production DB: %s" % oRecordsSQL)
     
-    cRecords_ = dbs4_.fetchall("""select s.run_id
-                             from i3filter.grl_snapshot_info r
-                             join i3filter.run_info_summary s on s.run_id=r.run_id
-                             where concat(r.run_id,"_",r.snapshot_id) not in (%s)
-                             and s.run_id in (%s)
-                             order by s.run_id"""%(Run_SSId_Str_,RunStr_),UseDict=True)
-    
-    if len(cRecords_):
-        logger.info("""The following records have changed and will result in  an update to
-                 the ProductionVersion %s""" %cRecords_.__repr__())
+    cRecordsSQL = """SELECT s.run_id, snapshot_id
+                     FROM i3filter.grl_snapshot_info r
+                     JOIN i3filter.run_info_summary s
+                        ON s.run_id = r.run_id
+                     WHERE (r.run_id >= %s OR r.run_id IN (%s))
+                        AND r.run_id <= %s
+                        AND r.run_id NOT IN (%s)
+                     ORDER BY s.run_id""" % (IC86_5_FirstRun,
+                        ','.join([str(r) for r in seasons[current_season]['test']] + ['-1']),
+                        IC86_5_LastRun,
+                        ','.join(str(r) for r in exclude_next_testruns))
+ 
+    logger.debug("SQL to get data from production DB for changed records: %s" % cRecordsSQL)
+ 
+    cRecords_ = dbs4_.fetchall(cRecordsSQL, UseDict = True)
+
+    # Find out which records have been changed. That means which run has a new snapshot
+    # Check which RunId/SnapShotId combinations are already in the DB
+
+    logger.debug("Information from i3live: %s" % Run_SSId)
+
+    newSnapshotForRun = {}
+    for run_id, snapshot_id in Run_SSId.iteritems():
+        found = False
+
+        for c in cRecords_:
+            if run_id == c['run_id'] and snapshot_id == c['snapshot_id']:
+                found = True
+                break
+
+        logger.debug("run_id = %s, snapshot_id = %s, found = %s" % (run_id, snapshot_id, found))
+
+        if not found:
+            for c in cRecords_:
+                if run_id == c['run_id']:
+                    newSnapshotForRun[run_id] = snapshot_id
+                    break
+
+    if len(newSnapshotForRun):
+        logger.info("""The following records have changed and will result in an update to the ProductionVersion %s""" % newSnapshotForRun)
 
         if not check:
-            logger.info("Continue porcessing with updates (Y/N)")
-            continueProcessing = raw_input("Continue porcessing with updates (Y/N) : " )
+            logger.info("Continue processing with updates (Y/N)")
+            continueProcessing = raw_input("Continue processing with updates (Y/N) : " )
     
             if continueProcessing.upper() != "Y":
                 logger.info("halting processig due to user intervention ...")
                 exit (0)
     
-    ChangedRecords_ = [c_['run_id'] for c_ in cRecords_]
+    #ChangedRecords_ = [c_['run_id'] for c_ in cRecords_]
+    ChangedRecords_ = newSnapshotForRun
     if len(cRecords_):
         CurrentProductionVersion +=1
     
@@ -214,7 +249,7 @@ def main(config, logger,dryrun = False, check = False):
         reason_it = re.sub(r'[",]','',",".join(RunInfo_[r]['reason_it'][1:-1].split(",")))
     
         UpdateComment = ''    
-        if r in ChangedRecords_:
+        if r in ChangedRecords_.keys():
             logger.info("updating records for run = %s"%r)
             UpdateComment = 'Updated in snapshot'
     
