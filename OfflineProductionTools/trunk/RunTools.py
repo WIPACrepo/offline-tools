@@ -156,7 +156,7 @@ class RunTools(object):
             raise Exception("Error: %s\n"%str(err))
         
         
-    def FilesComplete(self,InFiles,RunTimes, tmppath = ''):
+    def FilesComplete(self, InFiles, RunTimes, tmppath = '', showTimeMismatches = True):
         try:
             if not len(InFiles):
                 self.logger.warning( "Input file list is empty, maybe failed/short run")
@@ -193,7 +193,7 @@ class RunTools(object):
             if isinstance(RunTimes['grl_start_time'],datetime.datetime): RunStart = RunTimes['grl_start_time']
             
             StartCheck = fs_time<=RunStart
-            if not StartCheck:
+            if not StartCheck and showTimeMismatches:
                 self.logger.warning( "mismatch in start time reported by i3Live:%s and file metadata:%s"%(RunStart, fs_time)) 
         
             EndCheck = 0
@@ -212,7 +212,7 @@ class RunTools(object):
             #t_diff_s = abs((t_diff.seconds*I3Units.s + (t_diff.microseconds*I3Units.microsecond) + t_diff.days*I3Units.day)/I3Units.s)
             #EndCheck = int(t_diff_s < 1.0)
             EndCheck = fe_time >= RunStop
-            if not EndCheck:
+            if not EndCheck and showTimeMismatches:
                 self.logger.warning( "mismatch in end time reported by i3Live:%s and file metadata:%s"%(RunStop, fe_time))        
         
             return StartCheck * EndCheck

@@ -13,6 +13,21 @@ except Exception,err:
     print "\nMake sure I3Tray enviroment is enabled ...\n"
     raise Exception("Error: %s\n"%str(err))
 
+def cmp_nan(a, b):
+    if isinstance(a, (list, tuple)) and isinstance(b, (list, tuple)):
+        if len(a) != len(b):
+            return False
+        else:
+            for i in range(0, len(a)):
+                if not cmp_nan(a[i], b[i]):
+                    return False
+
+            return True
+    elif isinstance(a, (list, tuple)) ^ isinstance(b, (list, tuple)):
+        return False
+    else:
+        return a == b or (isnan(a) and isnan(b))
+
 def CheckFiles(GCDFiles):
     if not (isinstance(GCDFiles,list) or isinstance(GCDFiles,tuple)):
         print "***A list or tuple of 2 GCD files to be compared is required***"
@@ -92,13 +107,13 @@ def CmpCalibration(GCDFiles, BadDOMsList = [], V = False, T = False, Season = 20
         if k not in D_Key2: continue
 
         DCal_Diff_Tdict = {}
-        
+      
         #atwd_gain_Check = False not in [DC1[k].atwd_gain[i]==DC2[k].atwd_gain[i]for i in xrange(3)]
         #atwd_gain_Check = all([DC1[k].atwd_gain[i]==DC2[k].atwd_gain[i] for i in xrange(3)])
-        DCal_Diff_Tdict['atwd_gain_Check'] = all([DC1[k].atwd_gain[i]==DC2[k].atwd_gain[i] for i in xrange(3)])
+        DCal_Diff_Tdict['atwd_gain_Check'] = all([cmp_nan(DC1[k].atwd_gain[i], DC2[k].atwd_gain[i]) for i in xrange(3)])
          
         #atwd_delta_t_Check = False not in [DC1[k].atwd_delta_t[i]==DC2[k].atwd_delta_t[i]for i in xrange(2)]
-        DCal_Diff_Tdict['atwd_delta_t_Check'] = all([DC1[k].atwd_delta_t[i]==DC2[k].atwd_delta_t[i]for i in xrange(2)])
+        DCal_Diff_Tdict['atwd_delta_t_Check'] = all([cmp_nan(DC1[k].atwd_delta_t[i], DC2[k].atwd_delta_t[i]) for i in xrange(2)])
         
         #atwd_freq_fit_Check = list(itertools.chain.from_iterable([[DC1[k].atwd_freq_fit[i].quad_fit_a,DC1[k].atwd_freq_fit[i].quad_fit_b,DC1[k].atwd_freq_fit[i].quad_fit_v] for i in xrange(2)]))\
         #                      == list(itertools.chain.from_iterable([[DC2[k].atwd_freq_fit[i].quad_fit_a,DC2[k].atwd_freq_fit[i].quad_fit_b,DC2[k].atwd_freq_fit[i].quad_fit_v] for i in xrange(2)]))
@@ -107,8 +122,7 @@ def CmpCalibration(GCDFiles, BadDOMsList = [], V = False, T = False, Season = 20
             DCal_Diff_Tdict['atwd_freq_fit_Check'] = list(itertools.chain.from_iterable([[DC1[k].atwd_freq_fit[i].quad_fit_a,DC1[k].atwd_freq_fit[i].quad_fit_b,DC1[k].atwd_freq_fit[i].quad_fit_v] for i in xrange(2)]))\
                                                     == list(itertools.chain.from_iterable([[DC2[k].atwd_freq_fit[i].quad_fit_a,DC2[k].atwd_freq_fit[i].quad_fit_b,DC2[k].atwd_freq_fit[i].quad_fit_v] for i in xrange(2)]))
         elif Season >= 2016:
-            DCal_Diff_Tdict['atwd_freq_fit_Check'] = list(itertools.chain.from_iterable([[DC1[k].atwd_freq_fit[i].quad_fit_a,DC1[k].atwd_freq_fit[i].quad_fit_b,DC1[k].atwd_freq_fit[i].quad_fit_c] for i in xrange(2)]))\
-                                                    == list(itertools.chain.from_iterable([[DC2[k].atwd_freq_fit[i].quad_fit_a,DC2[k].atwd_freq_fit[i].quad_fit_b,DC2[k].atwd_freq_fit[i].quad_fit_c] for i in xrange(2)]))
+            DCal_Diff_Tdict['atwd_freq_fit_Check'] = cmp_nan(list(itertools.chain.from_iterable([[DC1[k].atwd_freq_fit[i].quad_fit_a,DC1[k].atwd_freq_fit[i].quad_fit_b,DC1[k].atwd_freq_fit[i].quad_fit_c] for i in xrange(2)])), list(itertools.chain.from_iterable([[DC2[k].atwd_freq_fit[i].quad_fit_a,DC2[k].atwd_freq_fit[i].quad_fit_b,DC2[k].atwd_freq_fit[i].quad_fit_c] for i in xrange(2)])))
         
         # only in old GCD
         #DCal_Diff_Tdict['tau_params_Check'] = [DC1[k].tau_parameters.p0,DC1[k].tau_parameters.p1,DC1[k].tau_parameters.p2,DC1[k].tau_parameters.p3,DC1[k].tau_parameters.p4,DC1[k].tau_parameters.p5,DC1[k].tau_parameters.tau_frac] \
@@ -124,43 +138,42 @@ def CmpCalibration(GCDFiles, BadDOMsList = [], V = False, T = False, Season = 20
         
         #atwd_beacon_baseline_Check = [DC1[k].atwd_beacon_baseline[a,b] for a in xrange(2) for b in xrange(3)] \
         #                           == [DC2[k].atwd_beacon_baseline[a,b] for a in xrange(2) for b in xrange(3)]
-        DCal_Diff_Tdict['atwd_beacon_baseline_Check'] = [DC1[k].atwd_beacon_baseline[a,b] for a in xrange(2) for b in xrange(3)] \
-                                   == [DC2[k].atwd_beacon_baseline[a,b] for a in xrange(2) for b in xrange(3)]
+        DCal_Diff_Tdict['atwd_beacon_baseline_Check'] = cmp_nan([DC1[k].atwd_beacon_baseline[a, b] for a in xrange(2) for b in xrange(3)], [DC2[k].atwd_beacon_baseline[a, b] for a in xrange(2) for b in xrange(3)])
         #if not DCal_Diff_Tdict['atwd_beacon_baseline_Check']:
         #    print [100*fabs(DC2[k].atwd_beacon_baseline[a,b] - DC1[k].atwd_beacon_baseline[a,b])/DC1[k].atwd_beacon_baseline[a,b] for a in xrange(2) for b in xrange(3) if DC1[k].atwd_beacon_baseline[a,b]!=0]
         
         
-        DCal_Diff_Tdict['dom_cal_version_Check'] = DC1[k].dom_cal_version==DC2[k].dom_cal_version
+        DCal_Diff_Tdict['dom_cal_version_Check'] = cmp_nan(DC1[k].dom_cal_version, DC2[k].dom_cal_version)
         
         # Noise rates don't have to be compared since those aren't inserted/needed in the south and
         # therefore, the check always fails.
         # DCal_Diff_Tdict['dom_noise_rate_Check'] = DC1[k].dom_noise_rate==DC2[k].dom_noise_rate
         
-        DCal_Diff_Tdict['relative_dom_eff_Check'] = DC1[k].relative_dom_eff==DC2[k].relative_dom_eff
+        DCal_Diff_Tdict['relative_dom_eff_Check'] = cmp_nan(DC1[k].relative_dom_eff, DC2[k].relative_dom_eff)
         
-        DCal_Diff_Tdict['temperature_Check'] = DC1[k].temperature==DC2[k].temperature
+        DCal_Diff_Tdict['temperature_Check'] = cmp_nan(DC1[k].temperature, DC2[k].temperature)
         
-        DCal_Diff_Tdict['transit_time_Check'] = [DC1[k].transit_time.intercept,DC1[k].transit_time.slope]==[DC2[k].transit_time.intercept,DC2[k].transit_time.slope]
+        DCal_Diff_Tdict['transit_time_Check'] = cmp_nan([DC1[k].transit_time.intercept, DC1[k].transit_time.slope], [DC2[k].transit_time.intercept, DC2[k].transit_time.slope])
         
-        DCal_Diff_Tdict['hv_gain_fit_Check'] = [DC1[k].hv_gain_fit.intercept,DC1[k].hv_gain_fit.slope]==[DC2[k].hv_gain_fit.intercept,DC2[k].hv_gain_fit.slope]
+        DCal_Diff_Tdict['hv_gain_fit_Check'] = cmp_nan([DC1[k].hv_gain_fit.intercept, DC1[k].hv_gain_fit.slope], [DC2[k].hv_gain_fit.intercept, DC2[k].hv_gain_fit.slope])
            
-        DCal_Diff_Tdict['spe_disc_calib_Check'] =  [DC1[k].spe_disc_calib.intercept,DC1[k].spe_disc_calib.slope]==[DC2[k].spe_disc_calib.intercept,DC2[k].spe_disc_calib.slope]  
+        DCal_Diff_Tdict['spe_disc_calib_Check'] = cmp_nan([DC1[k].spe_disc_calib.intercept, DC1[k].spe_disc_calib.slope], [DC2[k].spe_disc_calib.intercept, DC2[k].spe_disc_calib.slope])
         
-        DCal_Diff_Tdict['mpe_disc_calib_Check'] =  [DC1[k].mpe_disc_calib.intercept,DC1[k].mpe_disc_calib.slope]==[DC2[k].mpe_disc_calib.intercept,DC2[k].mpe_disc_calib.slope]  
+        DCal_Diff_Tdict['mpe_disc_calib_Check'] = cmp_nan([DC1[k].mpe_disc_calib.intercept, DC1[k].mpe_disc_calib.slope], [DC2[k].mpe_disc_calib.intercept, DC2[k].mpe_disc_calib.slope])
         
-        DCal_Diff_Tdict['pmt_disc_calib_Check'] =  [DC1[k].pmt_disc_calib.intercept,DC1[k].pmt_disc_calib.slope]==[DC2[k].pmt_disc_calib.intercept,DC2[k].pmt_disc_calib.slope]  
-        
-        DCal_Diff_Tdict['front_end_impedance_Check'] = DC1[k].front_end_impedance==DC2[k].front_end_impedance
+        DCal_Diff_Tdict['pmt_disc_calib_Check'] =  cmp_nan(DC1[k].pmt_disc_calib.intercept, DC2[k].pmt_disc_calib.intercept) and cmp_nan(DC1[k].pmt_disc_calib.slope, DC2[k].pmt_disc_calib.slope)
+
+        DCal_Diff_Tdict['front_end_impedance_Check'] = cmp_nan(DC1[k].front_end_impedance, DC2[k].front_end_impedance)
           
-        DCal_Diff_Tdict['fadc_baseline_fit_Check'] =  [DC1[k].fadc_baseline_fit.intercept,DC1[k].fadc_baseline_fit.slope]==[DC2[k].fadc_baseline_fit.intercept,DC2[k].fadc_baseline_fit.slope]
+        DCal_Diff_Tdict['fadc_baseline_fit_Check'] =  cmp_nan([DC1[k].fadc_baseline_fit.intercept, DC1[k].fadc_baseline_fit.slope], [DC2[k].fadc_baseline_fit.intercept, DC2[k].fadc_baseline_fit.slope])
         
-        DCal_Diff_Tdict['fadc_gain_Check'] = DC1[k].fadc_gain==DC2[k].fadc_gain
+        DCal_Diff_Tdict['fadc_gain_Check'] = cmp_nan(DC1[k].fadc_gain, DC2[k].fadc_gain)
         
-        DCal_Diff_Tdict['fadc_beacon_baseline_Check'] = DC1[k].fadc_beacon_baseline==DC2[k].fadc_beacon_baseline
+        DCal_Diff_Tdict['fadc_beacon_baseline_Check'] = cmp_nan(DC1[k].fadc_beacon_baseline, DC2[k].fadc_beacon_baseline)
         #if not DCal_Diff_Tdict['fadc_beacon_baseline_Check'] :
         #    print 100* fabs(DC2[k].fadc_beacon_baseline - DC1[k].fadc_beacon_baseline)/DC1[k].fadc_beacon_baseline
         
-        DCal_Diff_Tdict['fadc_delta_t_Check'] = DC1[k].fadc_delta_t==DC2[k].fadc_delta_t
+        DCal_Diff_Tdict['fadc_delta_t_Check'] = cmp_nan(DC1[k].fadc_delta_t, DC2[k].fadc_delta_t)
         
         # only in old GCD
         #DCal_Diff_Tdict['fadc_response_width_Check'] = DC1[k].fadc_response_width==DC2[k].fadc_response_width
