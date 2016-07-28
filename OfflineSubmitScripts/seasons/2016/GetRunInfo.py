@@ -227,21 +227,31 @@ def main(config, logger,dryrun = False, check = False):
         exit(0)
     
     for r in RunNums_:
+        is_good_run = RunInfo_[r]['good_it'] or RunInfo_[r]['good_i3']
+        logger.debug("Is run %s a good run? = %s" % (r, is_good_run))
+
         if r in OldRecords_ : continue
         if r in NewRecords_:
             logger.info("entering new records for run = %s"%r)
+
             R = RunTools(r,logger=logger)
             RunTimes = R.GetRunTimes()
             InFiles = R.GetRunFiles(RunTimes['tStart'],'P')
-            CheckFiles = R.FilesComplete(InFiles, RunTimes, get_tmpdir())
+
+            CheckFiles = R.FilesComplete(InFiles, RunTimes, get_tmpdir(), showTimeMismatches = is_good_run)
+
+            logger.debug("Check files returned %s" % CheckFiles)
    
             #  fill new runs from live in run_info_summary 
-            if not dryrun: dbs4_.execute( """insert into i3filter.run_info_summary
-                        (run_id,tStart,tStop,tStart_frac,tStop_frac,nEvents,rateHz,FilesComplete)
-                        values(%u,"%s","%s","%s","%s",%s,%s,%u) """ \
-                        %(r,RunInfo_[r]['tStart'],RunInfo_[r]['tStop'],
-                        RunInfo_[r]['tStart_frac'],RunInfo_[r]['tStop_frac'],
-                        RunInfo_[r]['nEvents'],RunInfo_[r]['rateHz'],CheckFiles))
+            if not dryrun and (CheckFiles or not is_good_run):
+                logger.debug("Insert run into run_info_summary")
+
+                dbs4_.execute("""INSERT INTO i3filter.run_info_summary
+                                 (run_id, tStart, tStop, tStart_frac, tStop_frac, nEvents, rateHz, FilesComplete)
+                                 VALUES (%u, "%s", "%s", "%s", "%s", %s, %s, %u) """ \
+                                 % (r, RunInfo_[r]['tStart'], RunInfo_[r]['tStop'],
+                                 RunInfo_[r]['tStart_frac'], RunInfo_[r]['tStop_frac'],
+                                 RunInfo_[r]['nEvents'], RunInfo_[r]['rateHz'], CheckFiles))
         
         reason_i3 = ""
         reason_i3 = re.sub(r'[",]','',",".join(RunInfo_[r]['reason_i3'][1:-1].split(",")))
