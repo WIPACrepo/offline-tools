@@ -494,6 +494,10 @@ class ProcessingJobs {
             // This run is obviously submitted
             $current_run['submitted'] = true;
 
+            // Set correct datatype
+            $current_run['sub_runs'] = intval($current_run['sub_runs']);
+
+            // Add run
             $this->result['data']['runs'][$row['run_id']] = $current_run;
         }
     }
