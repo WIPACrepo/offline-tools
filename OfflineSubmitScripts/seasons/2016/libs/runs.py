@@ -58,7 +58,7 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
         GCDFileName = ""
     
     if not len(InFiles):
-        logger.info("No PFFilt will be submitted for run %s\n"%g['run_id'])
+        logger.info("No PFFilt will be submitted for run %s"%g['run_id'])
     
         QueueId+=1
     

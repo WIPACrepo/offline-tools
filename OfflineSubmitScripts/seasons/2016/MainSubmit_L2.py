@@ -93,7 +93,7 @@ def main(params, logger, DryRun):
             
             submit_run(dbs4_, g, status, dataset_id, QId, ExistingChkSums, DryRun, logger)
         
-            if not args.NOMETADATA:
+            if not args.NOMETADATA and (g['good_i3'] or g['good_it']):
                 meta_file_dest = ''
                 if DryRun:
                     meta_file_dest = get_tmpdir()

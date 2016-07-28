@@ -29,6 +29,7 @@ from libs.logger import get_logger
 from libs.argparser import get_defaultparser
 from libs.files import get_logdir, get_tmpdir, write_meta_xml_main_processing
 from libs.runs import get_run_status as GetRunStatus
+from libs.runs import set_post_processing_state
 from libs.dbtools import max_queue_id as MaxQId
 import libs.config
 import json
@@ -77,6 +78,7 @@ def CleanRun(DatasetId,Run,CLEAN_DW,logger,dryrun=False):
         dbs4_.execute("""delete from i3filter.job where dataset_id=%s and queue_id in (%s)"""%(DatasetId,CleanListStr))
         dbs4_.execute("""delete from i3filter.urlpath where dataset_id=%s and queue_id in (%s)"""%(DatasetId,CleanListStr))
         dbs4_.execute("""delete from i3filter.run where dataset_id=%s and queue_id in (%s)"""%(DatasetId,CleanListStr))
+        set_post_processing_state(run_id = Run, dataset_id = DatasetId, validated = 0, dbs4 = dbs4_, dryrun = dryrun, logger = logger)
         
 
 def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, linkonlygcd, nometadata, dryrun=False):

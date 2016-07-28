@@ -159,7 +159,7 @@ if __name__ == '__main__':
         SUBMITFILE.write("\nNotification = Never")
         #SUBMITFILE.write("\nRequestMemory = 4000")
         #SUBMITFILE.write("\nRequirements = TARGET.TotalCpus == 16")
-        SUBMITFILE.write("\nRequirements = TARGET.TotalCpus == 32")
+        #SUBMITFILE.write("\nRequirements = TARGET.TotalCpus == 32")
         SUBMITFILE.write("\npriority = 15")
         #SUBMITFILE.write("\n+IsTestQueue = TRUE")
         #SUBMITFILE.write("\nrequirements = TARGET.IsTestQueue")

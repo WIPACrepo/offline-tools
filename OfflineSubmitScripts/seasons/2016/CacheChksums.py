@@ -14,7 +14,6 @@ from os.path import expandvars, join, exists
 import glob
 import cPickle
 from datetime import date,datetime,timedelta
-import subprocess as sub
 import datetime
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser

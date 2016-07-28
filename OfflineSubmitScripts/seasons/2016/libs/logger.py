@@ -89,6 +89,7 @@ def get_logger(loglevel,logfile):
     sys.excepthook = exception_handler
     firstlog = " ".join(sys.argv)
     logger.info("Starting " + firstlog)
+    logger.info("Using Python %s" % sys.version.replace('\n', ' '))
 
     svn = SVN(get_rootdir(), logger)
 
