@@ -64,7 +64,7 @@ def main(args, logger):
 
     if SEASON != season_of_end_run:
         logger.warning("The first run (%s) is of season %s, the last run (%s) is of season %s. Only runs of season %s will be post processed." % (
-            START_RUN, SEASON, END_RUN, season_of_end_run
+            START_RUN, SEASON, END_RUN, season_of_end_run, SEASON
         ))
 
     sourceRunInfo = dbs4_.fetchall("""SELECT r.run_id FROM i3filter.job j
