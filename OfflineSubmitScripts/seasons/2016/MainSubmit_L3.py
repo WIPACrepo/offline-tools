@@ -146,13 +146,19 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
 
     for g in range(len(groups_)-1):
         QId+=1
+
+        p = [r for r in runInfo if r['sub_run'] in range(groups_[g],groups_[g+1])and str(r['sub_run']).zfill(8)+"_" not in r['name'] and r['type']=="PERMANENT"]
+
+        # be aware of gaps in the L2 files
+        if not len(p):
+            continue
+
         if not dryrun:
             # entries in the job table will tell iceprod to queue the jobs
             dbs4_.execute("""insert into i3filter.job (dataset_id,queue_id,status) values (%s,%s,"WAITING")"""%(DDatasetId,QId))
             dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","INPUT","%s","%s")"""% \
            (DDatasetId,QId,GCDEntry['name'],GCDEntry['path'],GCDEntry['md5sum'],GCDEntry['size']))
     
-        p = [r for r in runInfo if r['sub_run'] in range(groups_[g],groups_[g+1])and str(r['sub_run']).zfill(8)+"_" not in r['name'] and r['type']=="PERMANENT"]
         # p are the subruns in the aggregated batch 
         for q in p:
             if not dryrun:dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","INPUT","%s","%s")"""%(DDatasetId,QId,q['name'],q['path'],q['md5sum'],q['size']))
