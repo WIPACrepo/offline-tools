@@ -336,8 +336,8 @@ class ProcessingJobs {
                             validated,
                             DATE(good_tstart) AS `date`,
                             submitted,
-                            MAX(snapshot_id) AS `snapshot_id`,
-                            MAX(production_version) AS `production_version`
+                            snapshot_id AS `snapshot_id`,
+                            production_version AS `production_version`
                     FROM grl_snapshot_info
                     WHERE   (
                                 run_id BETWEEN $first_run_id AND $last_run_id OR
@@ -345,8 +345,8 @@ class ProcessingJobs {
                             ) AND
                             run_id NOT IN ($next_season_test_runs -1) /* Have at least -1 to avoid bad SQL */ AND
                             (good_it = 1 OR good_i3 = 1)
-                    GROUP BY run_id
-                    ORDER BY run_id ASC";
+                    GROUP BY run_id, production_version
+                    ORDER BY run_id, production_version ASC";
 
             $query = $this->mysql->query($sql);
             while($row = $query->fetch_assoc()) {
@@ -423,6 +423,12 @@ class ProcessingJobs {
 
     private function process_good_run_information($run_pattern, $run_id, $validated, $production_version, $snapshot_id, $date) {
         if(isset($this->result['data']['runs'][$run_id])) {
+            // A run can appear several times (each for one production number that includes this run).
+            // Therefore, if the run already exists, check if the production number is newer (higher)...
+            if(!is_null($this->result['data']['runs'][$run_id]['production_version']) && $this->result['data']['runs'][$run_id]['production_version'] > $production_version) {
+                continue;
+            }
+
             // L2 validation flag is currently stored in grl_snapshot_info
             if($this->is_l2_dataset) {
                 $this->result['data']['runs'][$run_id]['validated'] = $validated == 1;
@@ -438,8 +444,8 @@ class ProcessingJobs {
             $current_run['date'] = $date;
             $current_run['submitted'] = $this->is_l2_dataset_id && $row['submitted'] == 1;
             $current_run['status'] = self::get_status('NONE');
-            $current_run['production_version'] = $production_version;
-            $current_run['snapshot_id'] = $snapshot_id;
+            $current_run['production_version'] = intval($production_version);
+            $current_run['snapshot_id'] = intval($snapshot_id);
         
             $this->result['data']['runs'][$run_id] = $current_run;
         }
