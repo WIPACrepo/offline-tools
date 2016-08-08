@@ -32,6 +32,7 @@ from RunTools import RunTools
 from FileTools import FileTools
 
 from libs.files import GetSubRunStartStop, GetGoodSubruns
+from libs import dbtools
 
 ICECUBE_GCDDIR = lambda x : "/data/exp/IceCube/%s/filtered/level2/VerifiedGCD" %str(x)
 ICECUBE_DATADIR = lambda x : "/data/exp/IceCube/%s/filtered/level2/" %str(x)
@@ -88,7 +89,14 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False):
     R = RunTools(r['run_id'])
     InFiles = R.GetRunFiles(r['tStart'],'P')
     OutFiles = R.GetRunFiles(r['tStart'],'L')
-    
+   
+    # Remove all BadRuns from InFiles:
+    bad_runs = dbtools.get_bad_sub_runs(dbs4 = dbs4_, dataset_id = dataset_id, run_id = r['run_id'], logger = logger)
+
+    for bad_run in bad_runs:
+        path = os.path.join(bad_run['path'], bad_run['name'])[5:]
+        InFiles = filter(lambda e: e != path, InFiles)
+
     ProdVersion = "%s_%s/"%(str(r['run_id']),str(r['production_version']))
     
     Files2Check = []

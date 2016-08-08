@@ -22,6 +22,7 @@ from libs.files import get_logdir, GetSubRunStartStop, GetGoodSubruns, TrimFile,
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
 from libs.times import ComputeTenthOfNanosec
+from libs import config
 
 dbs4_ = dbs4.MySQL()
 dbs2_ = dbs2.MySQL()
@@ -79,12 +80,22 @@ def main(RunNum, ProductionVersion, logger, dataset_id, dryrun = False):
 
 
 if __name__ == '__main__':
-
-
     parser = get_defaultparser(__doc__,dryrun=True)
     parser.add_argument("run_id",type=int,help="RunId to process")
     parser.add_argument("production_version", type=int,help="Production version")
+
     args = parser.parse_args()
+
     logfile =os.path.join(get_logdir(sublogpath= "PostProcessing"),"GoodRunTime_adjust_")     
     logger = get_logger(args.loglevel,logfile)
-    main(args.run_id,args.production_version,logger,dryrun=args.dryrun)    
+
+    dataset_id = config.get_dataset_id_by_run(args.run_id)
+
+    if -1 == dataset_id:
+        logger.critical('No dataset id could be determined for run %s' % args.run_id)
+        exit(1)
+
+    logger.info("Dataset id for run %s was determined to %s" % (args.run_id, dataset_id))
+
+    main(args.run_id, args.production_version, logger, dataset_id = dataset_id, dryrun = args.dryrun)
+

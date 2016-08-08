@@ -290,7 +290,7 @@ def main(config, logger,dryrun = False, check = False):
                 logger.warning('    ' + file)
     
         # insert new runs from live in grl_snapshot_info
-        if not dryrun: dbs4_.execute( """insert into i3filter.grl_snapshot_info
+        if not dryrun and (CheckFiles or not is_good_run): dbs4_.execute( """insert into i3filter.grl_snapshot_info
                             (ss_ref,run_id,snapshot_id,good_i3,good_it,reason_i3,reason_it,
                             production_version,submitted,comments,good_tstart,good_tstart_frac,
                             good_tstop,good_tstop_frac)
