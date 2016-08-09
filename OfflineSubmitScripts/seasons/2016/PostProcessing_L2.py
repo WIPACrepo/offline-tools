@@ -11,15 +11,19 @@ import time
 import datetime
 import argparse
 
+import libs.files
+from libs.config import get_season_info, get_config, get_dataset_id_by_run, get_season_by_run
+sys.path.append(get_config().get('DEFAULT', 'SQLClientPath'))
+sys.path.append(get_config().get('DEFAULT', 'ProductionToolsPath'))
 from RunTools import RunTools
 from FileTools import *
 from DbTools import *
 
+from libs.files import get_tmpdir, get_logdir, MakeTarGapsTxtFile, MakeRunInfoFile, write_meta_xml_post_processing
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
-from libs.files import get_tmpdir, get_logdir, MakeTarGapsTxtFile, MakeRunInfoFile, write_meta_xml_post_processing
 from libs.checks import CheckFiles
-from libs.config import get_season_info, get_config, get_dataset_id_by_run, get_season_by_run
+import libs.process
 from GoodRuntimeAdjust import main as GoodRuntimeAdjust
 
 import SQLClient_i3live as live
@@ -126,9 +130,24 @@ if __name__ == '__main__':
     parser = get_defaultparser(__doc__,dryrun=True)
     parser.add_argument('-r',nargs="?", help="run to postprocess",dest="run",type=int)
     parser.add_argument("--nometadata", action="store_true", default=False, dest="NOMETADATA", help="Don't write meta data files")
+    parser.add_argument("--cron", action="store_true", default=False, dest="CRON", help="Use this option if you call this script via a cron")
     args = parser.parse_args()
     LOGFILE=os.path.join(get_logdir(sublogpath = 'PostProcessing'), 'PostProcessing_')
+
+    if args.CRON:
+        LOGFILE = LOGFILE + 'CRON_'
+
     logger = get_logger(args.loglevel, LOGFILE)
+
+    # Check if --cron option is enabled. If so, check if cron usage allowed by config
+    lock = None
+    if args.CRON:
+        if not get_config().getboolean('L2', 'CronPostProcessing'):
+            logger.critical('It is currently not allowed to execute this script as cron. Check config file.')
+            exit(1)
+
+        # Check if cron is already running
+        lock = libs.process.Lock(os.path.basename(__file__), logger)
 
     season = get_config().getint('DEFAULT', 'Season')
     test_runs = get_season_info(season)['test']
@@ -149,3 +168,9 @@ if __name__ == '__main__':
                                  ORDER BY g.run_id""" % ','.join([str(r) for r in test_runs]), UseDict=True)
 
     main(RunInfo, logger, args.NOMETADATA, dryrun = args.dryrun)
+
+    if args.CRON:
+        lock.unlock()
+
+    logger.info('Post processing completed')
+
