@@ -52,7 +52,7 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
         lnGCDFile = os.path.join(OutputDir,os.path.basename(GCDFileName))
         
         if not dryrun:
-            lnCmd = "ln -sf %s %s"%(GCDFileName,lnGCDFile)
+            lnCmd = "ln -sf %s %s"%(os.path.relpath(GCDFileName, os.path.dirname(lnGCDFile)), lnGCDFile)
             os.system(lnCmd)
     else:
         GCDFileName = ""

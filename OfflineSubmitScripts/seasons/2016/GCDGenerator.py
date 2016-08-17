@@ -112,9 +112,9 @@ def MakeGCD(RunNum,FName,GCDName,ProductionVersion,SnapshotId,effectiveStartTime
         #tray.AddModule("QConverter", "qify")
           
         tray.AddSegment(I3Db.GCDSynth,"gcdsynth",
-                        Host = '128.104.255.19',        # new external ip address for dbs2
+                        #Host = '128.104.255.19',        # new external ip address for dbs2
                         #Host = 'dbs2.icecube.wisc.edu',
-                        #Host = 'icedb.umons.ac.be',
+                        Host = 'icedb.umons.ac.be',
                         Mjd = 54560 # any nominal value > PMTInfoIntroduction (54559, 2008/04/03)
                         #Database = 'I3OmDb'
                         )
@@ -223,11 +223,11 @@ def BadDOMAudit(GCDName,RNames):
 
         tray.AddModule('I3Reader', 'reader', FilenameList=FList)
 
-        ##tray.AddModule('I3BadDOMAuditor', 'audit', BadDOMList="BadDomsListSLC", Pulses=['OfflinePulses', 'OfflineIceTopHLCTankPulses'])
         tray.AddModule('I3BadDOMAuditor', 'BadDOMAuditor',
-                        BadDOMList="BadDomsListSLC",
-                        Pulses=['InIcePulses','IceTopPulses'],
+                        BadDOMList = "BadDomsListSLC",
+                        Pulses = ['InIcePulses', 'IceTopPulses'],
                         IgnoreOMs = [OMKey(12, 65), OMKey(12, 66), OMKey(62, 65), OMKey(62, 66)])
+                        #UseGoodRunTimes = True)
 
         tray.AddModule('TrashCan', 'can')
 
@@ -337,7 +337,7 @@ def main(RunNum, ProductionVersion, SnapshotId, outdir):
     if os.path.isfile(GCDName) and os.path.getsize(GCDName)>0:
     
         if not outdir:
-            os.system("ln -sf %s %s/%s"%(GCDName,GCDDirAll,GCDLinkName))
+            os.system("ln -sf %s %s/%s"%(os.path.relpath(GCDName, GCDDirAll), GCDDirAll, GCDLinkName))
         
         print "\nAuditing GCD file for run %s"%RunNum
     
@@ -457,7 +457,7 @@ def main(RunNum, ProductionVersion, SnapshotId, outdir):
                     F=1
                         
                     if not outdir:
-                        os.system("ln -sf %s %s/%s"%(GCDName,GCDDirVerified,GCDLinkName))
+                        os.system("ln -sf %s %s/%s"%(os.path.relpath(GCDName, GCDDirVerified), GCDDirVerified, GCDLinkName))
                     
                     dbs4_.execute("""update i3filter.grl_snapshot_info set BadDOMsCheck=1
                                   where run_id=%s and snapshot_id=%s """%(RunNum,SnapshotId))

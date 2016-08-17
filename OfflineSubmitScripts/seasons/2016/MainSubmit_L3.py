@@ -137,7 +137,7 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
     GCDEntry = [g for g in runInfo if "GCD" in g['name']][0]
     #GCDEntry = [g for g in runInfo if g['sub_run']==1 and "GCD" in g['name']][0]
     GCDFile = os.path.join(GCDEntry['path'][5:],GCDEntry['name'])
-    lnCmd = "ln -sf %s %s"%(GCDFile,os.path.join(OutDir,os.path.basename(GCDFile)))
+    lnCmd = "ln -sf %s %s"%(os.path.relpath(GCDFile, OutDir), os.path.join(OutDir, os.path.basename(GCDFile)))
     logger.info("Linking GCDFile %s to %s" %(GCDFile,OutDir))
 
     if not dryrun or linkonlygcd:
