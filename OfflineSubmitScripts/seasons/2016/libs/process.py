@@ -76,7 +76,7 @@ class Lock:
             self._logger.info("Removing stale lock file")
             os.system("rm -f " + self._lock_file)
         else:
-            self._logger.debug("Lock file does not %s exist"%self._lock_file)
+            self._logger.debug("Lock file %s does not exist"%self._lock_file)
         
         # Ok, it's not running. Lets store the current PID and proceed
         with open(self._lock_file ,'w') as f:

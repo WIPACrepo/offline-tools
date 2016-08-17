@@ -148,6 +148,7 @@ if __name__ == '__main__':
 
         # Check if cron is already running
         lock = libs.process.Lock(os.path.basename(__file__), logger)
+        lock.lock()
 
     season = get_config().getint('DEFAULT', 'Season')
     test_runs = get_season_info(season)['test']

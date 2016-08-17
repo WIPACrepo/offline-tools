@@ -20,6 +20,7 @@ from icecube import I3Db
 from libs.times import ComputeTenthOfNanosec
 import libs.files
 from libs.argparser import get_defaultparser
+from libs.logger import DummyLogger
 
 import libs.config
 sys.path.append(libs.config.get_config().get('DEFAULT', 'ProductionToolsPath'))
@@ -39,11 +40,11 @@ def GetGoodRunTimes(dbs4_,RunNum,SnapshotId):
         print GRLInfo
         
         goodStartTime = dataclasses.I3Time()
-        tNanoSec = ComputeTenthOfNanosec(GRLInfo[0]['good_tstart'],GRLInfo[0]['good_tstart_frac'])
+        tNanoSec = ComputeTenthOfNanosec(GRLInfo[0]['good_tstart'],GRLInfo[0]['good_tstart_frac'], leap_second_file = libs.files.get_leap_second_file(), logger = DummyLogger())
         goodStartTime = dataclasses.I3Time(int(GRLInfo[0]['good_tstart'].year),tNanoSec)
         
         goodEndTime = dataclasses.I3Time()
-        tNanoSec = ComputeTenthOfNanosec(GRLInfo[0]['good_tstop'],GRLInfo[0]['good_tstop_frac'])
+        tNanoSec = ComputeTenthOfNanosec(GRLInfo[0]['good_tstop'],GRLInfo[0]['good_tstop_frac'], leap_second_file = libs.files.get_leap_second_file(), logger = DummyLogger())
         goodEndTime = dataclasses.I3Time(int(GRLInfo[0]['good_tstop'].year),tNanoSec)
         
         
@@ -81,7 +82,7 @@ def AdjustDSTime(frame,RunNum):
         print "DS Start Time Needed Adjustment"
         print "Original Start Time is: ",frame['I3DetectorStatus'].start_time.date_time
         print "Replaced with Start Time from i3live: ",tStart
-        tNanoSec = ComputeTenthOfNanosec(tStart,0)
+        tNanoSec = ComputeTenthOfNanosec(tStart,0, leap_second_file = libs.files.get_leap_second_file(), logger = DummyLogger())
         StartTime = dataclasses.I3Time(tStart.year,tNanoSec)
         frame['I3DetectorStatus'].start_time = StartTime
         
@@ -90,7 +91,7 @@ def AdjustDSTime(frame,RunNum):
         print "DS End Time Needed Adjustment"
         print "Original End Time is: ",frame['I3DetectorStatus'].end_time.date_time
         print "Replaced with End Time from i3live: ",tStop
-        tNanoSec = ComputeTenthOfNanosec(tStop,0)
+        tNanoSec = ComputeTenthOfNanosec(tStop,0, leap_second_file = libs.files.get_leap_second_file(), logger = DummyLogger())
         StopTime = dataclasses.I3Time(tStop.year,tNanoSec)
         frame['I3DetectorStatus'].end_time = StopTime
         

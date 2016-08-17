@@ -18,7 +18,7 @@ import SQLClient_dbs2 as dbs2
 
 from icecube import icetray,dataclasses
 
-from libs.files import get_logdir, GetSubRunStartStop, GetGoodSubruns, TrimFile, RemoveBadSubRuns
+from libs.files import get_logdir, GetSubRunStartStop, GetGoodSubruns, TrimFile, RemoveBadSubRuns, get_leap_second_file
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
 from libs.times import ComputeTenthOfNanosec
@@ -50,8 +50,8 @@ def main(RunNum, ProductionVersion, logger, dataset_id, dryrun = False):
     
     ProdVersion = "%s_%s"%(str(RunInfo['run_id']),str(RunInfo['production_version']))
     
-    GoodStart = dataclasses.I3Time(RunInfo['good_tstart'].year,ComputeTenthOfNanosec(RunInfo['good_tstart'],RunInfo['good_tstart_frac'])) 
-    GoodEnd = dataclasses.I3Time(RunInfo['good_tstop'].year,ComputeTenthOfNanosec(RunInfo['good_tstop'],RunInfo['good_tstop_frac'])) 
+    GoodStart = dataclasses.I3Time(RunInfo['good_tstart'].year,ComputeTenthOfNanosec(RunInfo['good_tstart'],RunInfo['good_tstart_frac'], leap_second_file = get_leap_second_file(), logger = logger))
+    GoodEnd = dataclasses.I3Time(RunInfo['good_tstop'].year,ComputeTenthOfNanosec(RunInfo['good_tstop'],RunInfo['good_tstop_frac'], leap_second_file = get_leap_second_file(), logger = logger)) 
     firstGood, lastGood, L2Files = GetGoodSubruns(OutFiles, GoodStart, GoodEnd, ProdVersion, logger = logger)
     logger.debug("""Database says GoodStart %s and GoodEnd %s""" %(GoodStart,GoodEnd))
     for file in [firstGood,lastGood]:

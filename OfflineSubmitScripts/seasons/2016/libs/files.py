@@ -488,6 +488,11 @@ def get_tmpdir():
 
 #############################################
 
+def get_leap_second_file():
+    return os.path.join(get_tmpdir(), 'leap-seconds.list')
+
+#############################################
+
 def get_existing_check_sums(logger, ChkSumFile = config.get_config().get('CacheCheckSums', 'CacheFile')):    
     """
     Get dictionary of precalculated check sums for PFFilt files. Caching makes submission faster.
