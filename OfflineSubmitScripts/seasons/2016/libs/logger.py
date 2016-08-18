@@ -3,7 +3,7 @@ Convenience function to provide easy logging
 """
 
 import logging
-import os.path
+import os
 from datetime import datetime
 import sys
 from svn import SVN
@@ -96,4 +96,29 @@ def get_logger(loglevel,logfile):
     logger.info("SVN Revision %s" % svn.get('Revision'))
     return logger
 
+def delete_log_file(logger):
+    """
+    Deletes all logging files of an logger and removes those filehandlers from the logger.
+
+    Args:
+        logger (logging.Logger): The logger
+    
+    Returns:
+        list: List of the removed FileHandlers
+    """
+
+    filehandlers = [handler for handler in logger.handlers if isinstance(handler, logging.FileHandler)]
+
+    logger.debug("Found %s file handlers" % len(filehandlers))
+
+    for h in filehandlers:
+        logger.removeHandler(h)
+    
+    logger.warning("Removed %s file handlers from logger" % len(filehandlers))
+
+    for h in filehandlers:
+        os.remove(h.baseFilename)
+        logger.warning("Deleted %s" % h.baseFilename)
+
+    return filehandlers
 

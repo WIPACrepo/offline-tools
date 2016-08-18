@@ -30,14 +30,17 @@ import subprocess as sub
 
 import traceback
 
+from libs.files import get_logdir, get_tmpdir, write_meta_xml_post_processing
+import libs.config
+sys.path.append(libs.config.get_config().get('DEFAULT', 'SQLClientPath'))
+sys.path.append(libs.config.get_config().get('DEFAULT', 'ProductionToolsPath'))
 from RunTools import *
 from FileTools import *
 
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
-from libs.files import get_logdir, get_tmpdir, write_meta_xml_post_processing
 from libs.runs import set_post_processing_state, get_validated_runs
-import libs.config
+import libs.process
 
 ##-----------------------------------------------------------------
 ## setup DB
@@ -52,13 +55,8 @@ dbs4_ = dbs4.MySQL()
 import SQLClient_dbs2 as dbs2
 dbs2_ = dbs2.MySQL()
 
-def main(args, logger):
-    SDatasetId = args.SDATASETID
-    DDatasetId = args.DDATASETID
-    START_RUN = args.STARTRUN
-    END_RUN = args.ENDRUN
+def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryrun, logger):
     SEASON = libs.config.get_season_by_run(START_RUN)
-    MERGEHDF5 = args.MERGEHDF5
 
     season_of_end_run = libs.config.get_season_by_run(END_RUN)
 
@@ -75,11 +73,13 @@ def main(args, logger):
                                         GROUP BY r.run_id
                                         ORDER BY r.run_id
                                         """%(SDatasetId,SDatasetId,START_RUN,END_RUN),UseDict=True)
-    
+   
+    counter = {'all': 0, 'validated': 0, 'errors': 0, 'skipped': 0}
+ 
     GRL = "/data/exp/IceCube/%s/filtered/level2/IC86_%s_GoodRunInfo.txt"%(SEASON,SEASON)
     if not os.path.isfile(GRL):
         logger.critical("Can't access GRL file %s for run validation, check path, exiting ...... " % GRL)
-        exit(1)
+        return counter
         
     with open(GRL,"r") as G:
         L = G.readlines()
@@ -91,6 +91,8 @@ def main(args, logger):
         validated_runs[int(run['run_id'])] = run
 
     for s in sourceRunInfo:
+        counter['all'] = counter['all'] + 1
+
         try:    
             verified = 1
             
@@ -98,10 +100,12 @@ def main(args, logger):
             
             if not RunId in GoodRuns:
                 logger.info("Skip run %s since it is not in the good run list" % RunId)
+                counter['skipped'] = counter['skipped'] + 1
                 continue
 
             if int(RunId) in validated_runs:
                 logger.debug("Run %s was already validated on %s" % (RunId, validated_runs[int(RunId)]['date_of_validation']))
+                counter['skipped'] = counter['skipped'] + 1
                 continue
             
             sRunInfo = dbs4_.fetchall("""SELECT * FROM i3filter.run r join i3filter.urlpath u on r.queue_id=u.queue_id
@@ -118,6 +122,7 @@ def main(args, logger):
 
             if not len(dRunInfo):
                 logger.info("No processing information found in DB. Run %s may hav not been submitted yet. Skip this run." % RunId)
+                counter['skipped'] = counter['skipped'] + 1
                 continue
 
             logger.info("Verifying processing for run %s..." % RunId)
@@ -132,7 +137,8 @@ def main(args, logger):
 
             if outdir is None:
                 logger.critical("Could not determine output directory")
-                exit(1)
+                counter['errors'] = counter['errors'] + 1
+                return counter
 
             # Since there is a 'file:' at the beginning of the path...
             outdir = outdir[5:]
@@ -222,7 +228,7 @@ def main(args, logger):
                     
                     hdf5Out = nRecord['path'][5:]+"/Level3_IC86.%s_data_Run00%s_Merged.hdf5"%(SEASON,RunId)
 
-                    if not args.dryrun:
+                    if not dryrun:
                         buildir = libs.config.get_config().get('L3', "I3_BUILD_%s" % DDatasetId)
                         envpath = os.path.join(buildir, './env-shell.sh')
                         mergescript = os.path.join(buildir, 'hdfwriter/resources/scripts/merge.py')
@@ -244,9 +250,9 @@ def main(args, logger):
 
                
             if verified:
-                if not args.NOMETADATA:
+                if not NOMETADATA:
                     dest_folder = ''
-                    if args.dryrun:
+                    if dryrun:
                         dest_folder = get_tmpdir()
                     else:
                         dest_folder = outdir
@@ -260,32 +266,38 @@ def main(args, logger):
                     logger.info("No meta data files will be written")
 
                 logger.info("Succesfully Verified processing for run %s" % RunId)
+                counter['validated'] = counter['validated'] + 1
             else:
                 logger.error("Failed Verification for run %s, see other logs" % RunId)
+                counter['errors'] = counter['errors'] + 1
             
-            if not args.dryrun:
-                set_post_processing_state(RunId, DDatasetId, verified, dbs4_, args.dryrun, logger)
+            if not dryrun:
+                set_post_processing_state(RunId, DDatasetId, verified, dbs4_, dryrun, logger)
 
         except Exception,err:
             logger.exception(err)
+            counter['errors'] = counter['errors'] + 1
             logger.warning("skipping verification for %s, see previous error" % RunId)
+
+    logger.info("%s runs were handled | validated %s runs | errors: %s | skipped %s runs" % (counter['all'], counter['validated'], counter['errors'], counter['skipped']))
+    return counter
 
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__,dryrun=True)
 
-    parser.add_argument("--sourcedatasetid", type=int, required = True,
-                                      dest="SDATASETID", help="Dataset ID to read from, usually L2 dataset")
+    parser.add_argument("--sourcedatasetid", type=int, default = None,
+                                      dest="SDATASETID", help="Dataset ID to read from, usually L2 dataset. Required if not executed with --cron. If executed with --cron, this option is ignored")
     
-    parser.add_argument("--destinationdatasetid", type=int, required = True,
-                                      dest="DDATASETID", help="Dataset ID to write to, usually L3 dataset")
+    parser.add_argument("--destinationdatasetid", type=int, default = None,
+                                      dest="DDATASETID", help="Dataset ID to write to, usually L3 dataset. Required if not executed with --cron. If executed with --cron, this option is ignored")
 
 
-    parser.add_argument("-s", "--startrun", type=int, required = True,
-                                      dest="STARTRUN", help="start submission from this run")
+    parser.add_argument("-s", "--startrun", type=int, default = None,
+                                      dest="STARTRUN", help="start submission from this run. Required if not executed with --cron. If executed with --cron, this option is ignored")
 
 
     parser.add_argument("-e", "--endrun", type=int, default=9999999999,
-                                      dest="ENDRUN", help="end submission at this run")
+                                      dest="ENDRUN", help="end submission at this run. If executed with --cron, this option is ignored")
     
     parser.add_argument("--mergehdf5", action="store_true", default=False,
               dest="MERGEHDF5", help="merge hdf5 files, useful when files are really small")
@@ -293,9 +305,67 @@ if __name__ == '__main__':
     parser.add_argument("--nometadata", action="store_true", default=False,
               dest="NOMETADATA", help="Don't write meta data files")
 
+    parser.add_argument("--cron", action="store_true", default=False, dest="CRON", help="Execute as cron. No other options required")
+
     args = parser.parse_args()
+
     LOGFILE=os.path.join(get_logdir(sublogpath = 'L3Processing'), "PostProcessing_%s_%s_" % (args.SDATASETID, args.DDATASETID))
+
+    if args.CRON:
+        LOGFILE = LOGFILE + 'CRON_'
+
     logger = get_logger(args.loglevel,LOGFILE)
 
-    main(args, logger)
+    if not args.CRON and (args.SDATASETID is None or args.DDATASETID is None or args.STARTRUN is None):
+        logger.critical("--sourcedatasetid and --destinationdatasetid and -s are required if not executed with --cron")
+        exit(1)
+
+    lock = None
+    if args.CRON:
+        if not libs.config.get_config().getboolean('L3', 'CronPostProcessing'):
+            logger.critical('It is currently not allowed to execute this script as cron. Check config file.')
+            exit(1)
+
+        # Check if cron is already running
+        lock = libs.process.Lock(os.path.basename(__file__), logger)
+        lock.lock()
+
+    if not args.CRON:
+        main(SDatasetId = args.SDATASETID, 
+            DDatasetId = args.DDATASETID,
+            START_RUN = args.STARTRUN, 
+            END_RUN = args.ENDRUN, 
+            MERGEHDF5 = args.MERGEHDF5, 
+            NOMETADATA = args.NOMETADATA, 
+            dryrun = args.dryrun, 
+            logger = logger)
+    else:
+        # Find installed crons
+        crons = libs.config.get_var_dict('L3', 'CronJobPostProcessing', keytype = int, valtype = int)
+
+        firstrun = libs.config.get_config().get('L3', 'CronRunStart')
+        lastrun = libs.config.get_config().get('L3', 'CronRunEnd')
+
+        for dest, source in crons.iteritems():
+            logger.info('====================================================')
+            logger.info("Executing Cron Job for dataset %s with source %s" % (dest, source))
+
+            counter = main(SDatasetId = source, 
+                DDatasetId = dest,
+                START_RUN = firstrun, 
+                END_RUN = lastrun, 
+                MERGEHDF5 = args.MERGEHDF5,
+                NOMETADATA = args.NOMETADATA, 
+                dryrun = args.dryrun, 
+                logger = logger)
+
+            # counter contains how many runs have been submitted. Since
+            # the cron is executed very often and will probably do nothing
+            # we won't keep those log files since they are useless.
+            # Therefore, we will delete the log file if no run has been submitted
+            if not (counter['validated'] + counter['errors']):
+                delete_log_file(logger)
     
+    if args.CRON:
+        lock.unlock()
+

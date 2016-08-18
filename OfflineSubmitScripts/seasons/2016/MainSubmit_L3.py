@@ -13,6 +13,11 @@ import time
 import datetime
 import pymysql as MySQLdb
 
+from libs.files import get_logdir, get_tmpdir, write_meta_xml_main_processing
+import libs.config
+sys.path.append(libs.config.get_config().get('DEFAULT', 'SQLClientPath'))
+sys.path.append(libs.config.get_config().get('DEFAULT', 'ProductionToolsPath'))
+
 from RunTools import *
 from FileTools import *
 
@@ -25,13 +30,12 @@ m_live = live.MySQL()
 dbs4_ = dbs4.MySQL()
 dbs2_ = dbs2.MySQL()
 
-from libs.logger import get_logger
+from libs.logger import get_logger, delete_log_file
 from libs.argparser import get_defaultparser
-from libs.files import get_logdir, get_tmpdir, write_meta_xml_main_processing
 from libs.runs import get_run_status as GetRunStatus
-from libs.runs import set_post_processing_state
+from libs.runs import set_post_processing_state, get_validated_runs_L2
 from libs.dbtools import max_queue_id as MaxQId
-import libs.config
+import libs.process
 import json
 
 # FIXME: this CleanRun is slightly different from libs.runs.clean_ru
@@ -137,7 +141,7 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
     GCDEntry = [g for g in runInfo if "GCD" in g['name']][0]
     #GCDEntry = [g for g in runInfo if g['sub_run']==1 and "GCD" in g['name']][0]
     GCDFile = os.path.join(GCDEntry['path'][5:],GCDEntry['name'])
-    lnCmd = "ln -sf %s %s"%(os.path.relpath(GCDFile, OutDir), os.path.join(OutDir, os.path.basename(GCDFile)))
+    lnCmd = "ln -sf %s %s"%(GCDFile,os.path.join(OutDir,os.path.basename(GCDFile)))
     logger.info("Linking GCDFile %s to %s" %(GCDFile,OutDir))
 
     if not dryrun or linkonlygcd:
@@ -197,25 +201,10 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
     else:
         logger.info("No meta data files will be written")
 
-def main(params, outdir, logger,dryrun=False):
-    
-    SDatasetId = params.SDatasetId
-    DDatasetId = params.DDatasetId
-    START_RUN  = params.START_RUN
-    END_RUN    = params.END_RUN
-    OUTDIR     = outdir
-    AGGREGATE  = params.AGGREGATE
-    CLEAN_DW   = params.CLEAN_DW
-    DryRun     = dryrun
-    
-    AllRuns = []
-    
-    MARKED_RUNS = []
-    if (END_RUN) and  (START_RUN) and END_RUN >= START_RUN:
-        MARKED_RUNS = range(START_RUN,END_RUN+1)
-    
-    AllRuns.extend(MARKED_RUNS)
-    logger.info("Processing %i runs" %len(AllRuns))
+def main(SDatasetId, DDatasetId, START_RUN, END_RUN, AGGREGATE, CLEAN_DW, outdir, LINK_ONLY_GCD, NOMETADATA, RESUBMISSION, logger, DryRun):
+    validatedRuns = get_validated_runs_L2(dbs4_, START_RUN, END_RUN)
+ 
+    logger.info("Processing runs between %s and %s" % (START_RUN, END_RUN))
 
     sourceInfo = dbs4_.fetchall("""select r.run_id from i3filter.job j
                                         join i3filter.run r on j.queue_id=r.queue_id
@@ -225,22 +214,57 @@ def main(params, outdir, logger,dryrun=False):
                                         group by r.run_id
                                         order by r.run_id,j.queue_id
                                         """%(SDatasetId,SDatasetId,START_RUN,END_RUN),UseDict=True)
-    logger.info("Processing runs %s " %sourceInfo.__repr__())
+
+    destinationInfo = dbs4_.fetchall("""select r.run_id from i3filter.job j
+                                        join i3filter.run r on j.queue_id=r.queue_id
+                                        where j.dataset_id=%s and r.dataset_id=%s
+                                        and r.run_id between %s and %s
+                                        group by r.run_id
+                                        order by r.run_id,j.queue_id
+                                        """%(DDatasetId,DDatasetId,START_RUN,END_RUN),UseDict=True)
+
+    submittedRuns = [r['run_id'] for r in destinationInfo]
+
+    counter = {'all': 0, 'submitted': 0, 'skipped': 0, 're': 0}
     for s in sourceInfo:
+        counter['all'] = counter['all'] + 1
+
+        if s['run_id'] not in validatedRuns:
+            logger.info("Skipping run %s because L2 is not validated yet" % s['run_id'])
+            counter['skipped'] = counter['skipped'] + 1
+            continue
+
+        if s['run_id'] in submittedRuns and not LINK_ONLY_GCD:
+            if not args.RESUBMISSION:
+                logger.debug("Skipping run %s because it has been already submitted" % s['run_id'])
+                counter['skipped'] = counter['skipped'] + 1
+                continue
+            else:
+                logger.info("Re-submitting run %s" % s['run_id'])
+                counter['re'] = counter['re'] + 1
+
         CleanRun(DDatasetId,s['run_id'],CLEAN_DW,logger,dryrun=DryRun)
         QId = MaxQId(dbs4_,DDatasetId)
-        SubmitRunL3(DDatasetId, SDatasetId, s['run_id'], QId, OUTDIR, AGGREGATE, logger, params.LINK_ONLY_GCD, nometadata = params.NOMETADATA, dryrun=DryRun)
+        SubmitRunL3(DDatasetId, SDatasetId, s['run_id'], QId, outdir, AGGREGATE, logger, LINK_ONLY_GCD, nometadata = NOMETADATA, dryrun=DryRun)
+
+        counter['submitted'] = counter['submitted'] + 1
+
+    logger.info("%s runs were handled | submitted %s runs | re-submitted %s runs | skipped %s runs" % (counter['all'], counter['submitted'], counter['re'], counter['skipped']))
+
+    return counter
             
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__,dryrun=True)
-    parser.add_argument("--sourcedatasetid", type=int, required = True, dest="SDatasetId", help="Dataset ID to read from, usually L2 dataset")
-    parser.add_argument("--destinationdatasetid", type=int, required = True, dest="DDatasetId", help="Dataset ID to write to, usually L3 dataset")
+    parser.add_argument("--sourcedatasetid", type=int, default = None, dest="SDatasetId", help="Dataset ID to read from, usually L2 dataset")
+    parser.add_argument("--destinationdatasetid", type=int, required = None, dest="DDatasetId", help="Dataset ID to write to, usually L3 dataset")
     parser.add_argument("-s", "--startrun", type=int, default=0, dest="START_RUN", help="start submission from this run")
     parser.add_argument("-e", "--endrun", type=int, default=0,dest="END_RUN", help="end submission at this run")
     parser.add_argument("-a", "--aggregate", type=int, default=1,dest="AGGREGATE", help="number of subruns to aggregate to form one job, needed when processing 1 subrun is really short")
     parser.add_argument("-c", "--cleandatawarehouse", action="store_true", default=False,dest="CLEAN_DW", help="clean output files in datawarehouse as part of (re)submission process")
     parser.add_argument("--linkonlygcd", action="store_true", default=False, dest="LINK_ONLY_GCD", help="No jobs will be submitted but the GCD file(s) will be linked. Useful if some links are missing")
     parser.add_argument("--nometadata", action="store_true", default=False, dest="NOMETADATA", help="Don't write meta data files")
+    parser.add_argument("--resubmission", action="store_true", default=False, dest="RESUBMISSION", help="Don't skip already submitted runs and re-submit them")
+    parser.add_argument("--cron", action="store_true", default=False, dest="CRON", help="Execute as cron")
     args = parser.parse_args()
 
     # Check of only GCDs should be linked
@@ -249,7 +273,25 @@ if __name__ == '__main__':
         args.dryrun = True
 
     LOGFILE=os.path.join(get_logdir(sublogpath = 'L3Processing'), 'L3Processing_')
+
+    if args.CRON:
+        LOGFILE = LOGFILE + 'CRON_'
+
     logger = get_logger(args.loglevel,LOGFILE)
+
+    if (args.SDatasetId is None or args.DDatasetId is None) and not args.CRON:
+        logger.critical("--sourcedatasetid and --destinationdatasetid are required")
+        exit(1)
+
+    lock = None
+    if args.CRON:
+        if not libs.config.get_config().getboolean('L3', 'CronMainSubmission'):
+            logger.critical('It is currently not allowed to execute this script as cron. Check config file.')
+            exit(1)
+
+        # Check if cron is already running
+        lock = libs.process.Lock(os.path.basename(__file__), logger)
+        lock.lock()
 
     logger.debug("Dryrun: %s" % args.dryrun)
     logger.debug("Create only GCD links: %s" % args.LINK_ONLY_GCD)
@@ -262,10 +304,62 @@ if __name__ == '__main__':
    
     logger.debug("Output mapping: %s" % outdir_mapping);
 
-    if args.DDatasetId not in outdir_mapping:
-        logger.critical("No outdir mapped for destination dataset %s" % args.DDatasetId)
-        exit(1)
+    if not args.CRON:
+        if args.DDatasetId not in outdir_mapping:
+            logger.critical("No outdir mapped for destination dataset %s" % args.DDatasetId)
+            exit(1)
 
-    logger.debug("Selected output dir: outdir_mapping[%s] = %s" % (args.DDatasetId, outdir_mapping[args.DDatasetId]))
+        logger.debug("Selected output dir: outdir_mapping[%s] = %s" % (args.DDatasetId, outdir_mapping[args.DDatasetId]))
 
-    main(args, outdir_mapping[args.DDatasetId], logger,dryrun=args.dryrun)
+        main(SDatasetId = args.SDatasetId,
+            DDatasetId = args.DDatasetId, 
+            START_RUN = args.START_RUN, 
+            END_RUN = args.END_RUN, 
+            AGGREGATE = args.AGGREGATE, 
+            CLEAN_DW = args.CLEAN_DW, 
+            LINK_ONLY_GCD = args.LINK_ONLY_GCD, 
+            NOMETADATA = args.NOMETADATA, 
+            outdir = outdir_mapping[args.DDatasetId], 
+            RESUBMISSION = args.RESUBMISSION, 
+            logger = logger, 
+            DryRun = args.dryrun)
+    else:
+        # Find installed crons
+        crons = libs.config.get_var_dict('L3', 'CronJobMainProcessing', keytype = int, valtype = int)
+
+        firstrun = libs.config.get_config().get('L3', 'CronRunStart')
+        lastrun = libs.config.get_config().get('L3', 'CronRunEnd')
+
+        for dest, source in crons.iteritems():
+            if dest not in outdir_mapping:
+                logger.error("Cron `CronJobMainProcessing%s = %s` cannot be executed since no output dir for %s is mapped." % (dest, source, dest))
+                continue
+
+            logger.info('====================================================')
+            logger.info("Executing Cron Job for dataset %s with source %s" % (dest, source))
+
+            logger.debug("Selected output dir: outdir_mapping[%s] = %s" % (dest, outdir_mapping[dest]))
+
+            counter = main(SDatasetId = source,
+                DDatasetId = dest, 
+                START_RUN = firstrun, 
+                END_RUN = lastrun, 
+                AGGREGATE = args.AGGREGATE, 
+                CLEAN_DW = False, # never resubmit or clean something within a cron 
+                LINK_ONLY_GCD = False, # Doesn't make sense for a cron to turn it to `True`
+                NOMETADATA = False,
+                outdir = outdir_mapping[dest], 
+                RESUBMISSION = False, # never resubmit or clean something within a cron
+                logger = logger, 
+                DryRun = args.dryrun)
+
+            # counter contains how many runs have been submitted. Since
+            # the cron is executed very often and will probably do nothing
+            # we won't keep those log files since they are useless.
+            # Therefore, we will delete the log file if no run has been submitted
+            if not counter['submitted']:
+                delete_log_file(logger)
+
+    if args.CRON:
+        lock.unlock()
+
