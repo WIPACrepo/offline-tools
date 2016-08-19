@@ -309,10 +309,12 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    LOGFILE=os.path.join(get_logdir(sublogpath = 'L3Processing'), "PostProcessing_%s_%s_" % (args.SDATASETID, args.DDATASETID))
+    LOGFILE = None
 
     if args.CRON:
-        LOGFILE = LOGFILE + 'CRON_'
+        LOGFILE=os.path.join(get_logdir(sublogpath = 'L3Processing'), "PostProcessing_CRON_")
+    else:
+        LOGFILE = os.path.join(get_logdir(sublogpath = 'L3Processing'), "PostProcessing_%s_%s_" % (args.SDATASETID, args.DDATASETID))
 
     logger = get_logger(args.loglevel,LOGFILE)
 
