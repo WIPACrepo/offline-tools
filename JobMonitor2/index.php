@@ -100,7 +100,7 @@ require_once('config.php');
       <div id="jm-dataset-title" style="margin-bottom: 20px"></div>
 
       <div class="alert alert-warning" role="alert" id="jm-l3-pre-2015-season-note" style="display: none;">
-        <strong>Note:</strong> You are watching a L3 dataset before season 2015. For those runs no validation flag exists. Therefore, all runs are maked as validated by default.
+        <strong>Note:</strong> You are watching a L3 dataset with an id &lt; 1885. For those runs do not validation flags exist. Therefore, all runs are maked as validated by default.
       </div>
 
       <div class="alert alert-warning" role="alert" id="jm-l2-2010-2012-season-note" style="display: none;">

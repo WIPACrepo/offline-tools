@@ -237,9 +237,9 @@ class ProcessingJobs {
             return;
         }
 
-        // If it is a L3 dataset and earlier that season 2015, there is no validation tag
+        // If it is a L3 dataset and earlier than 1885, there is no validation tag
         // So, mark all runs as validated
-        if($this->result['data']['datasets'][$this->dataset_id]['season'] < 2015) {
+        if($this->dataset_id < 1885) {
             foreach($this->result['data']['runs'] as &$run) {
                 $run['validated'] = true;
             }

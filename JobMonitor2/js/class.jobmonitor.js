@@ -231,7 +231,7 @@ JobMonitor.prototype._endLoading = function() {
     var showL3Warning = false;
     if(typeof this.data !== 'undefined') {
         $.each(this.data['data']['datasets'], function(dataset_id, value) {
-            if(value['selected'] && value['season'] < 2015 && value['type'] === 'L3') {
+            if(value['selected'] && dataset_id < 1885 && value['type'] === 'L3') {
                 showL3Warning = true;
                 return;
             }
