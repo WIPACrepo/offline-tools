@@ -138,7 +138,7 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
             if outdir is None:
                 logger.critical("Could not determine output directory")
                 counter['errors'] = counter['errors'] + 1
-                return counter
+                continue
 
             # Since there is a 'file:' at the beginning of the path...
             outdir = outdir[5:]
