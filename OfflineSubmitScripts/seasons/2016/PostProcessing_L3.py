@@ -37,7 +37,7 @@ sys.path.append(libs.config.get_config().get('DEFAULT', 'ProductionToolsPath'))
 from RunTools import *
 from FileTools import *
 
-from libs.logger import get_logger
+from libs.logger import get_logger, delete_log_file
 from libs.argparser import get_defaultparser
 from libs.runs import set_post_processing_state, get_validated_runs
 import libs.process
@@ -347,6 +347,8 @@ if __name__ == '__main__':
 
         firstrun = libs.config.get_config().get('L3', 'CronRunStart')
         lastrun = libs.config.get_config().get('L3', 'CronRunEnd')
+
+        logger.debug("crons: %s" % crons)
 
         for dest, source in crons.iteritems():
             logger.info('====================================================')
