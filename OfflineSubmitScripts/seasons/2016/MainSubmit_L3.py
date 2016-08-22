@@ -225,6 +225,8 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, AGGREGATE, CLEAN_DW, outdir
 
     submittedRuns = [r['run_id'] for r in destinationInfo]
 
+    logger.debug("source info: %s" % len(sourceInfo))
+
     counter = {'all': 0, 'submitted': 0, 'skipped': 0, 're': 0}
     for s in sourceInfo:
         counter['all'] = counter['all'] + 1
@@ -330,6 +332,8 @@ if __name__ == '__main__':
         firstrun = libs.config.get_config().get('L3', 'CronRunStart')
         lastrun = libs.config.get_config().get('L3', 'CronRunEnd')
 
+        delete_log = True
+
         for dest, source in crons.iteritems():
             if dest not in outdir_mapping:
                 logger.error("Cron `CronJobMainProcessing%s = %s` cannot be executed since no output dir for %s is mapped." % (dest, source, dest))
@@ -357,8 +361,11 @@ if __name__ == '__main__':
             # the cron is executed very often and will probably do nothing
             # we won't keep those log files since they are useless.
             # Therefore, we will delete the log file if no run has been submitted
-            if not counter['submitted']:
-                delete_log_file(logger)
+            if counter['submitted']:
+                delete_log = False
+
+        if delete_log:
+            delete_log_file(logger)
 
     if args.CRON:
         lock.unlock()

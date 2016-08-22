@@ -350,6 +350,8 @@ if __name__ == '__main__':
 
         logger.debug("crons: %s" % crons)
 
+        delete_log = True
+
         for dest, source in crons.iteritems():
             logger.info('====================================================')
             logger.info("Executing Cron Job for dataset %s with source %s" % (dest, source))
@@ -367,8 +369,11 @@ if __name__ == '__main__':
             # the cron is executed very often and will probably do nothing
             # we won't keep those log files since they are useless.
             # Therefore, we will delete the log file if no run has been submitted
-            if not (counter['validated'] + counter['errors']):
-                delete_log_file(logger)
+            if counter['validated'] + counter['errors']:
+                delete_log = False
+
+        if delete_log:
+            delete_log_file(logger)
     
     if args.CRON:
         lock.unlock()
