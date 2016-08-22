@@ -201,7 +201,7 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
     else:
         logger.info("No meta data files will be written")
 
-def main(SDatasetId, DDatasetId, START_RUN, END_RUN, AGGREGATE, CLEAN_DW, outdir, LINK_ONLY_GCD, NOMETADATA, RESUBMISSION, logger, DryRun):
+def main(SDatasetId, DDatasetId, START_RUN, END_RUN, AGGREGATE, CLEAN_DW, outdir, LINK_ONLY_GCD, NOMETADATA, RESUBMISSION, IGNORE_L2_VALIDATION, logger, DryRun):
     validatedRuns = get_validated_runs_L2(dbs4_, START_RUN, END_RUN)
  
     logger.info("Processing runs between %s and %s" % (START_RUN, END_RUN))
@@ -231,7 +231,7 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, AGGREGATE, CLEAN_DW, outdir
     for s in sourceInfo:
         counter['all'] = counter['all'] + 1
 
-        if s['run_id'] not in validatedRuns:
+        if not IGNORE_L2_VALIDATION and s['run_id'] not in validatedRuns:
             logger.info("Skipping run %s because L2 is not validated yet" % s['run_id'])
             counter['skipped'] = counter['skipped'] + 1
             continue
@@ -267,6 +267,7 @@ if __name__ == '__main__':
     parser.add_argument("--nometadata", action="store_true", default=False, dest="NOMETADATA", help="Don't write meta data files")
     parser.add_argument("--resubmission", action="store_true", default=False, dest="RESUBMISSION", help="Don't skip already submitted runs and re-submit them")
     parser.add_argument("--cron", action="store_true", default=False, dest="CRON", help="Execute as cron")
+    parser.add_argument("--ignoreL2validation", action="store_true", default=False, dest="IGNORE_L2_VALIDATION", help="If you do not care if L2 has not been validated yet. ONLY USE THIS OPTION IF YOU KNOW WHAT YOU ARE DOING! Not available with --cron")
     args = parser.parse_args()
 
     # Check of only GCDs should be linked
@@ -322,7 +323,8 @@ if __name__ == '__main__':
             LINK_ONLY_GCD = args.LINK_ONLY_GCD, 
             NOMETADATA = args.NOMETADATA, 
             outdir = outdir_mapping[args.DDatasetId], 
-            RESUBMISSION = args.RESUBMISSION, 
+            RESUBMISSION = args.RESUBMISSION,
+            IGNORE_L2_VALIDATION = args.IGNORE_L2_VALIDATION,
             logger = logger, 
             DryRun = args.dryrun)
     else:
@@ -354,6 +356,7 @@ if __name__ == '__main__':
                 NOMETADATA = False,
                 outdir = outdir_mapping[dest], 
                 RESUBMISSION = False, # never resubmit or clean something within a cron
+                IGNORE_L2_VALIDATION = False, # not available for crons
                 logger = logger, 
                 DryRun = args.dryrun)
 
