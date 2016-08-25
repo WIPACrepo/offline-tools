@@ -30,7 +30,7 @@ import subprocess as sub
 
 import traceback
 
-from libs.files import get_logdir, get_tmpdir, write_meta_xml_post_processing
+from libs.files import get_logdir, get_tmpdir, write_meta_xml_post_processing, tar_log_files
 import libs.config
 sys.path.append(libs.config.get_config().get('DEFAULT', 'SQLClientPath'))
 sys.path.append(libs.config.get_config().get('DEFAULT', 'ProductionToolsPath'))
@@ -264,6 +264,9 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
                     
                 else:
                     logger.info("No meta data files will be written")
+
+                logger.debug('tar log files')
+                tar_log_files(run_path = outdir, dryrun = dryrun, logger = logger)
 
                 logger.info("Succesfully Verified processing for run %s" % RunId)
                 counter['validated'] = counter['validated'] + 1

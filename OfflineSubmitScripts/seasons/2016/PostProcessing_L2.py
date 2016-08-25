@@ -19,7 +19,7 @@ from RunTools import RunTools
 from FileTools import *
 from DbTools import *
 
-from libs.files import get_tmpdir, get_logdir, MakeTarGapsTxtFile, MakeRunInfoFile, write_meta_xml_post_processing
+from libs.files import get_tmpdir, get_logdir, MakeTarGapsTxtFile, MakeRunInfoFile, write_meta_xml_post_processing, tar_log_files
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
 from libs.checks import CheckFiles
@@ -77,17 +77,19 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False):
                          where run_id=%s and production_version=%s"""%\
                      (r['run_id'],str(r['production_version'])))
 
+    sDay = r['tStart']
+    sY = sDay.year
+    sM = str(sDay.month).zfill(2)
+    sD = str(sDay.day).zfill(2)
+
+    run_folder = "/data/exp/IceCube/%s/filtered/level2/%s%s/Run00%s_%s" % (sY, sM, sD, r['run_id'], r['production_version'])
+
     if not nometadata:
         dest_folder = ''
         if dryrun:
             dest_folder = get_tmpdir()
         else:
-            sDay = r['tStart']
-            sY = sDay.year
-            sM = str(sDay.month).zfill(2)
-            sD = str(sDay.day).zfill(2)
-
-            dest_folder = "/data/exp/IceCube/%s/filtered/level2/%s%s/Run00%s_%s" % (sY, sM, sD, r['run_id'], r['production_version'])
+            dest_folder = run_folder
 
         write_meta_xml_post_processing(dest_folder = dest_folder,
                                        level = 'L2',
@@ -95,6 +97,10 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False):
                                        logger = logger)
     else:
         logger.info("No meta data files will be written")
+
+    logger.debug('tar log files')
+
+    tar_log_files(run_path = run_folder, dryrun = dryrun, logger = logger)
 
     logger.info("Checks passed")
     logger.info("======= End Checking %i %i ======== " %(r['run_id'],r['production_version'])) 

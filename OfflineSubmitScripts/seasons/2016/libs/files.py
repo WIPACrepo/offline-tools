@@ -681,6 +681,38 @@ def write_meta_xml_main_processing(dest_folder, dataset_id, run_id, level, run_s
 
 #############################################
 
+def tar_log_files(run_path, dryrun, logger):
+    import tarfile
+
+    files = glob.glob(os.path.join(run_path, '*.log*'))
+    dest = os.path.join(run_path, 'logfiles.tar')
+
+    logger.debug("Found %s log files in %s" % (len(files), run_path))
+
+    if not len(files):
+        logger.debug('No logfiles found in %s' % run_path)
+        return
+
+    logger.debug("Tar-File: %s" % dest)
+
+    try:
+        with tarfile.open(dest, 'w:bz2') as tar:
+            for file in files:
+                logger.debug("Adding %s to tar file" % file)
+                tar.add(file)
+
+        # Ok, let's delete the log files
+        for file in files:
+            logger.debug("Delete %s" % file)
+
+            if not dryrun:
+                os.remove(file)
+    except:
+       logger.error("Writing tar file/deleting log files: %s" % sys.exc_info()[0]) 
+
+#############################################
+
 if __name__ == "__main__":
     for i in [get_rootdir(),get_logdir(),get_tmpdir()]:
         print i, os.path.exists(i)
+
