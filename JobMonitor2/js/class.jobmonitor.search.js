@@ -308,7 +308,7 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
                     html += '<hr>';
                 }
 
-                html += '<code>' + file + '</code><br/>';
+                html += '<pre class="jm-path-display">' + file + '</pre><br/>';
             });
         } else {
             html += 'No GCD files found';
@@ -339,15 +339,18 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
             html += '<td colspan="2">';
             html += '<strong>File for dataset ' + file['dataset_id'] + '</strong>';
 
-            if(typeof iam.data['datasets'][file['dataset_id']] !== 'undefined') {
+            if(typeof iam.data['datasets'][file['dataset_id']] !== 'undefined' && iam.data['datasets'][file['dataset_id']]['type'] !== null) {
                 html += ' ' + iam.main.createLabelDatasetType(iam.data['datasets'][file['dataset_id']]['type']);
-            }
 
+                if(typeof iam.data['datasets'][file['dataset_id']]['working_group'] !== 'undefined' && iam.data['datasets'][file['dataset_id']]['working_group'] !== null) {
+                    html += ' ' + iam.main.createLabelWorkingGroup(iam.data['datasets'][file['dataset_id']]['working_group']);
+                }
+            }
             html += '</td>';
             html += '</tr>';
             html += '<tr>';
             html += '<td colspan="2">';
-            html += '<code>' + file['file'] + '</code>';
+            html += '<pre class="jm-path-display">' + file['file'] + '</pre>';
             html += '</td>';
             html += '</tr>';
         });
@@ -367,14 +370,18 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
 
             if(typeof iam.data['datasets'][path['dataset_id']] !== 'undefined' && iam.data['datasets'][path['dataset_id']]['type'] !== null) {
                 html += ' ' + iam.main.createLabelDatasetType(iam.data['datasets'][path['dataset_id']]['type']);
+
+                if(typeof iam.data['datasets'][path['dataset_id']]['working_group'] !== 'undefined' && iam.data['datasets'][path['dataset_id']]['working_group'] !== null) {
+                    html += ' ' + iam.main.createLabelWorkingGroup(iam.data['datasets'][path['dataset_id']]['working_group']);
+                }
             }
 
             html += '</td>';
             html += '</tr>';
             html += '<tr>';
-            html += '<td colspan="2"><code>';
+            html += '<td colspan="2"><pre class="jm-path-display">';
             html += path['path'];
-            html += '</code></td>';
+            html += '</pre></td>';
             html += '</tr>';
         });
 
