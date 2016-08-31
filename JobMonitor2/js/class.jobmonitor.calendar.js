@@ -167,8 +167,14 @@ JobMonitorCalendar.prototype._dayDialog = function(header, content) {
     header.html('Runs from ' + this.months[this.selectedDay['month'] - 1] + ' ' + this.selectedDay['day'] + ', ' + this.selectedDay['year']);
 
     content.html(this._createDaySummaryTable(this.selectedDay['year'], this.selectedDay['month'], this.selectedDay['day'], true));
-    
-    $('[data-toggle="popover"]', content).popover({'html': true});
+   
+    $('[data-content-cpy][data-toggle="popover"]', content).popover({
+        'html': true,
+        'content': function() {
+            return '<pre class="jm-path-display">' + $(this).attr('data-content-cpy') + '</pre>';
+        }
+    });
+
     $('[data-toggle="tooltip"]', content).tooltip();
 
     // Close popover on click outside of popover
@@ -291,12 +297,12 @@ JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day,
             html += '<td class="hidden-xs">';
 
             if(run['gcd'] != null) {
-                html += '<a href="#" onclick="return false" data-container="body" data-toggle="popover" data-placement="bottom" data-content="<b>GCD file:</b> <code>' + run['gcd'] + '</code>">';
+                html += '<a href="#" onclick="return false" data-container="body" data-toggle="popover" data-placement="bottom" title="GCD file" data-content-cpy="' + run['gcd'] + '">';
                 html +=  '<span class="badge">GCD</span></a> ';
             }
 
             if(run['path'] != null) {
-                html += '<a href="#" onclick="return false" data-container="body" data-toggle="popover" data-placement="bottom" data-content="<b>Folder:</b> <code>' + run['path'] + '</code>">';
+                html += '<a href="#" onclick="return false" data-container="body" data-toggle="popover" data-placement="bottom" title="Folder" data-content-cpy="' + run['path'] + '">';
                 html += '<span class="glyphicon glyphicon-folder-open" aria-hidden="true"></a> &nbsp;';
             }
 

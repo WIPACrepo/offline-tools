@@ -187,5 +187,8 @@ table.jm-day-summary .run-status-indicator {
     width: 35px;
 }
 
-
+pre.jm-path-display {
+    white-space: pre-wrap;
+    word-break: normal;
+}
 
