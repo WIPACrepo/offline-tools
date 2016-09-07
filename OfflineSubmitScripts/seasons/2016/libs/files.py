@@ -683,9 +683,10 @@ def write_meta_xml_main_processing(dest_folder, dataset_id, run_id, level, run_s
 
 def tar_log_files(run_path, dryrun, logger):
     import tarfile
+    import sys
 
     files = glob.glob(os.path.join(run_path, '*.log*'))
-    dest = os.path.join(run_path, 'logfiles.tar')
+    dest = os.path.join(run_path, 'logfiles.tar.bz2')
 
     logger.debug("Found %s log files in %s" % (len(files), run_path))
 
