@@ -308,9 +308,10 @@ JobMonitor.prototype._updateData = function(data) {
             view.show();
             view.updateView(data['data']);
         });
-
-        this.search.updateData(data['data']);
     }
+
+    // Search engine needs information about datasets
+    this.search.updateData(data['data']);
 
     $('select').filter(function() {return !$(this).hasClass('selectpicker');}).addClass('selectpicker').selectpicker();
 }    
