@@ -19,7 +19,7 @@ from RunTools import RunTools
 from FileTools import *
 from DbTools import *
 
-from libs.files import get_tmpdir, get_logdir, MakeTarGapsTxtFile, MakeRunInfoFile, write_meta_xml_post_processing, tar_log_files
+from libs.files import get_tmpdir, get_logdir, MakeTarGapsTxtFile, MakeRunInfoFile, write_meta_xml_post_processing, tar_log_files, insert_gap_file_info_and_delete_files
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
 from libs.checks import CheckFiles
@@ -101,6 +101,9 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False):
     logger.debug('tar log files')
 
     tar_log_files(run_path = run_folder, dryrun = dryrun, logger = logger)
+
+    # Write gap file info into filter-db and get rid of the gaps files
+    insert_gap_file_info_and_delete_files(run_path = run_folder, dryrun = dryrun, logger = logger)
 
     logger.info("Checks passed")
     logger.info("======= End Checking %i %i ======== " %(r['run_id'],r['production_version'])) 

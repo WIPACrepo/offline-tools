@@ -2,7 +2,7 @@
 Tools to work with files
 """
 
-import os,time,glob
+import os, time, glob, re
 import subprocess as sub
 
 import datetime
@@ -710,6 +710,154 @@ def tar_log_files(run_path, dryrun, logger):
                 os.remove(file)
     except:
        logger.error("Writing tar file/deleting log files: %s" % sys.exc_info()[0]) 
+
+class GapsFile:
+    def __init__(self, path, logger):
+        self.__path = path
+        self.__logger = logger
+        self.__values = None
+
+    def get_path(self):
+        return self.__path
+
+    def __get_sub_run_id_from_path(self):
+        c = re.compile(r'^/.*Subrun0+([0-9]+).*txt$')
+        return int(c.search(self.__path).groups()[0])
+
+    def read(self, force = False):
+        if self.__values is not None and not force:
+            return
+
+        self.__values = {}
+    
+        with open(self.__path, 'r') as file:
+            for line in file:
+                pair = line.split(':')
+    
+                if len(pair) != 2:
+                    raise
+    
+                key = pair[0].strip()
+                value = pair[1].strip()
+    
+                if pair[0] == 'First Event of File':
+                    key = 'first event'
+                elif pair[0] == 'Last Event of File':
+                    key = 'last event'
+    
+                if pair[0] == 'First Event of File' or pair[0] == 'Last Event of File':
+                    tmp = value.split(' ')
+                    value = {'event': int(tmp[0].strip()),
+                            'year': int(tmp[1].strip()),
+                            'frac': int(tmp[2].strip())}
+    
+                if pair[0] == 'Gap Detected':
+                    tmp = value.split(' ')
+                    key = 'gap'
+                    value = {'dt': float(tmp[0].strip()),
+                            'prev_event_id': int(tmp[1].strip()),
+                            'prev_event_frac': int(tmp[2].strip()),
+                            'curr_event_id': int(tmp[3].strip()),
+                            'curr_event_frac': int(tmp[4].strip())}
+
+                    # A file can have several gaps
+                    if key not in self.__values:
+                        self.__values[key] = []
+    
+                if key == 'gap':
+                    self.__values[key].append(value)
+                else:
+                    self.__values[key] = value
+    
+        self.__values['subrun'] = self.__get_sub_run_id_from_path()
+
+    def has_gaps(self):
+        return 'gap' in self.__values.keys()
+
+    def get_gaps(self):
+        if self.has_gap():
+            return self.__values['gap']
+        else:
+            return None
+
+    def get_sub_run_id(self):
+        return self.__values['subrun']
+
+    def get_run_id(self):
+        return self.__values['Run']
+
+    def get_first_event(self):
+        return self.__values['first event']
+
+    def get_last_event(self):
+        return self.__values['last event']
+
+    def get_file_livetime(self):
+        return self.__values['File Livetime']
+
+def insert_gap_file_info_and_delete_files(run_path, dryrun, logger):
+    import databaseconnection
+
+    gaps_files = glob.glob(os.path.join(run_path, '*_gaps.txt'))
+
+    if not len(gaps_files):
+        logger.warning("No gaps files were found for %s" % run_path)
+        return
+    else:
+        logger.info("%s gaps files were found that will be copied to the DB and then deleted" % len(gaps_files))
+
+    sql = """INSERT INTO sub_runs 
+                (run_id, sub_run, first_event, last_event, first_event_year, first_event_frac, last_event_year, last_event_frac, livetime)
+             VALUES %s
+             ON DUPLICATE KEY UPDATE first_event = VALUES(first_event),
+                                     last_event = VALUES(last_event),
+                                     first_event_year = VALUES(first_event_year),
+                                     first_event_frac = VALUES(first_event_frac),
+                                     last_event_year = VALUES(last_event_year),
+                                     last_event_frac = VALUES(last_event_frac),
+                                     livetime = VALUES(livetime)"""
+
+    sub_runs = []
+    gaps = []
+    for file in gaps_files:
+        logger.debug("File %s" % file)
+
+        gf = GapsFile(file, logger)
+        gf.read()
+        sub_runs.append("(%s, %s, %s, %s, %s, %s, %s, %s, %s)" % (gf.get_run_id(), \
+                                                                  gf.get_sub_run_id(), \
+                                                                  gf.get_first_event()['event'], \
+                                                                  gf.get_first_event()['year'],\
+                                                                  gf.get_first_event()['frac'],\
+                                                                  gf.get_last_event()['event'], \
+                                                                  gf.get_last_event()['year'],\
+                                                                  gf.get_last_event()['frac'],\
+                                                                  gf.get_file_livetime()))
+
+        logger.debug("INSERT set: %s" % sub_runs[-1])
+
+        if gf.has_gaps():
+            for gap in gf.get_gaps():
+                gap_insert_sql = 'INSERT INTO gaps (run_id, sub_run, prev_event_id, curr_event_id, delta_time, prev_event_frac, curr_event_frac) VALUES (%s, %s, %s, %s, %s, %s, %s)'
+                gaps.append(gap_insert_sql % (gf.get_run_id(), gf.get_sub_run_id(), gap['prev_event_id'],  gap['curr_event_id'],  gap['dt'],  gap['prev_event_frac'], gap['curr_event_frac']))
+
+    if not dryrun:
+        db = databaseconnection.DatabaseConnection.get_connection('filter-db')
+
+        if gaps:
+            # Insert gaps
+            logger.debug('Insert gaps into db')
+            db.execute(';'.join(gaps))
+   
+        # Insert sub runs
+        logger.debug('Insert sub runs into db')
+        db.execute(sql % ','.join(sub_runs))
+
+        # Delete *_gaps.txt files
+        for file in gaps_files:
+            logger.debug("Deleting %s" % file)
+            os.remove(file)
+    
 
 #############################################
 
