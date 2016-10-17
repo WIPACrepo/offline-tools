@@ -163,6 +163,8 @@ if __name__ == '__main__':
     if len(test_runs) == 0:
         test_runs = [-1]
 
+    RunInfo = None
+
     if args.run is not None:
         RunInfo = dbs4_.fetchall("""SELECT r.tStart,g.* FROM i3filter.grl_snapshot_info g
                                   JOIN i3filter.run_info_summary r ON r.run_id=g.run_id
@@ -173,6 +175,8 @@ if __name__ == '__main__':
                                  JOIN i3filter.run_info_summary r ON r.run_id=g.run_id
                                  WHERE g.submitted AND (g.good_i3 OR g.good_it OR g.run_id IN (%s)) AND NOT validated
                                  ORDER BY g.run_id""" % ','.join([str(r) for r in test_runs]), UseDict=True)
+
+    logger.debug("RunInfo = %s" % str(RunInfo))
 
     main(RunInfo, logger, args.NOMETADATA, dryrun = args.dryrun)
 
