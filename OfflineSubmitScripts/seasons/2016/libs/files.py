@@ -827,9 +827,9 @@ def insert_gap_file_info_and_delete_files(run_path, dryrun, logger):
         sub_runs.append("(%s, %s, %s, %s, %s, %s, %s, %s, %s)" % (gf.get_run_id(), \
                                                                   gf.get_sub_run_id(), \
                                                                   gf.get_first_event()['event'], \
+                                                                  gf.get_last_event()['event'], \
                                                                   gf.get_first_event()['year'],\
                                                                   gf.get_first_event()['frac'],\
-                                                                  gf.get_last_event()['event'], \
                                                                   gf.get_last_event()['year'],\
                                                                   gf.get_last_event()['frac'],\
                                                                   gf.get_file_livetime()))
