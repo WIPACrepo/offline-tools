@@ -167,7 +167,8 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False):
                                             ON u.queue_id = r.queue_id 
                                             AND u.dataset_id = r.dataset_id 
                                         WHERE   r.dataset_id = %s 
-                                            AND type = 'PERMANENT' 
+                                            AND type = 'PERMANENT'
+                                            AND transferstate <> 'DELETED' 
                                             AND run_id = %s""" % (dataset_id, r['run_id']),
                                     UseDict = True)
 
