@@ -842,7 +842,7 @@ def insert_gap_file_info_and_delete_files(run_path, dryrun, logger):
                 gaps.append(gap_insert_sql % (gf.get_run_id(), gf.get_sub_run_id(), gap['prev_event_id'],  gap['curr_event_id'],  gap['dt'],  gap['prev_event_frac'], gap['curr_event_frac']))
 
     if not dryrun:
-        db = databaseconnection.DatabaseConnection.get_connection('filter-db')
+        db = databaseconnection.DatabaseConnection.get_connection('filter-db', logger)
 
         if gaps:
             # Insert gaps
