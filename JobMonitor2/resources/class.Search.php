@@ -8,6 +8,7 @@ class Search {
 
     private $mysql;
     private $live;
+    private $filter_db;
     private $result;
 
     private $api_version;
@@ -16,9 +17,10 @@ class Search {
    
     public static $result_pattern = array('api_version' => null,'error' => 0, 'error_msg' => '', 'error_trace' => '', 'data' => array('query' => array(), 'result' => null));
  
-    public function __construct($host, $user, $password, $db, $datawarehouse_prefix, $api_version, $live_host, $live_user, $live_password, $live_db) {
+    public function __construct($host, $user, $password, $db, $datawarehouse_prefix, $api_version, $live_host, $live_user, $live_password, $live_db, $filter_db_host, $filter_db_user, $filter_db_password, $filter_db_db) {
         $this->mysql = @new mysqli($host, $user, $password, $db);
         $this->live = @new mysqli($live_host, $live_user, $live_password, $live_db);
+        $this->filter_db = @new mysqli($filter_db_host, $filter_db_user, $filter_db_password, $filter_db_db);
         $this->result = self::$result_pattern;
 
         $this->result['api_version'] = $api_version;
@@ -88,66 +90,20 @@ class Search {
         return $result;
     }
 
-    private function get_gaps_files($run_id) {
-        $files = array();
+    private function get_subrun_by_run_id_and_event_id($run_id, $event_id) {
+        $run_id = intval($run_id);
+        $event_id = intval($event_id);
 
-        $sql = "SELECT run_id, sub_run, path, name 
-                FROM urlpath u 
-                JOIN run r 
-                    ON r.queue_id = u.queue_id 
-                    AND r.dataset_id = u.dataset_id 
-                WHERE run_id = $run_id 
-                    AND type = 'PERMANENT' 
-                    AND path LIKE 'file:/data/exp/IceCube/____/filtered/level2/%' 
-                    AND name LIKE '%gaps.txt'";
+        $sql = "SELECT sub_run FROM sub_runs WHERE $event_id BETWEEN first_event AND last_event AND run_id = $run_id";
 
-        $query = $this->mysql->query($sql);
-        while($path = $query->fetch_assoc()) {
-            $date = $path['date']; // It's always the same date
-            $files[] = ProcessingJobs::join_paths(substr($path['path'], 5), $path['name']);
+        $query = $this->filter_db->query($sql);
+
+        if($query->num_rows !== 1) {
+            throw new RuntimeException("Unexpected result");
         }
 
-        return $files;
-    }
-
-    private function get_subrun_by_event_id_and_gaps_files($gaps_files, $event_id) {
-        $first_event_key = 'First Event of File';
-        $last_event_key = 'Last Event of File';
-
-        // Sort files in order to stop searching if event number is smaller than gaps file event numbers
-        sort($gaps_files);
-
-        foreach($gaps_files as &$file) {
-            $content = file($this->datawarehouse_prefix . $file);
-
-            $tmp = implode($content);
-
-            $first_event = -1;
-            $last_event = -1;
-            foreach($content as &$line) {
-                $split = explode(':', $line);
-
-                if(count($split) != 2) {
-                    continue;
-                }
-
-                if(trim($split[0]) === $first_event_key) {
-                    $first_event = $this->get_event($split[1]);
-                } else if(trim($split[0]) === $last_event_key) {
-                    $last_event = $this->get_event($split[1]);
-                }
-            }
-
-            if($first_event !== -1 && $last_event !== -1) {
-                if($event_id >= $first_event && $event_id <= $last_event) {
-                    return $file;
-                } else if($event_id < $last_event) {
-                    return false;
-                }
-            }
-        }
-
-        return false;
+        $sub_run = $query->fetch_assoc();
+        return intval($sub_run['sub_run']);
     }
 
     private function get_files_for_subrun_and_run($run_id, $sub_run) {
@@ -294,16 +250,15 @@ class Search {
             // Search for event id
             $this->result['data']['query'] = array('run_id' => $this->run_id, 'event_id' => $this->event_id);
 
-            $gaps_files = $this->get_gaps_files($this->run_id);
-            $gaps_file = $this->get_subrun_by_event_id_and_gaps_files($gaps_files, $this->event_id);
+            $sub_run = $this->get_subrun_by_run_id_and_event_id($this->run_id, $this->event_id);
 
             $this->result['data']['result']['successfully'] = false;
             $this->result['data']['result']['message'] = "Event {$this->event_id} was not found in run {$this->run_id}";
 
-            if(false !== $gaps_file) {
+            if(false !== $sub_run) {
                 $this->result['data']['result']['successfully'] = true;
 
-                $this->result['data']['result']['sub_run'] = intval(substr($gaps_file, -17, 8));
+                $this->result['data']['result']['sub_run'] = $sub_run;
                 $this->result['data']['result']['message'] = "Event {$this->event_id} was successfully found in sub run {$this->result['data']['result']['sub_run']} of run {$this->run_id}";
 
                 $files = $this->get_files_for_subrun_and_run($this->run_id, $this->result['data']['result']['sub_run']);
