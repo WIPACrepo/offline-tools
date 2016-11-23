@@ -18,28 +18,35 @@ class DummyLogger(object):
 
     def __init__(self,*args,**kwargs):
         #self = logging.getLogger("dummy")
-        pass
+        self.silence = False
 
     def debug(self,text):
-        print text
+        if not self.silence:
+            print text
 
     def error(self,text):
-        print text
+        if not self.silence:
+            print text
     
     def info(self,text):
-        print text
+        if not self.silence:
+            print text
 
     def warning(self,text):
-        print text
+        if not self.silence:
+            print text
     
     def log(self,text):
-        print text
+        if not self.silence:
+            print text
 
     def exception(self,text):
-        print text
+        if not self.silence:
+            print text
 
     def critical(self,text):
-        print text
+        if not self.silence:
+            print text
 
 
 
