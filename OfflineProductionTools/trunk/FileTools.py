@@ -17,21 +17,27 @@ class FileTools(object):
         self.logger = logger
 
         if not os.path.isfile(FileName):
-            self.logger.warning("%s does not exist"%FileName)
+            self.logger.warning("%s does not exist" % FileName)
 
-    def md5sum(self,buffersize=16384):
-        """Return md5 digest of file"""
+    def md5sum(self, buffersize = 16384):
+        return self.checksum('md5', buffersize)
 
-        self.logger.debug("Try to open file for md5 sum: %s"%self.FileName)
+    def sha512(self, buffersize = 16384):
+        return self.checksum('sha512', buffersize)
+
+    def checksum(self, type, buffersize = 16384):
+        """Return checksum of type `type` digest of file"""
+
+        self.logger.debug("Try to open file for %s checksum sum: %s" % (type, self.FileName))
 
         with open(self.FileName) as filed:
-            try:
-                import hashlib
-            except ImportError:
-                import md5
-                digest = md5.new()
-            else:
+            import hashlib
+            digest = None
+
+            if type.lower() == 'md5':
                 digest = hashlib.md5()
+            elif type.lower() == 'sha512':
+                digest = hashlib.sha512()
     
             self.logger.debug("Read file")
 
