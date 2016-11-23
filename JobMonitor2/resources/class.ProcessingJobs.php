@@ -247,7 +247,7 @@ class ProcessingJobs {
             return;
         }
 
-        $sql = "SELECT run_id, validated
+        $sql = "SELECT run_id, validated, date_of_validation
                 FROM offline_postprocessing
                 WHERE dataset_id = {$this->dataset_id}";
 
@@ -255,6 +255,7 @@ class ProcessingJobs {
         while($row = $query->fetch_assoc()) {
             if(isset($this->result['data']['runs'][$row['run_id']])) {
                 $this->result['data']['runs'][$row['run_id']]['validated'] = $row['validated'] == 1;
+                $this->result['data']['runs'][$row['run_id']]['validation_date'] = $row['date_of_validation'];
             }
         }
     }
