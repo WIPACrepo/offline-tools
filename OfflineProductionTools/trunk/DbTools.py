@@ -25,9 +25,9 @@ class DbTools(object):
             raise Exception("Error: %s "%str(err))
         
         try:
-            result = dbs4_.fetchall("""SELECT sum(if (1,1,0)) - sum(if (j.status="OK",1,0)) 
-                           FROM i3filter.job j join i3filter.run r on j.queue_id=r.queue_id
-                           where j.dataset_id=%s and r.dataset_id=%s and r.run_id=%s"""%\
+            result = dbs4_.fetchall("""SELECT SUM(if (1,1,0)) - SUM(if (j.status="OK",1,0)) - SUM(IF(j.status = 'BadRun', 1, 0)) 
+                           FROM i3filter.job j JOIN i3filter.run r ON j.queue_id=r.queue_id
+                           WHERE j.dataset_id=%s AND r.dataset_id=%s AND r.run_id=%s"""%\
                           (self.DatasetId,self.DatasetId,self.RunNumber))
 
             if result[0][0] is None:
