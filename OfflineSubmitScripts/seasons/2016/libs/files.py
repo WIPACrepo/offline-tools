@@ -39,7 +39,7 @@ def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
                                  JOIN i3filter.run_info_summary r ON r.run_id=g.run_id
                                  JOIN i3filter.run jr ON jr.run_id=r.run_id
                                  WHERE jr.dataset_id=%s AND (g.good_i3 or g.good_it) AND g.submitted
-                                 GROUP BY jr.run_id
+                                 GROUP BY jr.run_id, g.snapshot_id
                                  ORDER BY g.run_id,g.production_version""" % dataset_id, UseDict=True)
     
     RunInfoDict = {}
@@ -70,7 +70,6 @@ def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
     RI_FileV.write("\n         (1=good 0=bad)  ")
     
     for k in keys_:
-
         if not RunInfoDict[k]['validated']:
             RI_File.write("\n%s  **Incomplete Processing or Not Validated**"%k)
             RI_FileV.write("\n%s  **Incomplete Processing or Not Validated**"%k)
