@@ -44,7 +44,7 @@ def MakeRunInfoFile(dryrun=False):
                                  join i3filter.run_info_summary r on r.run_id=g.run_id
                                  join i3filter.run jr on jr.run_id=r.run_id
                                  where jr.dataset_id=1883 and (g.good_i3 or g.good_it) and g.submitted
-                                 group by jr.run_id
+                                 group by jr.run_id, g.snapshot_id
                                  order by g.run_id,g.production_version""",UseDict=True)
     
     RunInfoDict = {}
@@ -70,7 +70,7 @@ def MakeRunInfoFile(dryrun=False):
     
     RI_FileV.write("RunNum  Good_i3  Good_it  LiveTime(s) ActiveStrings   ActiveDoms        ActiveInIce       OutDir                                                 Comments(s)")
     RI_FileV.write("\n         (1=good 0=bad)  ")
-    
+   
     for k in keys_:
 
         if not RunInfoDict[k]['validated']:
