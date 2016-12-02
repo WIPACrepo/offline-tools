@@ -67,11 +67,18 @@ class DatabaseConnection:
 
     @classmethod
     def get_connection(cls, name, logger):
-        if name != 'filter-db':
+        installed_dbs = {
+            'filter-db': {'user': 'i3filter', 'password': '0a6f869d0c8fcc', 'host': 'filter-db.icecube.wisc.edu', 'database': 'i3filter'},
+            'dbs4': {'user': 'i3filter_user', 'password': 'srqC9yV0', 'host': 'dbs4.icecube.wisc.edu', 'database': 'i3filter'},
+            'dbs2': {'user': 'www', 'password': '', 'host': 'dbs2.icecube.wisc.edu', 'database': 'I3OmDb'},
+            'i3live': {'user': 'icecube', 'password': 'skua', 'host': 'cygnus.icecube.wisc.edu', 'database': 'live'}
+        }
+
+        if name not in installed_dbs:
             return None
 
-        if 'filter-db' not in cls.__db_connection.keys():
-            cls.__db_connection['filter-db'] = cls(user = 'i3filter', password = '0a6f869d0c8fcc', host = 'filter-db.icecube.wisc.edu', database = 'i3filter', logger = logger)
+        if name not in cls.__db_connection.keys():
+            cls.__db_connection[name] = cls(logger = logger, **installed_dbs[name])
 
         return cls.__db_connection[name]
 
