@@ -90,7 +90,20 @@ for file in grl_files:
     
 
     # cpr:
+#    print "Run #\tReal LT\tGRL LT\tReal LT - GRL LT"
+#    for r in runs:
+#        print "Run %s\t%s\t%s\t%s" % (r, real_livetime[r], grl_livetime[r], (real_livetime[r] - grl_livetime[r]))
+#
+#    print "\n========================================\n"
+
+    # Interesting runs:
+    interesting_runs = []
+
+    print "Interesting runs (|livetime difference| > 10s)"
     print "Run #\tReal LT\tGRL LT\tReal LT - GRL LT"
     for r in runs:
-        print "Run %s\t%s\t%s\t%s" % (r, real_livetime[r], grl_livetime[r], (real_livetime[r] - grl_livetime[r]))
+        if (real_livetime[r] - grl_livetime[r]) > 10 or (real_livetime[r] - grl_livetime[r]) < -10:
+            print "Run %s\t%s\t%s\t%s" % (r, real_livetime[r], grl_livetime[r], (real_livetime[r] - grl_livetime[r]))
+            interesting_runs.append(str(r))
 
+    print "List of interesting runs: %s" % ' '.join(interesting_runs)
