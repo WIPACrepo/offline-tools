@@ -29,6 +29,9 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
     sD = str(sDay.day).zfill(2)
     
     R = RunTools(g['run_id'], logger)
+
+    logger.debug('Get PFFilt files')
+
     InFiles = R.GetRunFiles(g['tStart'],'P')        
     
     MainOutputDir = OutputDir = "/data/exp/IceCube/%s/filtered/level2/%s%s/"%(sY,sM,sD)
@@ -39,6 +42,8 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
     if not os.path.exists(OutputDir) and not dryrun:
         os.mkdir(OutputDir)
     
+    logger.debug('Find GCD file')
+
     GCDFileName = []
     GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2/VerifiedGCD/*Run00%s*%s_%s*"%(sY,g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
     
@@ -46,6 +51,8 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
         GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2/AllGCD/*Run00%s*%s_%s*"%(sY,g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
     
     if len(GCDFileName):
+        logger.debug('Calculate MD5 sum and create symlink for GCD file')
+
         GCDFileName = GCDFileName[0]
         GCDFileChkSum = str(FileTools(GCDFileName, logger).md5sum())
         

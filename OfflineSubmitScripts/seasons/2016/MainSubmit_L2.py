@@ -136,7 +136,7 @@ if __name__ == '__main__':
                                       dest="STARTRUN", help="start submission from this run")
 
 
-    parser.add_argument("-e", "--endrun", type=int, required = True,
+    parser.add_argument("-e", "--endrun", type=int, required = False,
                                       dest="ENDRUN", help="end submission at this run")
 
 
@@ -156,6 +156,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     LOGFILE=os.path.join(get_logdir(sublogpath = 'MainProcessing'), 'RunSubmission_')
+
+    if args.ENDRUN is None:
+        args.ENDRUN = args.STARTRUN
 
     if len(args.OUTPUTLOG):
         LOGFILE = args.OUTPUTLOG
