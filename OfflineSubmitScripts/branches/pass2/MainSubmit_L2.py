@@ -56,7 +56,7 @@ def main(params, logger, DryRun):
             logger.critical('Exit')
             exit(1)
         elif not DryRun:
-            dbs4_.execute("""UPDATE i3filter.grl_snapshot_info\
+            dbs4_.execute("""UPDATE i3filter.grl_snapshot_info_pass2\
                                  SET submitted=0, \
                                      validated=0 \
                                  WHERE run_id BETWEEN %s AND %s AND (good_i3=1 OR good_it=1)"""%(START_RUN, END_RUN))
@@ -76,8 +76,8 @@ def main(params, logger, DryRun):
 
         logger.info("************** Attempting to (Re)submit %s"%(Run))
 
-        GRLInfo = dbs4_.fetchall("""select g.*,r.tStart, r.tStop, r.FilesComplete from i3filter.grl_snapshot_info g
-                                join i3filter.run_info_summary r on r.run_id=g.run_id
+        GRLInfo = dbs4_.fetchall("""select g.*,r.tStart, r.tStop, r.FilesComplete from i3filter.grl_snapshot_info_pass2 g
+                                join i3filter.run_info_summary_pass2 r on r.run_id=g.run_id
                                 where g.run_id=%s and not submitted"""%(Run),UseDict=True)
         
         if not len(GRLInfo):
@@ -103,7 +103,7 @@ def main(params, logger, DryRun):
                     sM = str(sDay.month).zfill(2)
                     sD = str(sDay.day).zfill(2)
     
-                    meta_file_dest = "/data/exp/IceCube/%s/filtered/level2/%s%s/Run00%s_%s" % (sY, sM, sD, g['run_id'], g['production_version'])
+                    meta_file_dest = "/data/exp/IceCube/%s/filtered/level2pass2/%s%s/Run00%s_%s" % (sY, sM, sD, g['run_id'], g['production_version'])
 
                 write_meta_xml_main_processing(dest_folder = meta_file_dest,
                                                dataset_id = dataset_id,
@@ -116,7 +116,7 @@ def main(params, logger, DryRun):
                 logger.info("No meta data files will be written")
    
             if not DryRun: 
-                dbs4_.execute("""update i3filter.grl_snapshot_info\
+                dbs4_.execute("""update i3filter.grl_snapshot_info_pass2\
                                  set submitted=1 \
                                  where run_id=%s and production_version=%s"""%\
                                  (g['run_id'],g['production_version']))

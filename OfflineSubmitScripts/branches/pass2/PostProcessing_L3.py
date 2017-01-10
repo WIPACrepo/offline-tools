@@ -76,7 +76,7 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
    
     counter = {'all': 0, 'validated': 0, 'errors': 0, 'skipped': 0}
  
-    GRL = "/data/exp/IceCube/%s/filtered/level2/IC86_%s_GoodRunInfo.txt"%(SEASON,SEASON)
+    GRL = "/data/exp/IceCube/%s/filtered/level2pass2/IC86_%s_GoodRunInfo.txt"%(SEASON,SEASON)
     if not os.path.isfile(GRL):
         logger.critical("Can't access GRL file %s for run validation, check path, exiting ...... " % GRL)
         return counter
@@ -168,7 +168,7 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
             sRunInfo_sorted = sorted(sRunInfo, key=lambda k:['name'])
             
             for sr in sRunInfo:
-                nName = sr['name'].replace("Level2_","Level3_").replace("Test_","")
+                nName = sr['name'].replace("Level2pass2_","Level3pass2_").replace("Test_","")
                 nRecord = []
                 nRecord = [d for d in dRunInfo if d['name']==nName]
 

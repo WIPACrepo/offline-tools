@@ -105,8 +105,8 @@ if __name__ == '__main__':
     logger.debug("PyScripts: %s", PYTHONSCRIPTDIR)
  
     GRLInfo_ = dbs4_.fetchall("""SELECT r.run_id,r.tStart,g.production_version,g.snapshot_id
-                              FROM i3filter.grl_snapshot_info g
-                              JOIN i3filter.run_info_summary r
+                              FROM i3filter.grl_snapshot_info_pass2 g
+                              JOIN i3filter.run_info_summary_pass2 r
                                 ON r.run_id=g.run_id
                               WHERE ((NOT g.GCDCheck AND NOT g.BadDOMsCheck AND NOT g.submitted) OR %s)
                                 AND (g.good_it OR g.good_i3)
@@ -136,9 +136,9 @@ if __name__ == '__main__':
         sM = str(StartDay.month).zfill(2)
         sD = str(StartDay.day).zfill(2)
         
-        Clog = "/data/exp/IceCube/%s/filtered/level2/OfflinePreChecks/run_logs/condor_logs/%s%s/"%(sY,sM,sD)
-        Cerr = "/data/exp/IceCube/%s/filtered/level2/OfflinePreChecks/run_logs/condor_err/%s%s/"%(sY,sM,sD)
-        Olog = "/data/exp/IceCube/%s/filtered/level2/OfflinePreChecks/run_logs/logs/%s%s/"%(sY,sM,sD)
+        Clog = "/data/exp/IceCube/%s/filtered/level2pass2/OfflinePreChecks/run_logs/condor_logs/%s%s/"%(sY,sM,sD)
+        Cerr = "/data/exp/IceCube/%s/filtered/level2pass2/OfflinePreChecks/run_logs/condor_err/%s%s/"%(sY,sM,sD)
+        Olog = "/data/exp/IceCube/%s/filtered/level2pass2/OfflinePreChecks/run_logs/logs/%s%s/"%(sY,sM,sD)
         
         if not dryrun:
             if not os.path.exists(Clog):
@@ -169,8 +169,8 @@ if __name__ == '__main__':
         ##
         if not dryrun:
             if REPRODUCE:
-                logger.debug("Update grl_snapshot_info: GCDCheck = 0, BadDOMsCheck = 0, PoleGCDCheck = NULL, TemplateGCDCheck = NULL")
-                dbs4_.execute("""UPDATE grl_snapshot_info
+                logger.debug("Update grl_snapshot_info_pass2: GCDCheck = 0, BadDOMsCheck = 0, PoleGCDCheck = NULL, TemplateGCDCheck = NULL")
+                dbs4_.execute("""UPDATE grl_snapshot_info_pass2
                                  SET GCDCheck = 0, BadDOMsCheck = 0, PoleGCDCheck = NULL, TemplateGCDCheck = NULL
                                  WHERE run_id = %s 
                                     AND snapshot_id = %s 

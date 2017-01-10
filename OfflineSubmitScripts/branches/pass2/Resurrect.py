@@ -24,8 +24,8 @@ if __name__ == "__main__":
         print "Nothing to resurrect, specify run..."
         sys.exit(0)
 
-    run = rt.RunTools(args.run)
-    latest_prod_version = int(dbs4_.fetchall("""select production_version from grl_snapshot_info where run_id = %i order by production_version desc;""" %args.run)[0][0])
+    run = rt.RunTools(args.run, passNumber = 2)
+    latest_prod_version = int(dbs4_.fetchall("""select production_version from grl_snapshot_info_pass2 where run_id = %i order by production_version desc;""" %args.run)[0][0])
     start_date = run.GetRunTimes()["tStart"].date()
     runfiles = run.GetRunFiles(start_date,"L",ProductionVersion=latest_prod_version)
     badbasepath = os.path.join(os.path.split(runfiles[0])[0],"Bad_NotWithinGoodRunRange") 
@@ -48,6 +48,6 @@ if __name__ == "__main__":
 
     # needs revalidation
     print "-- -- updating grl_snapshot info table validation field" 
-    dbs4_.execute("""update grl_snapshot_info set validated=0 where run_id=%i""" %args.run)
+    dbs4_.execute("""update grl_snapshot_info_pass2 set validated=0 where run_id=%i""" %args.run)
 
 

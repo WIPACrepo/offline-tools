@@ -11,7 +11,7 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
 
     Args:
         dbs4_ (SQLClient_dbs4): The SQL client for dbs4.
-        g (dict): Dictionary of the result of a database query from `grl_snapshot_info`.
+        g (dict): Dictionary of the result of a database query from `grl_snapshot_info_pass2`.
         status (str): Status of the run (see runs.get_run_status())
         DatasetId (int): The dataset id
         QueueId (int): The queue id
@@ -28,27 +28,27 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
     sM = str(sDay.month).zfill(2)
     sD = str(sDay.day).zfill(2)
     
-    R = RunTools(g['run_id'], logger)
+    R = RunTools(g['run_id'], logger, passNumber = 2)
 
     logger.debug('Get PFFilt files')
 
     InFiles = R.GetRunFiles(g['tStart'],'P')        
     
-    MainOutputDir = OutputDir = "/data/exp/IceCube/%s/filtered/level2/%s%s/"%(sY,sM,sD)
+    MainOutputDir = OutputDir = "/data/exp/IceCube/%s/filtered/level2pass2/%s%s/"%(sY,sM,sD)
     if not os.path.exists(MainOutputDir) and not dryrun:
         os.mkdir(MainOutputDir)
     
-    OutputDir = "/data/exp/IceCube/%s/filtered/level2/%s%s/Run00%s_%s"%(sY,sM,sD,g['run_id'],g['production_version'])
+    OutputDir = "/data/exp/IceCube/%s/filtered/level2pass2/%s%s/Run00%s_%s"%(sY,sM,sD,g['run_id'],g['production_version'])
     if not os.path.exists(OutputDir) and not dryrun:
         os.mkdir(OutputDir)
     
     logger.debug('Find GCD file')
 
     GCDFileName = []
-    GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2/VerifiedGCD/*Run00%s*%s_%s*"%(sY,g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
+    GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2pass2/VerifiedGCD/*Run00%s*%s_%s*"%(sY,g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
     
     if not len(GCDFileName):
-        GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2/AllGCD/*Run00%s*%s_%s*"%(sY,g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
+        GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2pass2/AllGCD/*Run00%s*%s_%s*"%(sY,g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
     
     if len(GCDFileName):
         logger.debug('Calculate MD5 sum and create symlink for GCD file')
@@ -117,7 +117,7 @@ def clean_run(dbs4_,DatasetId,Run,CLEAN_DW,g, logger, dryrun):
     """
     tmp  = dbs4_.fetchall(""" select j.queue_id from i3filter.job j
                           join i3filter.run r on j.queue_id=r.queue_id
-                          join i3filter.grl_snapshot_info g on r.run_id=g.run_id
+                          join i3filter.grl_snapshot_info_pass2 g on r.run_id=g.run_id
                           where r.dataset_id=%s and j.dataset_id=%s
                           and r.run_id=%s and g.production_version=%s"""\
                           %(DatasetId,DatasetId,Run,g['production_version']) )
@@ -156,10 +156,10 @@ def clean_run(dbs4_,DatasetId,Run,CLEAN_DW,g, logger, dryrun):
 
 def get_run_status(GRLInfo):
     """
-    Returns the run status using information from the `grl_snapshot_info` table.
+    Returns the run status using information from the `grl_snapshot_info_pass2` table.
 
     Args:
-        GRLInfo (dict): One dataset from `grl_snapshot_info`.
+        GRLInfo (dict): One dataset from `grl_snapshot_info_pass2`.
 
     Returns:
         str: The run status, see https://wiki.icecube.wisc.edu/index.php/IceProd_1.1.x#Job_Management
@@ -209,7 +209,7 @@ def get_validated_runs_L2(dbs4, range_start, range_end):
     sql = """SELECT 
                 run_id
             FROM
-                i3filter.grl_snapshot_info
+                i3filter.grl_snapshot_info_pass2
             WHERE
                 submitted AND validated
                     AND run_id BETWEEN %s AND %s""" % (range_start, range_end)

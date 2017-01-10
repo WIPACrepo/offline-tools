@@ -2,7 +2,7 @@
 <DIF_Plus xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="IceCubeDIFPlus.xsd">
    <DIF>
       <Entry_ID>TBD</Entry_ID>
-      <Entry_Title>IC86_%s %s files for run %s</Entry_Title>
+      <Entry_Title>IC86_%s %s pass2 files for run %s</Entry_Title>
       <Parameters>SPACE SCIENCE &gt; Astrophysics &gt; Neutrinos</Parameters>
       <ISO_Topic_Category>geoscientificinformation</ISO_Topic_Category>
       <Data_Center>

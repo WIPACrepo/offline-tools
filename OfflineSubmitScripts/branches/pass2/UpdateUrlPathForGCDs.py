@@ -39,7 +39,7 @@ if __name__ == "__main__":
              FROM urlpath u 
              JOIN run r ON r.queue_id = u.queue_id AND u.dataset_id = r.dataset_id 
              WHERE run_id BETWEEN %s AND %s
-                AND path LIKE 'file:/data/exp/IceCube/____/filtered/level2/VerifiedGCD/'"""%(args.STARTRUN, args.ENDRUN)
+                AND path LIKE 'file:/data/exp/IceCube/____/filtered/level2pass2/VerifiedGCD/'"""%(args.STARTRUN, args.ENDRUN)
     
     dbs4 = SQLClient_dbs4.MySQL()
     runs = dbs4.fetchall(sql, UseDict = 1)
@@ -47,9 +47,9 @@ if __name__ == "__main__":
     sumcache = {}
 
     for run in runs:
-            gcddir = "/data/exp/IceCube/%s/filtered/level2/OfflinePreChecks/DataFiles/%s%s/"%(str(run['date'].year), str(run['date'].month).zfill(2), str(run['date'].day).zfill(2))
+            gcddir = "/data/exp/IceCube/%s/filtered/level2pass2/OfflinePreChecks/DataFiles/%s%s/"%(str(run['date'].year), str(run['date'].month).zfill(2), str(run['date'].day).zfill(2))
 
-            gcdpath = "%sLevel2_IC86.2015_data_Run%s_*_GCD.i3.gz"%(gcddir, str(run['run_id']).zfill(8))
+            gcdpath = "%sLevel2pass2_IC86.2015_data_Run%s_*_GCD.i3.gz"%(gcddir, str(run['run_id']).zfill(8))
 
             file = glob.glob(gcdpath)
 

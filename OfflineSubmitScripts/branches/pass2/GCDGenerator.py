@@ -33,7 +33,7 @@ def GetGoodRunTimes(dbs4_,RunNum,SnapshotId):
     
     try:
 
-        GRLInfo = dbs4_.fetchall(""" select * from grl_snapshot_info g
+        GRLInfo = dbs4_.fetchall(""" select * from grl_snapshot_info_pass2 g
                                      where g.run_id=%s and g.snapshot_id=%s
                                      """%(RunNum,SnapshotId),UseDict=True)
         
@@ -278,7 +278,7 @@ def main(RunNum, ProductionVersion, SnapshotId, outdir):
     except Exception, err:
         raise Exception("Error: %s "%str(err))
 
-    R = RunTools(RunNum)
+    R = RunTools(RunNum, passNumber = 2)
     RunTimes = R.GetRunTimes()
     
     sDay = RunTimes['tStart']
@@ -299,7 +299,7 @@ def main(RunNum, ProductionVersion, SnapshotId, outdir):
     InFiles.sort()
 
     
-    GCDDir = "/data/exp/IceCube/%s/filtered/level2/OfflinePreChecks/DataFiles/%s%s"%(sDay.year, str(sDay.month).zfill(2),str(sDay.day).zfill(2))
+    GCDDir = "/data/exp/IceCube/%s/filtered/level2pass2/OfflinePreChecks/DataFiles/%s%s"%(sDay.year, str(sDay.month).zfill(2),str(sDay.day).zfill(2))
 
     # If outdir was set, use new location
     if outdir:
@@ -311,14 +311,14 @@ def main(RunNum, ProductionVersion, SnapshotId, outdir):
         except Exception, err:
             print str(err)
     
-    GCDDirAll = "/data/exp/IceCube/%s/filtered/level2/AllGCD/"%sDay.year
-    GCDDirVerified = "/data/exp/IceCube/%s/filtered/level2/VerifiedGCD/"%sDay.year    
+    GCDDirAll = "/data/exp/IceCube/%s/filtered/level2pass2/AllGCD/"%sDay.year
+    GCDDirVerified = "/data/exp/IceCube/%s/filtered/level2pass2/VerifiedGCD/"%sDay.year    
     #GCDDirAll = "."
     #GCDDirVerified = "."
 
-    GCDName = os.path.join(GCDDir,"Level2_%sdata_Run00%s_%s_%s_GCD.i3.gz"%(Season,RunNum,ProductionVersion,SnapshotId))
+    GCDName = os.path.join(GCDDir,"Level2pass2_%sdata_Run00%s_%s_%s_GCD.i3.gz"%(Season,RunNum,ProductionVersion,SnapshotId))
 
-    GCDLinkName = "Level2_%sdata_Run00%s_%s%s_%s_%s_GCD.i3.gz"%(Season,RunNum,str(sDay.month).zfill(2),str(sDay.day).zfill(2),ProductionVersion,SnapshotId)
+    GCDLinkName = "Level2pass2_%sdata_Run00%s_%s%s_%s_%s_GCD.i3.gz"%(Season,RunNum,str(sDay.month).zfill(2),str(sDay.day).zfill(2),ProductionVersion,SnapshotId)
 
     effectiveStartTime,effectiveStopTime = GetGoodRunTimes(dbs4_,RunNum,SnapshotId)
 
@@ -375,7 +375,7 @@ def main(RunNum, ProductionVersion, SnapshotId, outdir):
         
                     #dbs4_.execute("""insert into i3filter.pre_processing_checks (run_id,GCDCheck) values(%s,1) on duplicate key update GCDCheck=1 """%(RunNum))
                     
-                    dbs4_.execute("""update i3filter.grl_snapshot_info set GCDCheck=1
+                    dbs4_.execute("""update i3filter.grl_snapshot_info_pass2 set GCDCheck=1
                                   where run_id=%s and snapshot_id=%s """%(RunNum,SnapshotId))
                     
                     #print "Updating pre_processing table in DB"
@@ -460,7 +460,7 @@ def main(RunNum, ProductionVersion, SnapshotId, outdir):
                     if not outdir:
                         os.system("ln -sf %s %s/%s"%(os.path.relpath(GCDName, GCDDirVerified), GCDDirVerified, GCDLinkName))
                     
-                    dbs4_.execute("""update i3filter.grl_snapshot_info set BadDOMsCheck=1
+                    dbs4_.execute("""update i3filter.grl_snapshot_info_pass2 set BadDOMsCheck=1
                                   where run_id=%s and snapshot_id=%s """%(RunNum,SnapshotId))
                     
                         

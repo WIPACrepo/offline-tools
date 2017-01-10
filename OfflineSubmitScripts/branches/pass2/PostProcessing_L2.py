@@ -67,12 +67,12 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False):
     logger.debug("MakeTarGapsFile              .... passed")
     logger.info( "--Attempting to collect Active Strings/DOMs information from verified GCD file ...")
 
-    R = RunTools(r['run_id'])
+    R = RunTools(r['run_id'], passNumber = 2)
     if 1 == R.GetActiveStringsAndDoms(season, UpdateDB = not dryrun):
         logger.error("GetActiveStringsAndDoms failed")
         return
 
-    if not dryrun: dbs4_.execute("""update i3filter.grl_snapshot_info 
+    if not dryrun: dbs4_.execute("""update i3filter.grl_snapshot_info_pass2 
                          set validated=1
                          where run_id=%s and production_version=%s"""%\
                      (r['run_id'],str(r['production_version'])))
@@ -82,7 +82,7 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False):
     sM = str(sDay.month).zfill(2)
     sD = str(sDay.day).zfill(2)
 
-    run_folder = "/data/exp/IceCube/%s/filtered/level2/%s%s/Run00%s_%s" % (sY, sM, sD, r['run_id'], r['production_version'])
+    run_folder = "/data/exp/IceCube/%s/filtered/level2pass2/%s%s/Run00%s_%s" % (sY, sM, sD, r['run_id'], r['production_version'])
 
     if not nometadata:
         dest_folder = ''
@@ -169,13 +169,13 @@ if __name__ == '__main__':
     RunInfo = None
 
     if args.run is not None:
-        RunInfo = dbs4_.fetchall("""SELECT r.tStart,g.* FROM i3filter.grl_snapshot_info g
-                                  JOIN i3filter.run_info_summary r ON r.run_id=g.run_id
+        RunInfo = dbs4_.fetchall("""SELECT r.tStart,g.* FROM i3filter.grl_snapshot_info_pass2 g
+                                  JOIN i3filter.run_info_summary_pass2 r ON r.run_id=g.run_id
                                   WHERE g.submitted AND (g.good_i3 OR g.good_it or g.run_id IN (%s)) AND NOT validated AND g.run_id = %i
                                   ORDER BY g.run_id""" % (','.join([str(r) for r in test_runs]), args.run), UseDict=True)
     else: 
-        RunInfo = dbs4_.fetchall("""SELECT r.tStart,g.* FROM i3filter.grl_snapshot_info g
-                                 JOIN i3filter.run_info_summary r ON r.run_id=g.run_id
+        RunInfo = dbs4_.fetchall("""SELECT r.tStart,g.* FROM i3filter.grl_snapshot_info_pass2 g
+                                 JOIN i3filter.run_info_summary_pass2 r ON r.run_id=g.run_id
                                  WHERE g.submitted AND (g.good_i3 OR g.good_it OR g.run_id IN (%s)) AND NOT validated
                                  ORDER BY g.run_id""" % ','.join([str(r) for r in test_runs]), UseDict=True)
 

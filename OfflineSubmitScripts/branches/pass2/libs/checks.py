@@ -34,13 +34,13 @@ from FileTools import FileTools
 from libs.files import GetSubRunStartStop, GetGoodSubruns
 from libs import dbtools
 
-ICECUBE_GCDDIR = lambda x : "/data/exp/IceCube/%s/filtered/level2/VerifiedGCD" %str(x)
-ICECUBE_DATADIR = lambda x : "/data/exp/IceCube/%s/filtered/level2/" %str(x)
+ICECUBE_GCDDIR = lambda x : "/data/exp/IceCube/%s/filtered/level2pass2/VerifiedGCD" %str(x)
+ICECUBE_DATADIR = lambda x : "/data/exp/IceCube/%s/filtered/level2pass2/" %str(x)
 
 def runs_already_submitted(dbs4_, StartRun, EndRun, logger, dryrun):
     """
     Checks if all runs have already been submitted. In fact, it checks if the `submitted` flag in
-    `grl_snapshot_info` is set to `1`.
+    `grl_snapshot_info_pass2` is set to `1`.
     
     Args:
         dbs4_ (SQLClient_dbs4): The SQL client for dbs4.
@@ -55,7 +55,7 @@ def runs_already_submitted(dbs4_, StartRun, EndRun, logger, dryrun):
     
     logger.info('Check runs for resubmission.')
 
-    Runs = dbs4_.fetchall("""SELECT run_id, submitted FROM i3filter.grl_snapshot_info
+    Runs = dbs4_.fetchall("""SELECT run_id, submitted FROM i3filter.grl_snapshot_info_pass2
                                     WHERE run_id BETWEEN %s AND %s AND (good_i3=1 OR good_it=1)"""%(StartRun, EndRun),UseDict=True)
 
     Abort = False
@@ -86,7 +86,7 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False):
         logger.info("GCDCheck or BadDOMsCheck failed for run=%s, production_version%s" %(str(r['run_id']),str(r['production_version'])))
         return 1
     
-    R = RunTools(r['run_id'])
+    R = RunTools(r['run_id'], passNumber = 2)
     InFiles = R.GetRunFiles(r['tStart'],'P')
     OutFiles = R.GetRunFiles(r['tStart'],'L')
    
@@ -133,7 +133,7 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False):
 
     for p in InFiles:
         l = os.path.join(os.path.dirname(L2Files[0]),os.path.basename(p).replace\
-             ("PFFilt_PhysicsFiltering","Level2_IC86.%s_data" % season).replace\
+             ("PFFilt_PhysicsFiltering","Level2pass2_IC86.%s_data" % season).replace\
              (".tar",".i3").replace\
              ("Subrun00000000_","Subrun"))
     

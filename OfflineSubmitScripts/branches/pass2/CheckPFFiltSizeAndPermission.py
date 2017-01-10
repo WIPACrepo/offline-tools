@@ -33,7 +33,7 @@ if __name__ == '__main__':
         logger.error('The end run id must be equal or bigger than the start run id.')
         exit(1)
 
-    runs = dbs4_.fetchall("""SELECT run_id, tStart FROM run_info_summary 
+    runs = dbs4_.fetchall("""SELECT run_id, tStart FROM run_info_summary_pass2 
                              WHERE run_id BETWEEN %s AND %s"""%(args.STARTRUN, args.ENDRUN))
 
     if len(runs) == 0:

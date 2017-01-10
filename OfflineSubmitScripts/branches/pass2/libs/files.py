@@ -21,8 +21,8 @@ try:
 except:
     warn("No env-shell loaded")
 
-RUNINFODIR = lambda year : "/data/exp/IceCube/%s/filtered/level2/RunInfo/" %str(year)
-LEVEL2_DIR = lambda year : "/data/exp/IceCube/%s/filtered/level2/" %str(year)
+RUNINFODIR = lambda year : "/data/exp/IceCube/%s/filtered/level2pass2/RunInfo/" %str(year)
+LEVEL2_DIR = lambda year : "/data/exp/IceCube/%s/filtered/level2pass2/" %str(year)
 
 def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
     """
@@ -35,8 +35,8 @@ def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
     Returns:
         None
     """
-    RunInfo = dbs4_.fetchall("""SELECT * FROM i3filter.grl_snapshot_info g
-                                 JOIN i3filter.run_info_summary r ON r.run_id=g.run_id
+    RunInfo = dbs4_.fetchall("""SELECT * FROM i3filter.grl_snapshot_info_pass2 g
+                                 JOIN i3filter.run_info_summary_pass2 r ON r.run_id=g.run_id
                                  JOIN i3filter.run jr ON jr.run_id=r.run_id
                                  WHERE jr.dataset_id=%s AND (g.good_i3 or g.good_it) AND g.submitted
                                  GROUP BY jr.run_id, g.snapshot_id

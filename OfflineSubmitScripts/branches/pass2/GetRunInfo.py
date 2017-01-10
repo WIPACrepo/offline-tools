@@ -2,8 +2,8 @@
 
 """
 Gather information about recent runs from live database and migrate it to
-the prodcution databases (i3filter on dbs4). Modifies tables grl_snapshot_info
-and run_info_summary on dbs4
+the prodcution databases (i3filter on dbs4). Modifies tables grl_snapshot_info_pass2
+and run_info_summary_pass2 on dbs4
 """
 
 import os
@@ -71,12 +71,16 @@ def main(config, logger,dryrun = False, check = False):
     CurrentInfo = dbs4_.fetchall("""select max(snapshot_id) as maxSnapshotID,
                                     max(production_version) as maxProductionV,
                                     max(ss_ref) as max_ss_ref
-                                    from i3filter.grl_snapshot_info""",UseDict=True)
-    
+                                    from i3filter.grl_snapshot_info_pass2""",UseDict=True)
+   
+    if CurrentInfo[0]['maxSnapshotID'] is None and CurrentInfo[0]['maxProductionV'] is None and CurrentInfo[0]['max_ss_ref'] is None:
+        logger.debug("Very first execution. Anything is Zeroooooooooooo!")
+        CurrentInfo = [{'maxSnapshotID': 0, 'maxProductionV': 0, 'max_ss_ref': 0}]
+ 
     CurrentMaxSnapshot = int(CurrentInfo[0]['maxSnapshotID'])
     CurrentProductionVersion = int(CurrentInfo[0]['maxProductionV'])
     ss_ref = int(CurrentInfo[0]['max_ss_ref']) + 1
-    logger.debug("Got current max production_version %i and ss_ref %i from grl_snapshot_info table" %(CurrentMaxSnapshot,CurrentProductionVersion)) 
+    logger.debug("Got current max production_version %i and ss_ref %i from grl_snapshot_info_pass2 table" %(CurrentMaxSnapshot,CurrentProductionVersion)) 
     
     seasons = libs.config.get_seasons_info()
     current_season = config.getint('DEFAULT', 'Season')
@@ -148,13 +152,13 @@ def main(config, logger,dryrun = False, check = False):
     RunStr_ = ",".join([str(r) for r in RunNums_])
 
     # get all previous runs from dbs4 and check if entries in live are different
-    tmpRecords_ = dbs4_.fetchall("""select run_id from i3filter.run_info_summary
+    tmpRecords_ = dbs4_.fetchall("""select run_id from i3filter.run_info_summary_pass2
                                     order by run_id""",UseDict=True)
     tRecords_ = [t_['run_id'] for t_ in tmpRecords_]
     NewRecords_ = list(set(RunNums_).difference(set(tRecords_)))
     NewRecords_.sort()
    
-    oRecordsSQL = """SELECT run_id FROM i3filter.grl_snapshot_info
+    oRecordsSQL = """SELECT run_id FROM i3filter.grl_snapshot_info_pass2
                              WHERE CONCAT(run_id, "_", snapshot_id) IN (%s)
                              ORDER BY run_id""" % Run_SSId_Str_
     oRecords_ = dbs4_.fetchall(oRecordsSQL, UseDict = True)
@@ -164,8 +168,8 @@ def main(config, logger,dryrun = False, check = False):
     logger.debug("SQL to get old data from production DB: %s" % oRecordsSQL)
     
     cRecordsSQL = """SELECT s.run_id, snapshot_id
-                     FROM i3filter.grl_snapshot_info r
-                     JOIN i3filter.run_info_summary s
+                     FROM i3filter.grl_snapshot_info_pass2 r
+                     JOIN i3filter.run_info_summary_pass2 s
                         ON s.run_id = r.run_id
                      WHERE (r.run_id >= %s OR r.run_id IN (%s))
                         AND r.run_id <= %s
@@ -230,11 +234,15 @@ def main(config, logger,dryrun = False, check = False):
         is_good_run = RunInfo_[r]['good_it'] or RunInfo_[r]['good_i3']
         logger.debug("Is run %s a good run? = %s" % (r, is_good_run))
 
+        if not is_good_run:
+            logger.info("Skip run %s because it is a bad run" % r)
+            continue
+
         if r in OldRecords_ : continue
         if r in NewRecords_:
             logger.info("entering new records for run = %s"%r)
 
-            R = RunTools(r,logger=logger)
+            R = RunTools(r, logger = logger, passNumber = 2)
             RunTimes = R.GetRunTimes()
             InFiles = R.GetRunFiles(RunTimes['tStart'],'P')
 
@@ -242,11 +250,11 @@ def main(config, logger,dryrun = False, check = False):
 
             logger.debug("Check files returned %s" % CheckFiles)
    
-            #  fill new runs from live in run_info_summary 
+            #  fill new runs from live in run_info_summary_pass2 
             if not dryrun and (CheckFiles or not is_good_run):
-                logger.debug("Insert run into run_info_summary")
+                logger.debug("Insert run into run_info_summary_pass2")
 
-                dbs4_.execute("""INSERT INTO i3filter.run_info_summary
+                dbs4_.execute("""INSERT INTO i3filter.run_info_summary_pass2
                                  (run_id, tStart, tStop, tStart_frac, tStop_frac, nEvents, rateHz, FilesComplete)
                                  VALUES (%u, "%s", "%s", "%s", "%s", %s, %s, %u) """ \
                                  % (r, RunInfo_[r]['tStart'], RunInfo_[r]['tStop'],
@@ -289,8 +297,8 @@ def main(config, logger,dryrun = False, check = False):
             for file in fileChkRlt['permission']:
                 logger.warning('    ' + file)
     
-        # insert new runs from live in grl_snapshot_info
-        if not dryrun and (CheckFiles or not is_good_run): dbs4_.execute( """insert into i3filter.grl_snapshot_info
+        # insert new runs from live in grl_snapshot_info_pass2
+        if not dryrun and (CheckFiles or not is_good_run): dbs4_.execute( """insert into i3filter.grl_snapshot_info_pass2
                             (ss_ref,run_id,snapshot_id,good_i3,good_it,reason_i3,reason_it,
                             production_version,submitted,comments,good_tstart,good_tstart_frac,
                             good_tstop,good_tstop_frac)

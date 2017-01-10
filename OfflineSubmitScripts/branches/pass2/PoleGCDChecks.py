@@ -47,7 +47,7 @@ def main(logger, StartRun = DEFAULT_START_RUN, dryrun=False):
     # default run number to start checks, this can be over-written by supplying an
     # no valid GCD files between season start (126378) and 126444
     # run when 'good' GCD files started flowing again from Pole (126445)
-    runs_ = dbs4_.fetchall("""SELECT * FROM i3filter.grl_snapshot_info g
+    runs_ = dbs4_.fetchall("""SELECT * FROM i3filter.grl_snapshot_info_pass2 g
                  where (good_it or good_i3 or run_id IN (127891, 127892, 127893)) and run_id>=%d
                  and PoleGCDCheck is NULL order by run_id """%StartRun, UseDict=True)
     
@@ -141,7 +141,7 @@ def main(logger, StartRun = DEFAULT_START_RUN, dryrun=False):
                                 "python", os.path.join(OFFLINEPRODUCTIONTOOLS,CMPGCD),
                                 "-f", "%s" % northFile, "%s" % poleFile,"-v"],stdout=oL, stderr=oL)
                 
-                if not dryrun: dbs4_.execute("""update i3filter.grl_snapshot_info g
+                if not dryrun: dbs4_.execute("""update i3filter.grl_snapshot_info_pass2 g
                                  set PoleGCDCheck=%s where run_id=%s"""%(RV,runNum))
                 
                 if RV:

@@ -32,8 +32,8 @@ TOLERANCE = 5e4 #50 mu sec -> 5 events
 
 def main(RunNum, ProductionVersion, logger, dataset_id, dryrun = False):
     # get the run details
-    RunInfo = dbs4_.fetchall("""SELECT * FROM i3filter.grl_snapshot_info g
-                             join i3filter.run_info_summary r on r.run_id=g.run_id
+    RunInfo = dbs4_.fetchall("""SELECT * FROM i3filter.grl_snapshot_info_pass2 g
+                             join i3filter.run_info_summary_pass2 r on r.run_id=g.run_id
                              where g.run_id=%s and production_version=%s"""%\
                             (RunNum,ProductionVersion),UseDict=True)
     
@@ -42,7 +42,7 @@ def main(RunNum, ProductionVersion, logger, dataset_id, dryrun = False):
         exit(0) 
     
     RunInfo = RunInfo[0]
-    R = RunTools(RunNum)
+    R = RunTools(RunNum, passNumber = 2)
     OutFiles = R.GetRunFiles(RunInfo['tStart'],'L')
     if not len(OutFiles):
         logger.warning("No output L2 files for run %s, no files to adjust"%RunNum)

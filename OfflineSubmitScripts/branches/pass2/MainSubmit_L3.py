@@ -191,7 +191,7 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
         else:
             meta_file_dest = OutDir
 
-        run_times = RunTools(Run, logger).GetRunTimes()
+        run_times = RunTools(Run, logger, passNumber = 2).GetRunTimes()
 
         write_meta_xml_main_processing(dest_folder = meta_file_dest,
                                        dataset_id = DDatasetId,

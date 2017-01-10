@@ -110,7 +110,7 @@ def main_cmp(fileDict, sRuns, dryrun):
                                         "-f", currentFile, templateFile,"-v","-t"],stdout=oL, stderr=oL)
                 
                 if not dryrun:
-                    dbs4_.execute("""update i3filter.grl_snapshot_info g
+                    dbs4_.execute("""update i3filter.grl_snapshot_info_pass2 g
                                     set TemplateGCDCheck=%s where run_id=%s"""%(RV,sRun))
                 
                 if RV:
@@ -167,12 +167,12 @@ if __name__ == '__main__':
     
     StartRun = args.STARTRUN
 
-    notChecked = dbs4_.fetchall(""" SELECT * FROM i3filter.grl_snapshot_info g where (GCDCheck and BadDOMsCheck)
+    notChecked = dbs4_.fetchall(""" SELECT * FROM i3filter.grl_snapshot_info_pass2 g where (GCDCheck and BadDOMsCheck)
                                and run_id>=%s order by run_id"""%StartRun,UseDict=True)
 
     fileDict = {}
     for n in notChecked:
-        currentFile = glob.glob("/data/exp/IceCube/%s/filtered/level2/AllGCD/*%s*"%(n['good_tstart'].year,n['run_id']))
+        currentFile = glob.glob("/data/exp/IceCube/%s/filtered/level2pass2/AllGCD/*%s*"%(n['good_tstart'].year,n['run_id']))
     
         if len(currentFile):
             if os.path.isfile(currentFile[0]):
