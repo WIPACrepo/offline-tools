@@ -18,14 +18,23 @@ class RunTools(object):
     Get files and dates for a run
     """
 
-    def __init__(self,RunNumber,logger=DummyLogger()):
+    def __init__(self, RunNumber, logger = DummyLogger(), passNumber = None):
         self.RunNumber = RunNumber
         self.logger = logger
+        
+        # Defines the number of processing. Usually it is None/pass 1. For instance when it came to the pass2 processing of 2010 - 2014, we needed pass2, so passNumber = 2.
+        self.passString = ''
+        self.passNumber = 1
+
+        if passNumber is not None:
+            self.passString = "pass%s" % passNumber
+            self.passNumber = passNumber
+
         
     def GetActiveStringsAndDoms(self,Season,UpdateDB=False):
         startDate=self.GetRunTimes()['tStart']
         
-        GCDFile = glob.glob("/data/exp/IceCube/%s/filtered/level2/VerifiedGCD/Level2_IC86.%s*%s*"%(startDate.year,Season,self.RunNumber))
+        GCDFile = glob.glob("/data/exp/IceCube/%s/filtered/level2%s/VerifiedGCD/Level2%s_IC86.%s*%s*"%(startDate.year, self.passString, self.passString, Season, self.RunNumber))
         
         if not len(GCDFile):
             self.logger.warning("No GCD file for run %s in Verified GCD Directory ... exiting"%self.RunNumber)
@@ -120,7 +129,17 @@ class RunTools(object):
         try:
             Files = []
             
-            if str(Type).upper() == "P":
+            if str(Type).upper() == "P" and self.passNumber == 2:
+                Files.extend(glob.glob("/data/exp/IceCube/%s/unbiased/PFDST/%s%s/%s*%s*"%(startDate.year,\
+                                    str(startDate.month).zfill(2),str(startDate.day).zfill(2),\
+                                    str(Type).upper(),self.RunNumber)))
+                # useful for PFFilt files because the "spill" over multiple dates
+                nextDate = startDate + relativedelta(days=1)	
+                Files.extend(glob.glob("/data/exp/IceCube/%s/unbiased/PFDST/%s%s/%s*%s*"%(nextDate.year,\
+                                    str(nextDate.month).zfill(2),str(nextDate.day).zfill(2),\
+                                    str(Type).upper(),self.RunNumber)))
+                
+            elif str(Type).upper() == "P" and self.passNumber == 1:
                 Files.extend(glob.glob("/data/exp/IceCube/%s/filtered/PFFilt/%s%s/%s*%s*"%(startDate.year,\
                                     str(startDate.month).zfill(2),str(startDate.day).zfill(2),\
                                     str(Type).upper(),self.RunNumber)))
@@ -132,15 +151,15 @@ class RunTools(object):
                 
             elif str(Type).upper() == "L":
                 # old dir structure
-                Files.extend(glob.glob("/data/exp/IceCube/%s/filtered/level2/%s%s/%s*%s*"%(startDate.year,\
-                                    str(startDate.month).zfill(2),str(startDate.day).zfill(2),\
+                Files.extend(glob.glob("/data/exp/IceCube/%s/filtered/level2%s/%s%s/%s*%s*"%(startDate.year,\
+                                    self.passString, str(startDate.month).zfill(2),str(startDate.day).zfill(2),\
                                     str(Type).upper(),self.RunNumber)))
             #    # new dir structure
                 if not len(Files):
                     runnumber = self.RunNumber
                     if ProductionVersion is not None: runnumber = str(runnumber) + "_" + str(ProductionVersion)
-                    Files.extend(glob.glob("/data/exp/IceCube/%s/filtered/level2/%s%s/Run*%s*/%s*%s*"%(startDate.year,\
-                                    str(startDate.month).zfill(2),str(startDate.day).zfill(2),\
+                    Files.extend(glob.glob("/data/exp/IceCube/%s/filtered/level2%s/%s%s/Run*%s*/%s*%s*"%(startDate.year,\
+                                    self.passString, str(startDate.month).zfill(2),str(startDate.day).zfill(2),\
                                     runnumber,str(Type).upper(),self.RunNumber)))
                 
             else:

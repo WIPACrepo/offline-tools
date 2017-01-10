@@ -579,7 +579,7 @@ if __name__ == '__main__':
 
     seasonFileName = os.path.basename(GCDFiles[0])
 
-    if seasonFileName.startswith('Level2_IC86'):
+    if seasonFileName.startswith('Level2_IC86') or seasonFileName.startswith('Level2pass2_IC86'):
         parts = seasonFileName.split('.')
 
         if len(parts) >= 3:
