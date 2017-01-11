@@ -132,27 +132,47 @@ if __name__ == '__main__':
         PV = GRLInfo[r][1]
         SId = GRLInfo[r][2]
         
+        Season = "IC86.%s_" % libs.config.get_season_by_run(int(r))
+
         sY = str(StartDay.year)
         sM = str(StartDay.month).zfill(2)
         sD = str(StartDay.day).zfill(2)
-        
+       
+        GCDDirPass1 = "/data/exp/IceCube/%s/filtered/level2/OfflinePreChecks/DataFiles/%s%s"%(sY, sM, sD)
+        GCDDir = "/data/exp/IceCube/%s/filtered/level2pass2/OfflinePreChecks/DataFiles/%s%s"%(sY, sM, sD)
+        GCDDirAll = "/data/exp/IceCube/%s/filtered/level2pass2/AllGCD/" % sY
+        GCDDirVerified = "/data/exp/IceCube/%s/filtered/level2pass2/VerifiedGCD/" % sY
+ 
         Clog = "/data/exp/IceCube/%s/filtered/level2pass2/OfflinePreChecks/run_logs/condor_logs/%s%s/"%(sY,sM,sD)
         Cerr = "/data/exp/IceCube/%s/filtered/level2pass2/OfflinePreChecks/run_logs/condor_err/%s%s/"%(sY,sM,sD)
         Olog = "/data/exp/IceCube/%s/filtered/level2pass2/OfflinePreChecks/run_logs/logs/%s%s/"%(sY,sM,sD)
         
         if not dryrun:
             if not os.path.exists(Clog):
-                os.mkdir(Clog)
+                os.makedirs(Clog)
             if not os.path.exists(Cerr):
-                os.mkdir(Cerr)
+                os.makedirs(Cerr)
             if not os.path.exists(Olog):
-                os.mkdir(Olog)
+                os.makedirs(Olog)
+            if not os.path.exists(GCDDir):
+                os.makedirs(GCDDir)
+            if not os.path.exists(GCDDirAll):
+                os.makedirs(GCDDirAll)
+            if not os.path.exists(GCDDirVerified):
+                os.makedirs(GCDDirVerified)
         
+        GCDNamePass1 = os.path.join(GCDDirPass1, "Level2_%sdata_Run00%s_%s_%s_GCD.i3.gz" % (Season, r, PV, SId))
+        GCDName = os.path.join(GCDDir, "Level2pass2_%sdata_Run00%s_%s_%s_GCD.i3.gz" % (Season, r, PV, SId))
+        GCDLinkName = "Level2pass2_%sdata_Run00%s_%s%s_%s_%s_GCD.i3.gz"%(Season, r, sM, sD, PV, SId)
+
+        if not dryrun:
+            os.system("ln -sf %s %s/%s"%(os.path.relpath(GCDName, GCDDirVerified), GCDDirVerified, GCDLinkName))
+            os.system("ln -sf %s %s/%s"%(os.path.relpath(GCDName, GCDDirAll), GCDDirAll, GCDLinkName))
 
         SUBMITFILE = open(CONDOR_SUBMIT_FILE,"w")
         SUBMITFILE.write("Universe = vanilla ")
         SUBMITFILE.write('\nExecutable = %s/./env-shell.sh'%I3BUILD)
-        SUBMITFILE.write("\narguments =  python -u %s/GCDGenerator.py %s %s %s "%(PYTHONSCRIPTDIR,r,PV,SId))
+        SUBMITFILE.write("\narguments =  python -u %s/GCDGeneration_pass2.py %s %s %s %s %s %s "%(PYTHONSCRIPTDIR, GCDNamePass1, config.get('GCDGeneration', 'SpeCorrectionFile'), GCDName, r, PV, SId))
         SUBMITFILE.write("\nLog = %s/Run00%s_%s_%s.log"%(Clog,str(r),PV,SId))
         SUBMITFILE.write("\nError = %s/Run00%s_%s_%s.err"%(Cerr,str(r),PV,SId))
         SUBMITFILE.write("\nOutput = %s/Run00%s_%s_%s.out"%(Olog,str(r),PV,SId))
