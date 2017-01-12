@@ -29,6 +29,6 @@ tray.AddModule(spe_fit_injector.I3SPEFitInjector, "fixspe",  Filename = spe_file
 tray.AddModule("I3Writer", filename=outputfile, CompressionLevel=9)
 tray.Execute()
 
-sql = "UPDATE grl_snapshot_info_pass2 SET GCDCheck = 1, BadDOMsCheck = 1, PoleGCDCheck = 1, TemplateGCDCheck = 1 WHERE run_id = %s AND snapshot_id = %s AND production_version = %s" % (run_id, snapshot_id, production_version)
+sql = "UPDATE grl_snapshot_info_pass2 SET GCDCheck = 1, BadDOMsCheck = 1, PoleGCDCheck = 0, TemplateGCDCheck = 0 WHERE run_id = %s AND snapshot_id = %s AND production_version = %s" % (run_id, snapshot_id, production_version)
 
 DatabaseConnection.get_connection('dbs4', DummyLogger()).execute(sql)

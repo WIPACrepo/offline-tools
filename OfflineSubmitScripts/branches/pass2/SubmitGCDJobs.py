@@ -160,8 +160,19 @@ if __name__ == '__main__':
                 os.makedirs(GCDDirAll)
             if not os.path.exists(GCDDirVerified):
                 os.makedirs(GCDDirVerified)
-        
-        GCDNamePass1 = os.path.join(GCDDirPass1, "Level2_%sdata_Run00%s_%s_%s_GCD.i3.gz" % (Season, r, PV, SId))
+       
+        GCDFilesPass1 = glob.glob(os.path.join(GCDDirPass1, "Level2_%sdata_Run00%s_*_*_GCD.i3.gz" % (Season, r)))
+
+        logger.debug("GCDFilesPass1 = %s" % GCDFilesPass1)
+
+        # Check for multiple GCD files
+        if len(GCDFilesPass1) > 1:
+            GCDFilesPass1.sort()
+        elif len(GCDFilesPass1) == 0:
+            logger.critical("Could not find input GCD file in %s" % GCDDirPass1)
+            exit(1)
+ 
+        GCDNamePass1 = GCDFilesPass1[-1]
         GCDName = os.path.join(GCDDir, "Level2pass2_%sdata_Run00%s_%s_%s_GCD.i3.gz" % (Season, r, PV, SId))
         GCDLinkName = "Level2pass2_%sdata_Run00%s_%s%s_%s_%s_GCD.i3.gz"%(Season, r, sM, sD, PV, SId)
 
