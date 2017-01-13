@@ -76,8 +76,12 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
         logger.info("Attempting to submit %s PFFilt Files for run %s"%(str(len(InFiles)),g['run_id']))
     
         for InFile in InFiles:
-            CountSubRun = int(InFile[len(InFile)-16:-8])
-            
+            logger.debug("InFile = %s" % InFile)
+
+            CountSubRun = int(InFile[len(InFile)-15:-7])
+           
+            logger.debug("CountSubRun = %s" % CountSubRun)
+ 
             QueueId+=1
     
             if not dryrun:
