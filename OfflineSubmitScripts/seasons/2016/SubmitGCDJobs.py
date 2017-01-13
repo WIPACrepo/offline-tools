@@ -142,11 +142,11 @@ if __name__ == '__main__':
         
         if not dryrun:
             if not os.path.exists(Clog):
-                os.mkdir(Clog)
+                os.makedirs(Clog)
             if not os.path.exists(Cerr):
-                os.mkdir(Cerr)
+                os.makedirs(Cerr)
             if not os.path.exists(Olog):
-                os.mkdir(Olog)
+                os.makedirs(Olog)
         
 
         SUBMITFILE = open(CONDOR_SUBMIT_FILE,"w")
