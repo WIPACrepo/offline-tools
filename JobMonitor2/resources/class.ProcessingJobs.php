@@ -11,6 +11,8 @@ class ProcessingJobs {
 
     private $is_l2_dataset;
 
+    private $pass2;
+
     private $dataset_list_only;
 
     private static $JOB_STATES = array('WAITING','QUEUEING','QUEUED','PROCESSING','OK','ERROR','READYTOCOPY','COPYING','SUSPENDED','RESET','FAILED','COPIED','EVICTED','CLEANING','IDLE','IDLEBDList','IDLEIncompleteFiles','IDLENoFiles','IDLETestRun','IDLEShortRun','IDLELid','IDLENoGCD','BadRun','FailedRun');
@@ -29,6 +31,7 @@ class ProcessingJobs {
         $this->l2_dataset_ids = $l2_dataset_ids;
         $this->dataset_ids = null;
         $this->dataset_list_only = false;
+        $this->pass2 = false;
     }
 
     private function build_job_status_query($prev) {
@@ -330,8 +333,14 @@ class ProcessingJobs {
         // Holds run information whatever the data source is
         $runs = array();
 
-        if($season >= 2013) {
+        if($season >= 2013 || $this->pass2) {
             // Data source is just grl_snapshot_info
+
+            // If it is pass2, we have a different table
+            $pass2hack = '';
+            if($this->pass2) {
+                $pass2hack = '_pass2';
+            }
 
             $sql = "SELECT  run_id,
                             validated,
@@ -341,7 +350,7 @@ class ProcessingJobs {
                             production_version AS `production_version`,
                             good_i3,
                             good_it
-                    FROM grl_snapshot_info
+                    FROM grl_snapshot_info{$pass2hack}
                     WHERE   (
                                 run_id BETWEEN $first_run_id AND $last_run_id OR
                                 run_id IN ($season_test_runs -1) /* Have at least -1 to avoid bad SQL */
@@ -564,6 +573,9 @@ class ProcessingJobs {
             }
 
             $this->dataset_id = $dataset_id;
+
+            // Check if pass2
+            $this->pass2 = stripos($this->result['data']['datasets'][(string)$this->dataset_id]['comment'], 'pass2') !== false;
 
             // Set new selection
             $this->result['data']['datasets'][(string)$dataset_id]['selected'] = true;
