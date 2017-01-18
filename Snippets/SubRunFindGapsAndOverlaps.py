@@ -12,6 +12,7 @@ from icecube import dataclasses
 parser = argparse.ArgumentParser()
 parser.add_argument('--run', nargs = "*", help = "Runs that should be checked", type = int)
 parser.add_argument('--grlruns', nargs = "*", help = "Use GRL runs instead of a specific run", type = str)
+parser.add_argument('--hidetinydifferences', action = "store_true", help = "Hides runs that have only a livetime difference of 1 second or smaller", default = False)
 args = parser.parse_args()
 
 # Check parameters
@@ -171,7 +172,7 @@ def check_for_gaps_between_sub_runs(sub_run_info, min_gap_size):
 def check_run(run_id, run_info, sub_run_info, gaps, gaps_between_srs):
     gaps_livetime = sum([i[2] for k, i in sub_run_info.iteritems()])
 
-    if not (gaps_livetime > run_info[2] + 1) and not (gaps_livetime < run_info[2] + 1): # +1 because GRL livetime only second precise
+    if math.fabs(gaps_livetime - run_info[2]) < 1: # +1 because GRL livetime only second precise
         return None
 
     print "===== Found deviation for run %s =========================" % run_id
