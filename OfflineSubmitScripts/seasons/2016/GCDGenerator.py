@@ -316,6 +316,12 @@ def main(RunNum, ProductionVersion, SnapshotId, outdir):
     #GCDDirAll = "."
     #GCDDirVerified = "."
 
+    # Create folders if neccessary
+    if not os.path.exists(GCDDirAll):
+        os.mkdir(GCDDirAll)
+    if not os.path.exists(GCDDirVerified):
+        os.mkdir(GCDDirVerified)
+
     GCDName = os.path.join(GCDDir,"Level2_%sdata_Run00%s_%s_%s_GCD.i3.gz"%(Season,RunNum,ProductionVersion,SnapshotId))
 
     GCDLinkName = "Level2_%sdata_Run00%s_%s%s_%s_%s_GCD.i3.gz"%(Season,RunNum,str(sDay.month).zfill(2),str(sDay.day).zfill(2),ProductionVersion,SnapshotId)

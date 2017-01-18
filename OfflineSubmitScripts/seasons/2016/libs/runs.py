@@ -46,9 +46,11 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
 
     GCDFileName = []
     GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2/VerifiedGCD/*Run00%s*%s_%s*"%(sY,g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
-    
+
     if not len(GCDFileName):
         GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2/AllGCD/*Run00%s*%s_%s*"%(sY,g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
+    
+    logger.debug("GCD files = %s" % GCDFileName)
     
     if len(GCDFileName):
         logger.debug('Calculate MD5 sum and create symlink for GCD file')
@@ -63,6 +65,8 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
             os.system(lnCmd)
     else:
         GCDFileName = ""
+        logger.critical("No GCD file found. Exit.")
+        exit(1)
     
     if not len(InFiles):
         logger.info("No PFFilt will be submitted for run %s"%g['run_id'])
