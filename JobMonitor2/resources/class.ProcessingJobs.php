@@ -245,6 +245,7 @@ class ProcessingJobs {
         if($this->dataset_id < 1885) {
             foreach($this->result['data']['runs'] as &$run) {
                 $run['validated'] = true;
+                $run['validation_date'] = null;
             }
 
             return;
