@@ -9,13 +9,13 @@ exclude_runs = [114899, 113826, 113825]
 
 year = 2016
 
-#files = glob('/data/exp/IceCube/%s/filtered/level2/[0-9][0-9][0-9][0-9]/Run00*[0-9][0-9][0-9]/*_gaps.txt' % year)
+files = glob('/data/exp/IceCube/%s/filtered/level2/[0-9][0-9][0-9][0-9]/Run00*[0-9][0-9][0-9]/*_gaps.txt' % year)
 #files.extend(glob('/data/exp/IceCube/%s/filtered/level2/[0-9][0-9][0-9][0-9]/*_gaps.txt' % year))
 #files.extend(glob('/data/exp/IceCube/%s/filtered/level2a/[0-9][0-9][0-9][0-9]/*_gaps.txt' % year))
 
 #files = glob('/data/exp/IceCube/2011/filtered/level2a/[0-9][0-9][0-9][0-9]/*117315*_gaps.txt')
 
-files = glob('/data/exp/IceCube/2016/filtered/level2/0930/Run00128565/*_gaps.txt')
+#files = glob('/data/exp/IceCube/2016/filtered/level2/0930/Run00128565/*_gaps.txt')
 
 batch_size = 1000
 
