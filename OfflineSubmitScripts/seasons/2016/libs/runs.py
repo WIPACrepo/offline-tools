@@ -65,8 +65,7 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
             os.system(lnCmd)
     else:
         GCDFileName = ""
-        logger.critical("No GCD file found. Exit.")
-        exit(1)
+        logger.critical("No GCD file found.")
     
     if not len(InFiles):
         logger.info("No PFFilt will be submitted for run %s"%g['run_id'])
