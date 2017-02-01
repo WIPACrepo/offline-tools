@@ -47,36 +47,21 @@ def get_runs_from_live(season, db):
 
     return db.fetchall(livesql, UseDict = True)
 
-def get_first_event_time_from_file(path):
-    from icecube import dataio, dataclasses
+def get_gaps_file_data(db, runs):
+    sql = "SELECT * FROM sub_runs WHERE run_id IN (%s)" % ','.join([str(r) for r in runs])
 
-    f = dataio.I3File(path)
-    
-    while f.more():
-        frame = f.pop_frame()
-        if 'I3EventHeader' in frame.keys():
-            return frame['I3EventHeader'].start_time.date_time
+    dbdata = db.fetchall(sql, UseDict = True)
 
-    raise
+    data = {}
+    for row in dbdata:
+        if row['run_id'] not in data:
+            data[row['run_id']] = {}
 
-def get_last_event_time_from_file(path):
-    from icecube import dataio, dataclasses
+        data[row['run_id']][row['sub_run']] = row
 
-    f = dataio.I3File(path)
-    
-    last_time = None
+    return data
 
-    while f.more():
-        frame = f.pop_frame()
-        if 'I3EventHeader' in frame.keys():
-            last_time = frame['I3EventHeader'].end_time.date_time
-
-    if last_time is None:
-        raise
-    else:
-        return last_time
-
-def check_files_and_times(run_data, src, summarydict):
+def check_files_and_times(run_data, src, summarydict, gaps_data):
     tools = None
 
     if src == 'PFDST':
@@ -92,16 +77,16 @@ def check_files_and_times(run_data, src, summarydict):
     infiles = tools.GetRunFiles(run_data['tStart'], file_type)
 
     if src == 'L2':
-        infiles = [f for f in infiles if 'GCD' not in f and 'IT' not in f and 'EHE' not in f and 'SLOP' not in f and 'gaps' not in f and '.root' not in f]
-        infiles.sort()
-
-        print infiles
+        from icecube import dataclasses
 
         summarydict[run_data['runNumber']] = {'missing_files': [], 'metadata_start_time': None, 'metadata_stop_time': None}
 
-        if len(infiles):
-            summarydict[run_data['runNumber']]['metadata_start_time'] = get_first_event_time_from_file(infiles[0])
-            summarydict[run_data['runNumber']]['metadata_stop_time'] = get_last_event_time_from_file(infiles[-1])
+        if run_data['runNumber'] in gaps_data:
+            first_sr = min(gaps_data[run_data['runNumber']].keys())
+            last_sr = max(gaps_data[run_data['runNumber']].keys())
+
+            summarydict[run_data['runNumber']]['metadata_start_time'] = dataclasses.I3Time(gaps_data[run_data['runNumber']][first_sr]['first_event_year'], gaps_data[run_data['runNumber']][first_sr]['first_event_frac']).date_time
+            summarydict[run_data['runNumber']]['metadata_stop_time'] = dataclasses.I3Time(gaps_data[run_data['runNumber']][last_sr]['last_event_year'], gaps_data[run_data['runNumber']][last_sr]['last_event_frac']).date_time
         else:
             summarydict[run_data['runNumber']]['missing_files'] = [-1]
     else:
@@ -120,8 +105,13 @@ def json_serial(obj):
 slogger = DummyLogger()
 slogger.silence = True
 db = DatabaseConnection.get_connection('i3live', slogger)
+filter_db = DatabaseConnection.get_connection('filter-db', slogger)
 
 data = get_runs_from_live(args.season, db)
+
+run_id_list = [d['runNumber'] for d in data]
+
+gaps_data = get_gaps_file_data(filter_db, run_id_list)
 
 summary = {}
 
@@ -129,7 +119,7 @@ counter = 0
 for run_data in data:
     print "%s\tCheck run %s" % (counter + 1, run_data['runNumber'])
 
-    check_files_and_times(run_data, args.src, summary)
+    check_files_and_times(run_data, args.src, summary, gaps_data)
 
     counter = counter + 1
     if args.n is not None and counter >= args.n:
