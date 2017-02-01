@@ -85,7 +85,7 @@ def CleanRun(DatasetId,Run,CLEAN_DW,logger,dryrun=False):
         set_post_processing_state(run_id = Run, dataset_id = DatasetId, validated = 0, dbs4 = dbs4_, dryrun = dryrun, logger = logger)
         
 
-def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, linkonlygcd, nometadata, dryrun=False):
+def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, linkonlygcd, nometadata, dryrun = False, cosmicray = False):
     """
     Submit a run for Level3 processing
 
@@ -138,9 +138,37 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
     # FIXME: g["sub_run"] == 1 is a wild guess and not kosher!
     # FIXME: we need something to find the gcd for a run    
     # This seems to be fixed, however 
-    GCDEntry = [g for g in runInfo if "GCD" in g['name']][0]
-    #GCDEntry = [g for g in runInfo if g['sub_run']==1 and "GCD" in g['name']][0]
-    GCDFile = os.path.join(GCDEntry['path'][5:],GCDEntry['name'])
+
+    if not cosmicray:
+        GCDEntry = [g for g in runInfo if "GCD" in g['name']][0]
+        #GCDEntry = [g for g in runInfo if g['sub_run']==1 and "GCD" in g['name']][0]
+        GCDFile = os.path.join(GCDEntry['path'][5:],GCDEntry['name'])
+    else:
+        season = libs.config.get_season_by_run(Run)
+
+        if season == -1:
+            logger.critical("Could not determine season for run %s" % Run)
+            exit(1)
+
+        GCDFile = glob.glob("/data/ana/CosmicRay/IceTop_level3/exp/*/GCD/Level3_*%s_data_Run00%s_*_GCD.i3.gz" % (season, Run))
+
+        if len(GCDFile) != 1:
+            logger.debug("glob = %s" % ("/data/ana/CosmicRay/IceTop_level3/exp/*/GCD/Level3_*%s_data_Run00%s_*_GCD.i3.gz" % (season, Run)))
+            logger.critical("Found more than one GCD file: %s" % GCDFile)
+            exit(1)
+
+        GCDFile = GCDFile[0]
+
+        GCDEntry = {
+            'name': os.path.basename(GCDFile),
+            'path': "gsiftp://gridftp.icecube.wisc.edu%s/" % os.path.dirname(GCDFile),
+            'md5sum': FileTools(GCDFile).md5sum(),
+            'size': os.path.getsize(GCDFile)
+        }
+
+        logger.debug("GCDFile = %s" % GCDFile)
+        logger.debug("GCDEntry = %s" % GCDEntry)
+
     lnCmd = "ln -sf %s %s"%(GCDFile,os.path.join(OutDir,os.path.basename(GCDFile)))
     logger.info("Linking GCDFile %s to %s" %(GCDFile,OutDir))
 
@@ -151,7 +179,13 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
     for g in range(len(groups_)-1):
         QId+=1
 
-        p = [r for r in runInfo if r['sub_run'] in range(groups_[g],groups_[g+1])and str(r['sub_run']).zfill(8)+"_" not in r['name'] and r['type']=="PERMANENT"]
+        p = None
+        if not cosmicray:
+            p = [r for r in runInfo if r['sub_run'] in range(groups_[g],groups_[g+1]) and str(r['sub_run']).zfill(8)+"_" not in r['name'] and r['type']=="PERMANENT"]
+        else:
+            p = [r for r in runInfo if r['sub_run'] in range(groups_[g],groups_[g+1]) and str(r['sub_run']).zfill(8)+"_IT" in r['name'] and r['type']=="PERMANENT"]
+
+        logger.debug("p = %s" % p)
 
         # be aware of gaps in the L2 files
         if not len(p):
@@ -175,10 +209,15 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
         dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","INPUT","%s","%s")"""% \
        (DDatasetId,QId,GCDEntry['name'],GCDEntry['path'],GCDEntry['md5sum'],GCDEntry['size']))
     
-    logger.debug("g = %s" % g)
+    p = None
+    if not cosmicray:
+        p = [r for r in runInfo if r['sub_run'] in range(groups_[g+1],lastSubRun+1) and str(r['sub_run']).zfill(8)+"_" not in r['name'] and r['type']=="PERMANENT"]
+    else:
+        p = [r for r in runInfo if r['sub_run'] in range(groups_[g+1],lastSubRun+1) and str(r['sub_run']).zfill(8)+"_IT" in r['name'] and r['type']=="PERMANENT"]
 
-    p = [r for r in runInfo if r['sub_run'] in range(groups_[g+1],lastSubRun+1) and str(r['sub_run']).zfill(8)+"_" not in r['name'] and r['type']=="PERMANENT"]
     for q in p:
+        logger.debug("q = %s" % q)
+
         if not dryrun: dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","INPUT","%s","%s")"""% \
                          (DDatasetId,QId,q['name'],q['path'],q['md5sum'],q['size']))
         
@@ -203,7 +242,7 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
     else:
         logger.info("No meta data files will be written")
 
-def main(SDatasetId, DDatasetId, START_RUN, END_RUN, AGGREGATE, CLEAN_DW, outdir, LINK_ONLY_GCD, NOMETADATA, RESUBMISSION, IGNORE_L2_VALIDATION, logger, DryRun):
+def main(SDatasetId, DDatasetId, START_RUN, END_RUN, AGGREGATE, CLEAN_DW, outdir, LINK_ONLY_GCD, NOMETADATA, RESUBMISSION, IGNORE_L2_VALIDATION, logger, DryRun, cosmicray = False):
     validatedRuns = get_validated_runs_L2(dbs4_, START_RUN, END_RUN)
  
     logger.info("Processing runs between %s and %s" % (START_RUN, END_RUN))
@@ -250,7 +289,7 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, AGGREGATE, CLEAN_DW, outdir
         CleanRun(DDatasetId,s['run_id'],CLEAN_DW,logger,dryrun=DryRun)
         QId = MaxQId(dbs4_,DDatasetId)
         try:
-            SubmitRunL3(DDatasetId, SDatasetId, s['run_id'], QId, outdir, AGGREGATE, logger, LINK_ONLY_GCD, nometadata = NOMETADATA, dryrun=DryRun)
+            SubmitRunL3(DDatasetId, SDatasetId, s['run_id'], QId, outdir, AGGREGATE, logger, LINK_ONLY_GCD, nometadata = NOMETADATA, dryrun=DryRun, cosmicray = cosmicray)
         except TypeError as e:
             print e
             counter['skipped'] = counter['skipped'] + 1
@@ -274,6 +313,7 @@ if __name__ == '__main__':
     parser.add_argument("--nometadata", action="store_true", default=False, dest="NOMETADATA", help="Don't write meta data files")
     parser.add_argument("--resubmission", action="store_true", default=False, dest="RESUBMISSION", help="Don't skip already submitted runs and re-submit them")
     parser.add_argument("--cron", action="store_true", default=False, dest="CRON", help="Execute as cron")
+    parser.add_argument("--cosmicray", action="store_true", default=False, help="Important if you submit L3 jobs for the cosmic ray WG")
     parser.add_argument("--ignoreL2validation", action="store_true", default=False, dest="IGNORE_L2_VALIDATION", help="If you do not care if L2 has not been validated yet. ONLY USE THIS OPTION IF YOU KNOW WHAT YOU ARE DOING! Not available with --cron")
     args = parser.parse_args()
 
@@ -312,6 +352,8 @@ if __name__ == '__main__':
         
     outdir_mapping = libs.config.get_var_dict('L3', 'DatasetOutputDirMapping', keytype = int)
    
+    logger.warning("****** You have activated the Cosmic Ray WG option! *******")
+
     logger.debug("Output mapping: %s" % outdir_mapping);
 
     if not args.CRON:
@@ -333,7 +375,8 @@ if __name__ == '__main__':
             RESUBMISSION = args.RESUBMISSION,
             IGNORE_L2_VALIDATION = args.IGNORE_L2_VALIDATION,
             logger = logger, 
-            DryRun = args.dryrun)
+            DryRun = args.dryrun,
+            cosmicray = args.cosmicray)
     else:
         # Find installed crons
         crons = libs.config.get_var_dict('L3', 'CronJobMainProcessing', keytype = int, valtype = int)
