@@ -246,9 +246,20 @@ def main(config, logger,dryrun = False, check = False):
             RunTimes = R.GetRunTimes()
             InFiles = R.GetRunFiles(RunTimes['tStart'],'P')
 
-            CheckFiles = R.FilesComplete(InFiles, RunTimes, get_tmpdir(), showTimeMismatches = is_good_run)
+            detailed_check_information = {}
+            CheckFiles = R.FilesComplete(InFiles, RunTimes, get_tmpdir(), showTimeMismatches = is_good_run, outdict = detailed_check_information)
 
             logger.debug("Check files returned %s" % CheckFiles)
+
+            # Hack for season 2012: We agreed that we're using the pDAQ/tstart/tstop times (meeting 02/01/2017, John, Dave, Matt, Michael, Colin, Jan)
+            if current_season == 2012 and not CheckFiles:
+                # Check why the CheckFiles went wrong
+                # If it is only the tstart/tstop time, we'll ignore it
+                if len(detailed_check_information[detailed_check_information.keys()[0]]['missing_files']) == 0:
+                    # OK, the only error is a mismatch in start or stop time. We will igore that:
+                    CheckFiles = 1
+
+                logger.warning("*** You are currently import runs of season 2012. We agreed to ignore time mismatches and use the pDAQ times. ***")
    
             #  fill new runs from live in run_info_summary_pass2 
             if not dryrun and (CheckFiles or not is_good_run):
