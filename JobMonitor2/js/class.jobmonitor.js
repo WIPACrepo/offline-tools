@@ -248,7 +248,7 @@ JobMonitor.prototype._endLoading = function() {
     var showL2Warning = false;
     if(typeof this.data !== 'undefined') {
         $.each(this.data['data']['datasets'], function(dataset_id, value) {
-            if(value['selected'] && (value['season'] == 2010 || value['season'] == 2012) && value['type'] === 'L2') {
+            if(value['selected'] && (value['season'] == 2010 || value['season'] == 2012) && value['type'] === 'L2' && dataset_id <= 1872) {
                 showL2Warning = true;
                 return;
             }

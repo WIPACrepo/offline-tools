@@ -26,7 +26,8 @@ $CONFIG = array(
     'api_version' => '1.1',
     'svn' => '$Id$',
     'svn_url' => 'http://code.icecube.wisc.edu/projects/icecube/browser/IceCube/sandbox/jan/JobMonitor2',
-    'data_warehouse' => 'http://icecube:skua@128.104.255.226'
+    'data_warehouse' => 'http://icecube:skua@128.104.255.226',
+    'path_prefixes' => array('file:', 'gsiftp://gridftp.icecube.wisc.edu')
 );
 
 // Change svn value

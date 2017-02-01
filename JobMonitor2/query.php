@@ -16,7 +16,8 @@ try {
                                 $CONFIG['live_db_host'],
                                 $CONFIG['live_db_username'],
                                 $CONFIG['live_db_password'],
-                                $CONFIG['live_db_database']);
+                                $CONFIG['live_db_database'],
+                                $CONFIG['path_prefixes']);
     
     // Set defaults
     $pjobs->set_dataset_id($CONFIG['default_dataset_id']);
