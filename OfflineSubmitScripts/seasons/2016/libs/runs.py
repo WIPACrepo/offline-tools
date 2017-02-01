@@ -20,6 +20,18 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
         logger (logging.Logger): The logger
     """
 
+    # Using grid or NPX?
+    grid = dbs4_.fetchall("SELECT * FROM i3filter.grid_statistics WHERE dataset_id = %s;" % DatasetId, UseDict = True)
+
+    logger.debug("DB result = %s" % grid)
+
+    path_prefix = 'file:'
+    if grid[0]['grid_id'] == 14:
+        grid = True
+        path_prefix = 'gsiftp://gridftp.icecube.wisc.edu'
+    else:
+        grid = False
+
     logger.info("""Submitting Run = %s , Current Status = %s"""%(g['run_id'],status))
     InFiles = []
     
@@ -88,7 +100,7 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
     
             if os.path.isfile(GCDFileName) and not dryrun:
                 dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","INPUT","%s","%s")"""% \
-                             (DatasetId,QueueId,os.path.basename(GCDFileName),"file:"+os.path.dirname(GCDFileName)+"/",GCDFileChkSum,str(os.path.getsize(GCDFileName))))
+                             (DatasetId,QueueId,os.path.basename(GCDFileName),path_prefix+os.path.dirname(GCDFileName)+"/",GCDFileChkSum,str(os.path.getsize(GCDFileName))))
     
             if InFile in ExistingChkSums:
                 logger.debug("Use cached check sum for %s" % InFile)
@@ -99,7 +111,7 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
     
             if not dryrun:
                 dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","INPUT","%s","%s")"""% \
-                             (DatasetId,QueueId,os.path.basename(InFile),"file:"+os.path.dirname(InFile)+"/",InFileChkSum,str(os.path.getsize(InFile))))
+                             (DatasetId,QueueId,os.path.basename(InFile),path_prefix+os.path.dirname(InFile)+"/",InFileChkSum,str(os.path.getsize(InFile))))
     
                 dbs4_.execute("""insert into i3filter.run (run_id,dataset_id,queue_id,sub_run,date) values (%s,%s,%s,%s,"%s")"""%(g['run_id'],DatasetId,QueueId,CountSubRun,str(sDay.date())))
 
