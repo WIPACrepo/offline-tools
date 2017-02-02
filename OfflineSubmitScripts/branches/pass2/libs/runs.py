@@ -26,11 +26,10 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
     logger.debug("DB result = %s" % grid)
 
     path_prefix = 'file:'
-    if grid[0]['grid_id'] == 14:
-        grid = True
-        path_prefix = 'gsiftp://gridftp.icecube.wisc.edu'
-    else:
-        grid = False
+    for row in grid:
+        if row['grid_id'] == 14:
+            path_prefix = 'gsiftp://gridftp.icecube.wisc.edu'
+            break
 
     logger.info("""Submitting Run = %s , Current Status = %s"""%(g['run_id'],status))
     InFiles = []
@@ -45,7 +44,9 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
     logger.debug('Get PFFilt files')
 
     InFiles = R.GetRunFiles(g['tStart'],'P')        
-    
+   
+    logger.debug("InFiles = %s" % InFiles)
+ 
     MainOutputDir = OutputDir = "/data/exp/IceCube/%s/filtered/level2pass2/%s%s/"%(sY,sM,sD)
     if not os.path.exists(MainOutputDir) and not dryrun:
         os.mkdir(MainOutputDir)

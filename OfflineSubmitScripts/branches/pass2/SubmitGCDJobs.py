@@ -160,8 +160,8 @@ if __name__ == '__main__':
                 os.makedirs(GCDDirAll)
             if not os.path.exists(GCDDirVerified):
                 os.makedirs(GCDDirVerified)
-       
-        GCDFilesPass1 = glob.glob(os.path.join(GCDDirPass1, "Level2_%sdata_Run00%s_*_*_GCD.i3.gz" % (Season, r)))
+      
+        GCDFilesPass1 = glob.glob(os.path.join(GCDDirPass1, "Level2_%sdata_Run00%s_*GCD.i3.gz" % (Season, r)))
 
         logger.debug("GCDFilesPass1 = %s" % GCDFilesPass1)
 
