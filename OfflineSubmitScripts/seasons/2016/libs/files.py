@@ -860,6 +860,20 @@ def insert_gap_file_info_and_delete_files(run_path, dryrun, logger):
 
 #############################################
 
+def remove_path_prefix(path):
+    """
+    Removes `file:` or `gsiftp://gridftp.icecube.wisc.edu` from path.
+    """
+
+    prefix = ['file:', 'gsiftp://gridftp.icecube.wisc.edu']
+
+    for p in prefix:
+        if path.startswith(p):
+            return path[len(p):]
+
+    return path
+
+#############################################
 if __name__ == "__main__":
     for i in [get_rootdir(),get_logdir(),get_tmpdir()]:
         print i, os.path.exists(i)

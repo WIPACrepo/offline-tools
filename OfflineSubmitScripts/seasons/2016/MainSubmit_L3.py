@@ -13,7 +13,7 @@ import time
 import datetime
 import pymysql as MySQLdb
 
-from libs.files import get_logdir, get_tmpdir, write_meta_xml_main_processing
+from libs.files import get_logdir, get_tmpdir, write_meta_xml_main_processing, remove_path_prefix
 import libs.config
 sys.path.append(libs.config.get_config().get('DEFAULT', 'SQLClientPath'))
 sys.path.append(libs.config.get_config().get('DEFAULT', 'ProductionToolsPath'))
@@ -37,6 +37,7 @@ from libs.runs import set_post_processing_state, get_validated_runs_L2
 from libs.dbtools import max_queue_id as MaxQId
 import libs.process
 import json
+import shutil
 
 # FIXME: this CleanRun is slightly different from libs.runs.clean_ru
 # TODO: unify!
@@ -84,6 +85,8 @@ def CleanRun(DatasetId,Run,CLEAN_DW,logger,dryrun=False):
         dbs4_.execute("""delete from i3filter.run where dataset_id=%s and queue_id in (%s)"""%(DatasetId,CleanListStr))
         set_post_processing_state(run_id = Run, dataset_id = DatasetId, validated = 0, dbs4 = dbs4_, dryrun = dryrun, logger = logger)
         
+def add_prefix(path, prefix):
+    return prefix + remove_path_prefix(path)
 
 def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, linkonlygcd, nometadata, dryrun = False, cosmicray = False):
     """
@@ -134,7 +137,18 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
         groups_ = range(firstSubRun,lastSubRun,AGGREGATE)
     else:
         groups_ = range(firstSubRun,lastSubRun+1)
-    
+   
+    # Using grid or NPX?
+    grid = dbs4_.fetchall("SELECT * FROM i3filter.grid_statistics WHERE dataset_id = %s;" % DDatasetId, UseDict = True)
+
+    logger.debug("DB result = %s" % grid)
+
+    path_prefix = 'file:'
+    for row in grid:
+        if row['grid_id'] == 14:
+            path_prefix = 'gsiftp://gridftp.icecube.wisc.edu'
+            break
+ 
     # FIXME: g["sub_run"] == 1 is a wild guess and not kosher!
     # FIXME: we need something to find the gcd for a run    
     # This seems to be fixed, however 
@@ -150,10 +164,10 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
             logger.critical("Could not determine season for run %s" % Run)
             exit(1)
 
-        GCDFile = glob.glob("/data/ana/CosmicRay/IceTop_level3/exp/*/GCD/Level3_*%s_data_Run00%s_*_GCD.i3.gz" % (season, Run))
+        GCDFile = glob.glob("/data/ana/CosmicRay/IceTop_level3/exp/*/production/GCD/Level3_*%s_data_Run00%s_*_GCD.i3.gz" % (season, Run))
 
         if len(GCDFile) != 1:
-            logger.debug("glob = %s" % ("/data/ana/CosmicRay/IceTop_level3/exp/*/GCD/Level3_*%s_data_Run00%s_*_GCD.i3.gz" % (season, Run)))
+            logger.debug("glob = %s" % ("/data/ana/CosmicRay/IceTop_level3/exp/*/production/GCD/Level3_*%s_data_Run00%s_*_GCD.i3.gz" % (season, Run)))
             logger.critical("Found more than one GCD file: %s" % GCDFile)
             exit(1)
 
@@ -169,12 +183,22 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
         logger.debug("GCDFile = %s" % GCDFile)
         logger.debug("GCDEntry = %s" % GCDEntry)
 
-    lnCmd = "ln -sf %s %s"%(GCDFile,os.path.join(OutDir,os.path.basename(GCDFile)))
-    logger.info("Linking GCDFile %s to %s" %(GCDFile,OutDir))
+    if not cosmicray:
+        lnCmd = "ln -sf %s %s"%(GCDFile,os.path.join(OutDir,os.path.basename(GCDFile)))
+        logger.info("Linking GCDFile %s to %s" %(GCDFile,OutDir))
 
-    if not dryrun or linkonlygcd:
+    if (not dryrun or linkonlygcd) and not cosmicray:
         os.system(lnCmd)
         logger.debug("Created GCD link")
+
+    if cosmicray:
+        logger.debug("Copy GCD file %s to %s" % (GCDFile, os.path.join(OutDir,os.path.basename(GCDFile))))
+
+        GCDEntry['path'] = "gsiftp://gridftp.icecube.wisc.edu%s/" % OutDir
+        logger.info("Use copied GCD file as input file: %s" % GCDEntry['path'])
+
+        if not dryrun:
+            shutil.copy(GCDFile, os.path.join(OutDir,os.path.basename(GCDFile)))
 
     for g in range(len(groups_)-1):
         QId+=1
@@ -199,6 +223,8 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
     
         # p are the subruns in the aggregated batch 
         for q in p:
+            q['path'] = add_prefix(q['path'], path_prefix)
+
             if not dryrun:dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","INPUT","%s","%s")"""%(DDatasetId,QId,q['name'],q['path'],q['md5sum'],q['size']))
         if not dryrun: dbs4_.execute("""insert into i3filter.run (run_id,dataset_id,queue_id,sub_run,date) values (%s,%s,%s,%s,"%s")"""%(Run,DDatasetId,QId,p[0]['sub_run'],q['date']))
     
@@ -216,6 +242,8 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
         p = [r for r in runInfo if r['sub_run'] in range(groups_[g+1],lastSubRun+1) and str(r['sub_run']).zfill(8)+"_IT" in r['name'] and r['type']=="PERMANENT"]
 
     for q in p:
+        q['path'] = add_prefix(q['path'], path_prefix)
+
         logger.debug("q = %s" % q)
 
         if not dryrun: dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","INPUT","%s","%s")"""% \
