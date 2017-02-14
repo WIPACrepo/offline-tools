@@ -20,13 +20,29 @@ from sys import exit
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
 import libs.checks
+from libs.databaseconnection import DatabaseConnection
 from RunTools import RunTools
+from icecube.dataclasses import I3Time
 
 import sys
 
 dbs4_ = dbs4.MySQL()
 m_live = live.MySQL()
 dbs2_ = dbs2.MySQL()
+
+def get_gaps_file_data(db, runs):
+    sql = "SELECT * FROM sub_runs WHERE run_id IN (%s)" % ','.join([str(r) for r in runs])
+
+    dbdata = db.fetchall(sql, UseDict = True)
+
+    data = {}
+    for row in dbdata:
+        if row['run_id'] not in data:
+            data[row['run_id']] = {}
+
+        data[row['run_id']][row['sub_run']] = row 
+
+    return data
 
 def send_check_notification(logger, dryrun, config, new_records, changed_records):
     sys.path.append(config.get('DEFAULT', 'ProductionToolsPath'))
@@ -215,7 +231,12 @@ def main(config, logger,dryrun = False, check = False):
             if continueProcessing.upper() != "Y":
                 logger.info("halting processig due to user intervention ...")
                 exit (0)
-    
+   
+    # Hack for seaosn 2011: Getting start/stop times from pass1 L2 files
+    if current_season == 2011:
+        filter_db = DatabaseConnection.get_connection('filter-db', logger)
+        gaps_data = get_gaps_file_data(filter_db, RunNums_)
+ 
     #ChangedRecords_ = [c_['run_id'] for c_ in cRecords_]
     ChangedRecords_ = newSnapshotForRun
     if len(cRecords_):
@@ -238,6 +259,10 @@ def main(config, logger,dryrun = False, check = False):
             logger.info("Skip run %s because it is a bad run" % r)
             continue
 
+        if r in [119194, 119398]:
+            logger.warning("Skip run %s because it has bad InIce % r")
+            continue
+
         if r in OldRecords_ : continue
         if r in NewRecords_:
             logger.info("entering new records for run = %s"%r)
@@ -252,15 +277,19 @@ def main(config, logger,dryrun = False, check = False):
             logger.debug("Check files returned %s" % CheckFiles)
 
             # Hack for season 2012: We agreed that we're using the pDAQ/tstart/tstop times (meeting 02/01/2017, John, Dave, Matt, Michael, Colin, Jan)
-            if current_season == 2012 and not CheckFiles:
+            # Hack for season 2011: We agreed that we don't have any `good` time information at all. Therefore, we will process the entire files.
+            if current_season in [2011, 2012] and not CheckFiles:
                 # Check why the CheckFiles went wrong
                 # If it is only the tstart/tstop time, we'll ignore it
                 if len(detailed_check_information[detailed_check_information.keys()[0]]['missing_files']) == 0:
                     # OK, the only error is a mismatch in start or stop time. We will igore that:
                     CheckFiles = 1
 
-                logger.warning("*** You are currently import runs of season 2012. We agreed to ignore time mismatches and use the pDAQ times. ***")
-   
+                if current_season == 2012:
+                    logger.warning("*** You are currently import runs of season 2012. We agreed to ignore time mismatches and use the pDAQ times. ***")
+                elif current_season == 2011:
+                    logger.warning("*** You are currently import runs of season 2011. We agreed to ignore time mismatches and process the entire file. ***")
+  
             #  fill new runs from live in run_info_summary_pass2 
             if not dryrun and (CheckFiles or not is_good_run):
                 logger.debug("Insert run into run_info_summary_pass2")
@@ -291,6 +320,28 @@ def main(config, logger,dryrun = False, check = False):
         if RunInfo_[r]['good_tstop'] != "NULL"  : goodStop = RunInfo_[r]['good_tstop']
         goodStop_frac = RunInfo_[r]['tStop_frac']
         if RunInfo_[r]['good_tstop_frac'] != "NULL"  : goodStop_frac = RunInfo_[r]['good_tstop_frac']
+
+        # Hack for season 2011: Use as good start/stop times the PFDS start/end time
+        if current_season == 2011:
+            if r not in gaps_data:
+                logger.fatal('*** Run %s of season 2011 does not have proper start/stop meta information. ***' % r)
+                exit(-1)
+
+            first_sr = min(gaps_data[r].keys())
+            last_sr = max(gaps_data[r].keys())
+
+            gaps_data_first_sr = I3Time(gaps_data[r][first_sr]['first_event_year'], gaps_data[r][first_sr]['first_event_frac'])
+            gaps_data_last_sr = I3Time(gaps_data[r][last_sr]['last_event_year'], gaps_data[r][last_sr]['last_event_frac'])
+
+            logger.warning('*** Old start/stop time information: good_tstart = %s, good_tstart_frac = %s, good_tstop = %s, good_tstop_frac = %s ***' % (goodStart, goodStart_frac, goodStop, goodStop_frac))
+
+            goodStart = gaps_data_first_sr.date_time
+            goodStart_frac = gaps_data_first_sr.utc_nano_sec * 10
+            goodStop = gaps_data_last_sr.date_time
+            goodStop_frac = gaps_data_last_sr.utc_nano_sec * 10
+
+            logger.warning('*** New start/stop time information: good_tstart = %s, good_tstart_frac = %s, good_tstop = %s, good_tstop_frac = %s ***' % (goodStart, goodStart_frac, goodStop, goodStop_frac))
+
         # Check PFFilt files if there are empty and/or have no reading permission
         fileChkRlt = libs.checks.pffilt_size_and_permission(r, RunInfo_[r]['tStart'].year, RunInfo_[r]['tStart'].month, RunInfo_[r]['tStart'].day, logger, False)
         if len(fileChkRlt['empty']) + len(fileChkRlt['permission']) + len(fileChkRlt['emptyAndPermission']) > 0:

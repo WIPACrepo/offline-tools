@@ -163,6 +163,7 @@ if __name__ == '__main__':
       
         GCDFilesPass1 = glob.glob(os.path.join(GCDDirPass1, "Level2_%sdata_Run00%s_*GCD.i3.gz" % (Season, r)))
 
+        logger.debug("GCDFilesPass1 glob expression: %s" % os.path.join(GCDDirPass1, "Level2_%sdata_Run00%s_*GCD.i3.gz" % (Season, r)))
         logger.debug("GCDFilesPass1 = %s" % GCDFilesPass1)
 
         # Check for multiple GCD files

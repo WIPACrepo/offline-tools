@@ -91,7 +91,7 @@ def main(params, logger, DryRun):
         
             QId = max_queue_id(dbs4_, dataset_id)
             
-            submit_run(dbs4_, g, status, dataset_id, QId, ExistingChkSums, DryRun, logger)
+            submit_run(dbs4_, g, status, dataset_id, QId, ExistingChkSums, DryRun, logger, use_std_gcds = args.USE_STD_GCDS)
         
             if not args.NOMETADATA and (g['good_i3'] or g['good_it']):
                 meta_file_dest = ''
@@ -152,6 +152,9 @@ if __name__ == '__main__':
 
     parser.add_argument("--nometadata", action="store_true", default=False,
               dest="NOMETADATA", help="Don't write meta data files")
+
+    parser.add_argument("--use-std-GCDs", action="store_true", default=False,
+              dest="USE_STD_GCDS", help="Don't use pass2 GCD files. Use pass1 GCD files. This flag should be set for season 2015, 2016... because those GCD files already have the SPE correction")
 
     args = parser.parse_args()
 

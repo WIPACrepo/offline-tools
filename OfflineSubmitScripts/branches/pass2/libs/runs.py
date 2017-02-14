@@ -5,7 +5,7 @@ import os
 import glob
 from logger import DummyLogger
 
-def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, logger):
+def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, logger, use_std_gcds = False):
     """
     Submits the run. It makes all the inserts to the database.
 
@@ -57,11 +57,16 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
     
     logger.debug('Find GCD file')
 
+    pass2GCD = 'pass2'
+
+    if use_std_gcds:
+        pass2GCD = ''
+
     GCDFileName = []
-    GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2pass2/VerifiedGCD/*Run00%s*%s_%s*"%(sY,g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
+    GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2%s/VerifiedGCD/*Run00%s*%s_%s*"%(sY, pass2GCD, g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
     
     if not len(GCDFileName):
-        GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2pass2/AllGCD/*Run00%s*%s_%s*"%(sY,g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
+        GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2%s/AllGCD/*Run00%s*%s_%s*"%(sY, pass2GCD, g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
     
     if len(GCDFileName):
         logger.debug('Calculate MD5 sum and create symlink for GCD file')
