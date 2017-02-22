@@ -30,11 +30,14 @@ require_once('config.php');
     <script src="js/bootstrap.min.js"></script>
     <script src="js/bootstrap-select.min.js"></script>
     <script src="js/dataTables.bootstrap.min.js"></script>
+    <script src="js/Chart.bundle.min.js"></script>
+    <script src="js/seedrandom.min.js"></script>
     <script src="js/class.jobmonitor.location.js"></script>
     <script src="js/class.jobmonitor.view.js"></script>
     <script src="js/class.jobmonitor.views.js"></script>
     <script src="js/class.jobmonitor.calendar.js"></script>
     <script src="js/class.jobmonitor.jobs.js"></script>
+    <script src="js/class.jobmonitor.datasetinfo.js"></script>
     <script src="js/class.jobmonitor.updater.js"></script>
     <script src="js/class.jobmonitor.datasets.js"></script>
     <script src="js/class.jobmonitor.search.js"></script>
@@ -75,6 +78,7 @@ require_once('config.php');
               <ul class="dropdown-menu">
                 <li><a href="#" data-target="calendarView"><span class="glyphicon glyphicon-check" aria-hidden="true"></span> Calendar</a></li>
                 <li><a href="#" data-target="jobsView"><span class="glyphicon glyphicon-check" aria-hidden="true"></span> Processing/Failed Jobs</a></li>
+                <li><a href="#" data-target="datasetInfoView"><span class="glyphicon glyphicon-check" aria-hidden="true"></span> Dataset Information</a></li>
               </ul>
             </li>
             <li class="dropdown" id="jm-dataset-dropdown">
@@ -117,7 +121,7 @@ require_once('config.php');
 
       <div class="panel panel-default" id="jm-content-view-calendar" style="display: none">
         <div class="panel-heading">
-          <h3 class="panel-title jm-view-header">Calendar View</h3>
+          <h3 class="panel-title jm-view-header"><span>Calendar View</span> <i class="fa fa-spinner fa-pulse fa-fw"></i></h3>
         </div>
         <div class="panel-body jm-view-content">
           Not loaded yet...
@@ -126,7 +130,7 @@ require_once('config.php');
 
       <div class="panel panel-default" id="jm-content-view-current-jobs" style="display: none">
         <div class="panel-heading">
-          <h3 class="panel-title jm-view-header">Jobs</h3>
+          <h3 class="panel-title jm-view-header"><span>Jobs</span> <i class="fa fa-spinner fa-pulse fa-fw"></i></h3>
         </div>
         <div class="panel-body jm-view-content">
           Not loaded yet...
@@ -135,12 +139,20 @@ require_once('config.php');
 
       <div class="panel panel-default" id="jm-content-view-dataset-selection">
         <div class="panel-heading">
-          <h3 class="panel-title jm-view-header">Select Dataset</h3>
+          <h3 class="panel-title jm-view-header"><span>Select Dataset</span> <i class="fa fa-spinner fa-pulse fa-fw"></i></h3>
         </div>
         <div class="panel-body jm-view-content">
           Not loaded yet...
         </div>
       </div>    
+      <div class="panel panel-default" id="jm-content-view-dataset-info" style="display: none">
+        <div class="panel-heading">
+          <h3 class="panel-title jm-view-header"><span>Dataset Information</span> <i class="fa fa-spinner fa-pulse fa-fw"></i></h3>
+        </div>
+        <div class="panel-body jm-view-content">
+          Not loaded yet...
+        </div>
+      </div>
     </div>
 
     <div class="modal fade" id="jm-dialog-search" tabindex="-1" role="dialog" aria-labelledby="jm-dialog-label">

@@ -49,7 +49,8 @@ function JobMonitor(params) {
 
     this.views = {
         'calendarView': new JobMonitorCalendar(this.url, this.isTouchDevice),
-        'jobsView': new JobMonitorJobs(this.url)
+        'jobsView': new JobMonitorJobs(this.url),
+        'datasetInfoView': new JobMonitorDatasetInformation('dataset.php', this, function() {return iam.datasets.getSelectedDataset();})
     };
 
     this.staticPages = {
