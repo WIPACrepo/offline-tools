@@ -160,11 +160,25 @@ JobMonitorJobs.prototype._createStatusList = function(states) {
 
     $.each(states, function(state, num) {
         if(num > 0) {
-            list.push(state);
+            var color = 'default';
+
+            if(state == 'FAILED') {
+                color = 'danger';
+            } else if(state == 'ERROR') {
+                color = 'warning';
+            } else if(state == 'OK') {
+                color = 'success';
+            } else if(state == 'PROCESSING') {
+                color = 'primary';
+            } else if(state == 'COPIED' || state == 'COPYING') {
+                color = 'info';
+            }
+
+            list.push('<span class="label label-' + color + '">' + state + ' (' + num + ')</span>');
         }
     });
 
-    return list.join(',');
+    return list.join(' ');
 }
 
 JobMonitorJobs.prototype._createFailureList = function(failures) {
