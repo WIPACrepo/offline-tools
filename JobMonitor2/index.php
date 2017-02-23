@@ -32,17 +32,17 @@ require_once('config.php');
     <script src="js/dataTables.bootstrap.min.js"></script>
     <script src="js/Chart.bundle.min.js"></script>
     <script src="js/seedrandom.min.js"></script>
-    <script src="js/class.jobmonitor.location.js"></script>
-    <script src="js/class.jobmonitor.view.js"></script>
-    <script src="js/class.jobmonitor.views.js"></script>
-    <script src="js/class.jobmonitor.calendar.js"></script>
-    <script src="js/class.jobmonitor.jobs.js"></script>
-    <script src="js/class.jobmonitor.datasetinfo.js"></script>
-    <script src="js/class.jobmonitor.updater.js"></script>
-    <script src="js/class.jobmonitor.datasets.js"></script>
-    <script src="js/class.jobmonitor.search.js"></script>
-    <script src="js/class.jobmonitor.js"></script>
-    <script src="js/jobmonitor.js"></script>
+    <script src="js/class.jobmonitor.location.js?v=<?php print($CONFIG['_version']); ?>"></script>
+    <script src="js/class.jobmonitor.view.js?v=<?php print($CONFIG['_version']); ?>"></script>
+    <script src="js/class.jobmonitor.views.js?v=<?php print($CONFIG['_version']); ?>"></script>
+    <script src="js/class.jobmonitor.calendar.js?v=<?php print($CONFIG['_version']); ?>"></script>
+    <script src="js/class.jobmonitor.jobs.js?v=<?php print($CONFIG['_version']); ?>"></script>
+    <script src="js/class.jobmonitor.datasetinfo.js?v=<?php print($CONFIG['_version']); ?>"></script>
+    <script src="js/class.jobmonitor.updater.js?v=<?php print($CONFIG['_version']); ?>"></script>
+    <script src="js/class.jobmonitor.datasets.js?v=<?php print($CONFIG['_version']); ?>"></script>
+    <script src="js/class.jobmonitor.search.js?v=<?php print($CONFIG['_version']); ?>"></script>
+    <script src="js/class.jobmonitor.js?v=<?php print($CONFIG['_version']); ?>"></script>
+    <script src="js/jobmonitor.js?v=<?php print($CONFIG['_version']); ?>"></script>
   </head>
   <body>
     <div class="jm-invisible" id="jm-api-version"><?php print($CONFIG['api_version']); ?></div>

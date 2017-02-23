@@ -158,7 +158,11 @@ JobMonitorJobs.prototype._createFooter = function(api, row, data, start, end, di
 JobMonitorJobs.prototype._createStatusList = function(states) {
     var list = [];
 
-    $.each(states, function(state, num) {
+    var sortedKeys = Object.keys(states).sort(function(a,b) {return states[b] - states[a];});
+
+    $.each(sortedKeys, function(index, state) {
+        var num = states[state];
+
         if(num > 0) {
             var color = 'default';
 

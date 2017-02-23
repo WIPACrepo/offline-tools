@@ -150,6 +150,9 @@ JobMonitorDatasetInformation.prototype._chartGetColorList = function(length) {
 
 JobMonitorDatasetInformation.prototype._generateCharts = function(data) {
     // ===============================================================
+    var sortedKeysOfSites = Object.keys(data['data']['statistics']['execution_time']).sort(function(a,b) {
+        return data['data']['statistics']['execution_time'][b]['jobs'] - data['data']['statistics']['execution_time'][a]['jobs'];
+    });
 
     var execchartdata = {
         'data': [],
@@ -160,7 +163,9 @@ JobMonitorDatasetInformation.prototype._generateCharts = function(data) {
         'total_jobs': 0
     };
 
-    $.each(data['data']['statistics']['execution_time'], function(host, value) {
+    $.each(sortedKeysOfSites, function(index, host) {
+        var value = data['data']['statistics']['execution_time'][host];
+
         execchartdata['data'].push(value['exec_average']);
         execchartdata['labels'].push(host);
         execchartdata['total_jobs'] += value['jobs'];
@@ -215,6 +220,39 @@ JobMonitorDatasetInformation.prototype._generateCharts = function(data) {
     });
 
     // ===============================================================
+    var jobs_chart_ctx = $('#jobs-chart');
+    var jobs_chart = new Chart(jobs_chart_ctx, {
+        type: 'bar',
+        data: {
+            labels: execchartdata['labels'],
+            datasets: [{
+                type: 'bar',
+                backgroundColor: execchartdata['colors'],
+                data: execchartdata['jobs']
+            }]
+        },
+        options: {
+            responsive: true,
+            title: {
+                display: true,
+                text: 'Number of Jobs per Host'
+            },
+            legend: {
+                position: 'left',
+                display: false
+            },
+            scales: {
+                yAxes: [{
+                    scaleLabel: {
+                        display: true,
+                        labelString: 'Number of Jobs'
+                    }
+                }]
+            }
+        }
+    });
+
+    // ===============================================================
     var gridchartdata = {
         'data': [data['data']['number_of_jobs']],
         'labels': ['unassigned'],
@@ -248,6 +286,7 @@ JobMonitorDatasetInformation.prototype._generateCharts = function(data) {
             }
         }
     });
+    // ===============================================================
 }
 
 JobMonitorDatasetInformation.prototype._queryComplete = function(data) {
@@ -320,6 +359,11 @@ JobMonitorDatasetInformation.prototype._queryComplete = function(data) {
     content += '<div class="row">';
     content += '<div class="col-md-8"><canvas id="exec-chart"></canvas></div>';
     content += '<div class="col-md-4"><canvas id="grid-chart"></canvas></div>';
+    content += '</div>';
+
+    content += '<div class="row">';
+    content += '<div class="col-md-8"><canvas id="jobs-chart"></canvas></div>';
+    content += '<div class="col-md-4"></div>';
     content += '</div>';
 
     this.getContent().html(content);
