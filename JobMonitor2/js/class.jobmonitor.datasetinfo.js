@@ -6,6 +6,7 @@ function JobMonitorDatasetInformation(queryUrl, main, get_selected_dataset) {
     this.main = main;
     this.datasetId = undefined;
     this.dataLoaded = false;
+    this.runData = undefined;
 
     var horizonalLinePlugin = {
       afterDraw: function(chartInstance) {
@@ -62,6 +63,7 @@ JobMonitorDatasetInformation.prototype.constructor = JobMonitorDatasetInformatio
 JobMonitorDatasetInformation.prototype.updateView = function(data) {
     this.datasetId = this.get_selected_dataset();
     this.dataLoaded = false;
+    this.runData = data;
 
     if(this.isDisplayed()) {
         this._queryData();
@@ -287,6 +289,67 @@ JobMonitorDatasetInformation.prototype._generateCharts = function(data) {
         }
     });
     // ===============================================================
+
+    var rawData = {};
+
+    $.each(this.runData['runs'], function(runId, value) {
+        $.each(value['jobs_states'], function(name, jobs) {
+            if(!(name in rawData) && jobs > 0) {
+                rawData[name] = 0;
+            }
+
+            if(jobs > 0) {
+                rawData[name] += jobs;
+            }
+        });
+    });
+    
+    var sortedKeys = Object.keys(rawData).sort();
+
+    var statuschartdata = {
+        'label': sortedKeys,
+        'data': [],
+        'colors': this._chartGetColorList(sortedKeys.length)
+    };
+
+    sortedKeys.forEach(function(key) {
+        statuschartdata['data'].push(rawData[key]);
+    });
+
+    console.log(statuschartdata);
+
+    var status_chart_ctx = $('#status-chart');
+    var status_chart = new Chart(status_chart_ctx, {
+        type: 'bar',
+        data: {
+            labels: statuschartdata['label'],
+            datasets: [{
+                backgroundColor: statuschartdata['colors'],
+                data: statuschartdata['data']
+            }]
+        },
+        options: {
+            responsive: true,
+            title: {
+                display: true,
+                text: 'Job Status'
+            },
+            legend: {
+                position: 'left',
+                display: false
+            },
+            scales: {
+                yAxes: [{
+                    type: 'logarithmic',
+                    scaleLabel: {
+                        display: true,
+                        labelString: 'Number of Jobs'
+                    }
+                }]
+            }
+        }
+    });
+
 }
 
 JobMonitorDatasetInformation.prototype._queryComplete = function(data) {
@@ -363,7 +426,7 @@ JobMonitorDatasetInformation.prototype._queryComplete = function(data) {
 
     content += '<div class="row">';
     content += '<div class="col-md-8"><canvas id="jobs-chart"></canvas></div>';
-    content += '<div class="col-md-4"></div>';
+    content += '<div class="col-md-4"><canvas id="status-chart"></canvas></div>';
     content += '</div>';
 
     this.getContent().html(content);
