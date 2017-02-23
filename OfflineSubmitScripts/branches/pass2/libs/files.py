@@ -35,6 +35,8 @@ def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
     Returns:
         None
     """
+    from runs import get_run_lifetime
+
     RunInfo = dbs4_.fetchall("""SELECT * FROM i3filter.grl_snapshot_info_pass2 g
                                  JOIN i3filter.run_info_summary_pass2 r ON r.run_id=g.run_id
                                  JOIN i3filter.run jr ON jr.run_id=r.run_id
@@ -77,9 +79,8 @@ def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
     
         StartTime = RunInfoDict[k]['tStart'] 
 
-        LT = RunInfoDict[k]['good_tstop'] - RunInfoDict[k]['good_tstart']
-        LiveTime = (LT.microseconds + (LT.seconds + LT.days *24 *3600) * 10**6) / 10**6
-        
+        LiveTime = get_run_lifetime(k, logger)
+
         Comments = ""
         if config.is_test_run(int(k)):
             Comments = "IC86_%s 24hr test run" % ProductionYear
@@ -348,10 +349,18 @@ def TrimFile(dbs4_, InFile, GoodStart, GoodEnd, dataset_id, logger = DummyLogger
                         (str(FileTools(InFile_, logger).md5sum()), str(os.path.getsize(InFile_)), dataset_id, InFile_))
         
         # re-write gaps.txt file using new (trimmed) .i3 file
+        FirstEvent = None
         if InFile_ == InFile:
             TFile = dataio.I3File(InFile_)
-            FirstEvent = TFile.pop_frame()['I3EventHeader']
-            while TFile.more(): LastEvent = TFile.pop_frame()['I3EventHeader']
+            while TFile.more():
+                frame = TFile.pop_frame()
+
+                if 'I3EventHeader' in frame.keys():
+                    if FirstEvent is None:
+                        FirstEvent = frame['I3EventHeader']
+
+                    LastEvent = frame['I3EventHeader']
+
             TFile.close()
             GFile = InFile.replace(".i3.bz2","_gaps.txt")
             if os.path.isfile(GFile):
@@ -805,7 +814,7 @@ def insert_gap_file_info_and_delete_files(run_path, dryrun, logger):
     else:
         logger.info("%s gaps files were found that will be copied to the DB and then deleted" % len(gaps_files))
 
-    sql = """INSERT INTO sub_runs 
+    sql = """INSERT INTO sub_runs_pass2 
                 (run_id, sub_run, first_event, last_event, first_event_year, first_event_frac, last_event_year, last_event_frac, livetime)
              VALUES %s
              ON DUPLICATE KEY UPDATE first_event = VALUES(first_event),
@@ -837,7 +846,7 @@ def insert_gap_file_info_and_delete_files(run_path, dryrun, logger):
 
         if gf.has_gaps():
             for gap in gf.get_gaps():
-                gap_insert_sql = 'INSERT INTO gaps (run_id, sub_run, prev_event_id, curr_event_id, delta_time, prev_event_frac, curr_event_frac) VALUES (%s, %s, %s, %s, %s, %s, %s)'
+                gap_insert_sql = 'INSERT INTO gaps_pass2 (run_id, sub_run, prev_event_id, curr_event_id, delta_time, prev_event_frac, curr_event_frac) VALUES (%s, %s, %s, %s, %s, %s, %s)'
                 gaps.append(gap_insert_sql % (gf.get_run_id(), gf.get_sub_run_id(), gap['prev_event_id'],  gap['curr_event_id'],  gap['dt'],  gap['prev_event_frac'], gap['curr_event_frac']))
 
     if not dryrun:
@@ -857,9 +866,23 @@ def insert_gap_file_info_and_delete_files(run_path, dryrun, logger):
             logger.debug("Deleting %s" % file)
             os.remove(file)
     
-
 #############################################
 
+def remove_path_prefix(path):
+    """ 
+    Removes `file:` or `gsiftp://gridftp.icecube.wisc.edu` from path.
+    """
+
+    prefix = ['file:', 'gsiftp://gridftp.icecube.wisc.edu']
+
+    for p in prefix:
+        if path.startswith(p):
+            return path[len(p):]
+
+    return path
+
+#############################################
+ 
 if __name__ == "__main__":
     for i in [get_rootdir(),get_logdir(),get_tmpdir()]:
         print i, os.path.exists(i)

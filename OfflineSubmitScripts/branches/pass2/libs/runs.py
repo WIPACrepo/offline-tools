@@ -63,11 +63,20 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
         pass2GCD = ''
 
     GCDFileName = []
-    GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2%s/VerifiedGCD/*Run00%s*%s_%s*"%(sY, pass2GCD, g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
-    
+
+    if not use_std_gcds:
+        GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2%s/VerifiedGCD/*Run00%s*%s_%s*"%(sY, pass2GCD, g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
+    else:
+        GCDFileName = list(reversed(sorted(glob.glob("/data/exp/IceCube/%s/filtered/level2%s/VerifiedGCD/*Run00%s*_%s*"%(sY, pass2GCD, g['run_id'],str(g['snapshot_id']))))))
+
     if not len(GCDFileName):
-        GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2%s/AllGCD/*Run00%s*%s_%s*"%(sY, pass2GCD, g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
-    
+        if not use_std_gcds:
+            GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2%s/AllGCD/*Run00%s*%s_%s*"%(sY, pass2GCD, g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
+        else:
+            GCDFileName = list(reversed(sorted(glob.glob("/data/exp/IceCube/%s/filtered/level2%s/AllGCD/*Run00%s*_%s*"%(sY, pass2GCD, g['run_id'],str(g['snapshot_id']))))))
+   
+    logger.debug("GCDFileName = %s" % GCDFileName)
+ 
     if len(GCDFileName):
         logger.debug('Calculate MD5 sum and create symlink for GCD file')
 
@@ -292,3 +301,55 @@ def set_post_processing_state(run_id, dataset_id, validated, dbs4, dryrun, logge
     if not dryrun:
         dbs4.execute(sql)
 
+def get_run_lifetime(run_id, logger):
+    from databaseconnection import DatabaseConnection
+
+    run_id = int(run_id)
+    result = {
+        'run_id': run_id,
+        'sub_runs': None,
+        'simple_livetime': None,
+        'sub_run_livetime': None,
+        'gaps': None,
+        'gaps_time': None,
+        'livetime': None
+    }
+
+    # Databases
+    dbs4 = DatabaseConnection.get_connection('dbs4', logger)
+    filter_db = DatabaseConnection.get_connection('filter-db', logger)
+
+    # Load good start/stop times for cross check
+    sql = "SELECT TIMESTAMPDIFF(SECOND, good_tstart, good_tstop) AS `livetime` FROM i3filter.grl_snapshot_info WHERE run_id = %s" % run_id
+    data = dbs4.fetchall(sql, UseDict = True)[0]
+    result['simple_livetime'] = data['livetime']
+
+    # Load livetime from gaps files/sub_run table
+    sql = "SELECT SUM(livetime) AS `livetime`, COUNT(*) AS `sub_runs` FROM i3filter.sub_runs WHERE run_id = %s" % run_id
+    data = filter_db.fetchall(sql, UseDict = True)[0]
+    result['sub_run_livetime'] = data['livetime']
+    result['sub_runs'] = data['sub_runs']
+
+    # Load total gaps lifetime
+    sql = "SELECT COUNT(*) AS `gaps`, SUM(delta_time) AS `livetime` FROM i3filter.gaps WHERE run_id = %s" % run_id
+    data = filter_db.fetchall(sql, UseDict = True)[0]
+    result['gaps'] = data['gaps']
+    result['gaps_time'] = data['livetime']
+
+    if result['gaps_time'] is None:
+        result['gaps_time'] = 0
+   
+    if result['sub_run_livetime'] is None:
+        logger.warning("Run %s has no information of sub run livetimes. Using good start/stop times." % run_id)
+
+        if result['simple_livetime'] is None:
+            logger.error("No livetime for run %s could be determined" % run_id)
+            return None
+
+        result['livetime'] = result['simple_livetime'] - result['gaps_time']
+    else:
+        result['livetime'] = result['sub_run_livetime'] - result['gaps_time']
+
+    logger.debug(result)
+
+    return result

@@ -31,7 +31,7 @@ dbs4_ = dbs4.MySQL()
 from RunTools import RunTools
 from FileTools import FileTools
 
-from libs.files import GetSubRunStartStop, GetGoodSubruns
+from libs.files import GetSubRunStartStop, GetGoodSubruns, remove_path_prefix
 from libs import dbtools
 
 ICECUBE_GCDDIR = lambda x : "/data/exp/IceCube/%s/filtered/level2pass2/VerifiedGCD" %str(x)
@@ -135,7 +135,9 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False):
         l = os.path.join(os.path.dirname(L2Files[0]),os.path.basename(p).replace\
              ("PFFilt_PhysicsFiltering","Level2pass2_IC86.%s_data" % season).replace\
              (".tar",".i3").replace\
-             ("Subrun00000000_","Subrun"))
+             ("Subrun00000000_","Subrun")).\
+             replace('PFDST_PhysicsTrig_PhysicsFiltering', 'Level2pass2_IC86.%s_data' % season).\
+             replace('.gz', '.bz2')
     
         if not os.path.isfile(l):
             logger.warning("At least one output file %s does not exist for input file %s"%(l,p))
@@ -144,22 +146,34 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False):
         Files2Check.append(p)
         Files2Check.append(l)
     
-    Files2CheckS = """'""" + """','""".join(Files2Check) + """'"""
-    
-    FilesInDb = dbs4_.fetchall("""SELECT distinct name,concat(substring(u.path,6),"/",u.name)
-                                  FROM i3filter.urlpath u
-                                 WHERE u.dataset_id = %s AND
-                                 concat(substring(u.path,6),"/",u.name) IN (%s) OR \
-                                 concat(substring(u.path,6),u.name) IN (%s) """ %\
-                                 (dataset_id, Files2CheckS, Files2CheckS))
-    
-    FilesInDb = [f[1].replace('//','/') for f in FilesInDb]
+    FilesInfo = {}
+    for f in Files2Check:
+        folder = os.path.dirname(f)
+        name = os.path.basename(f)
+
+        if name not in FilesInfo:
+            FilesInfo[name] = []
+
+        FilesInfo[name].append(folder)
+
+    Files2CheckS = ','.join(["'%s'" % f for f in FilesInfo.keys()])
+
+    FilesInDbTmp = dbs4_.fetchall("SELECT name, path FROM i3filter.urlpath WHERE dataset_id = %s AND name IN (%s)" % (dataset_id, Files2CheckS))
+
+    FilesInDb = []
+    for row in FilesInDbTmp:
+        path = remove_path_prefix(row[1]).rstrip('/')
+
+        if path in FilesInfo[row[0]]:
+            FilesInDb.append(os.path.join(path, row[0]))
+
+    FilesInDb = list(set(FilesInDb))
 
     if len(Files2Check) != len(FilesInDb):
         logger.warning("Some file records don't exist for run=%s, production_version=%s" %(str(r['run_id']),str(r['production_version'])))
-        PrintVerboseDifference(Files2Check,FilesInDb,logger) 
+        PrintVerboseDifference(Files2Check,FilesInDb,logger)
         return 1
-   
+
     # Check MD5 sums
     outputFileInfos = dbs4_.fetchall("""SELECT sub_run, name, path, size, md5sum
                                         FROM run r
@@ -173,7 +187,7 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False):
                                     UseDict = True)
 
     for subrunInfo in outputFileInfos:
-        path = os.path.join(subrunInfo['path'][5:], subrunInfo['name'])
+        path = os.path.join(remove_path_prefix(subrunInfo['path']), subrunInfo['name'])
 
         if path in OutFiles:
             md5sum = FileTools(FileName = path, logger = logger).md5sum()
