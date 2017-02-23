@@ -320,18 +320,18 @@ def get_run_lifetime(run_id, logger):
     filter_db = DatabaseConnection.get_connection('filter-db', logger)
 
     # Load good start/stop times for cross check
-    sql = "SELECT TIMESTAMPDIFF(SECOND, good_tstart, good_tstop) AS `livetime` FROM i3filter.grl_snapshot_info WHERE run_id = %s" % run_id
+    sql = "SELECT TIMESTAMPDIFF(SECOND, good_tstart, good_tstop) AS `livetime` FROM i3filter.grl_snapshot_info_pass2 WHERE run_id = %s" % run_id
     data = dbs4.fetchall(sql, UseDict = True)[0]
     result['simple_livetime'] = data['livetime']
 
     # Load livetime from gaps files/sub_run table
-    sql = "SELECT SUM(livetime) AS `livetime`, COUNT(*) AS `sub_runs` FROM i3filter.sub_runs WHERE run_id = %s" % run_id
+    sql = "SELECT SUM(livetime) AS `livetime`, COUNT(*) AS `sub_runs` FROM i3filter.sub_runs_pass2 WHERE run_id = %s" % run_id
     data = filter_db.fetchall(sql, UseDict = True)[0]
     result['sub_run_livetime'] = data['livetime']
     result['sub_runs'] = data['sub_runs']
 
     # Load total gaps lifetime
-    sql = "SELECT COUNT(*) AS `gaps`, SUM(delta_time) AS `livetime` FROM i3filter.gaps WHERE run_id = %s" % run_id
+    sql = "SELECT COUNT(*) AS `gaps`, SUM(delta_time) AS `livetime` FROM i3filter.gaps_pass2 WHERE run_id = %s" % run_id
     data = filter_db.fetchall(sql, UseDict = True)[0]
     result['gaps'] = data['gaps']
     result['gaps_time'] = data['livetime']
