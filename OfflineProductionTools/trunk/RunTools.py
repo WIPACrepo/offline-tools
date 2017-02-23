@@ -10,6 +10,7 @@ from dateutil.parser import parse
 from dateutil.relativedelta import *
 from math import *
 import xml.etree.ElementTree as ET
+import traceback
 
 from dummylogger import DummyLogger
 
@@ -91,8 +92,13 @@ class RunTools(object):
             dbs4_ = dbs4.MySQL()
             #print """update i3filter.grl_snapshot_info g set ActiveStrings=%d, ActiveDoms=%s
             #                 where g.run_id=%d """%(ActiveStrings,ActiveDoms,self.RunNumber)
-            dbs4_.execute("""update i3filter.grl_snapshot_info g set ActiveStrings=%d, ActiveDoms=%s, ActiveInIceDoms=%s
-                             where g.run_id=%d """%(ActiveStrings,ActiveDoms,ActiveInIceDoms,self.RunNumber))
+
+            passString = ''
+            if self.passNumber > 1:
+                passString = 'pass%s' % self.passNumber
+
+            dbs4_.execute("""update i3filter.grl_snapshot_info%s g set ActiveStrings=%d, ActiveDoms=%s, ActiveInIceDoms=%s
+                             where g.run_id=%d """%(passString, ActiveStrings,ActiveDoms,ActiveInIceDoms,self.RunNumber))
             
 
         
@@ -175,14 +181,26 @@ class RunTools(object):
             raise Exception("Error: %s\n"%str(err))
         
         
-    def FilesComplete(self, InFiles, RunTimes, tmppath = '', showTimeMismatches = True):
+    def FilesComplete(self, InFiles, RunTimes, tmppath = '', showTimeMismatches = True, outdict = None):
         try:
+            if outdict is not None:
+                outdict[self.RunNumber] = {'missing_files': [], 'metadata_start_time': None, 'metadata_stop_time': None}
+
             if not len(InFiles):
                 self.logger.warning( "Input file list is empty, maybe failed/short run")
                 return 0
             
             InFiles.sort()
-            FileParts = [int(re.sub("[^0-9]","",i.split("Subrun")[1].split(".bz2")[0])) for i in InFiles]
+
+            FileParts = None
+
+            if len(InFiles) and 'Subrun' in InFiles[0]:
+                FileParts = [int(re.sub("[^0-9]","",i.split("Subrun")[1].split(".bz2")[0])) for i in InFiles]
+            elif len(InFiles) and 'Part' in InFiles[0]:
+                FileParts = [int(re.sub("[^0-9]","",i.split("Part")[1].split(".bz2")[0])) for i in InFiles]
+            else:
+                raise Exception('Do not understand file name')
+
             if not len(FileParts) or max(FileParts)>1000:
                 self.logger.warning( "Could not resolve number of files from file names ... file names probably do not follow expected naming convention")
                 return 0
@@ -195,6 +213,10 @@ class RunTools(object):
                 MissingParts.sort()
                 for m in MissingParts:
                     self.logger.warning(m)
+
+                if outdict is not None:
+                    outdict[self.RunNumber]['missing_files'] = MissingParts
+
                 return 0
            
             tmpfile = os.path.join(tmppath, 'tmp.xml')
@@ -234,8 +256,13 @@ class RunTools(object):
             if not EndCheck and showTimeMismatches:
                 self.logger.warning( "mismatch in end time reported by i3Live:%s and file metadata:%s"%(RunStop, fe_time))        
         
+            if outdict is not None:
+                outdict[self.RunNumber]['metadata_start_time'] = fs_time
+                outdict[self.RunNumber]['metadata_stop_time'] = fe_time
+
             return StartCheck * EndCheck
           
         except Exception, err:
             self.logger.error("FilesComplete Error: %s\n"%str(err))
+            traceback.print_exc()
             return 0
