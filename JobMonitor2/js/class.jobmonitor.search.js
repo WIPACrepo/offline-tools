@@ -345,6 +345,10 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
                 if(typeof iam.data['datasets'][file['dataset_id']]['working_group'] !== 'undefined' && iam.data['datasets'][file['dataset_id']]['working_group'] !== null) {
                     html += ' ' + iam.main.createLabelWorkingGroup(iam.data['datasets'][file['dataset_id']]['working_group']);
                 }
+
+                if(typeof iam.data['datasets'][file['dataset_id']]['comment'] !== 'undefined' && iam.data['datasets'][file['dataset_id']]['comment'] !== null && iam.data['datasets'][file['dataset_id']]['comment'] !== '') {
+                    html += ' ' + iam.main.createLabelComment(iam.data['datasets'][file['dataset_id']]['comment']);
+                }
             }
             html += '</td>';
             html += '</tr>';
