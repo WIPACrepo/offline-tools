@@ -107,13 +107,14 @@ def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
     
     RI_File.close()
     RI_FileV.close()
-    
-    LatestGoodRunInfo = glob.glob(RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_2*" % (ProductionYear, LatestProductionVersion))
-    LatestGoodRunInfo.sort(key=lambda x: os.path.getmtime(x))
-    LatestGoodRunInfo = LatestGoodRunInfo[-1]
-    LatestGoodRunInfoRelativePath = LatestGoodRunInfo.replace(LEVEL2_DIR(ProductionYear), '')
+   
+    if not dryrun: 
+        LatestGoodRunInfo = glob.glob(RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_2*" % (ProductionYear, LatestProductionVersion))
+        LatestGoodRunInfo.sort(key=lambda x: os.path.getmtime(x))
+        LatestGoodRunInfo = LatestGoodRunInfo[-1]
+        LatestGoodRunInfoRelativePath = LatestGoodRunInfo.replace(LEVEL2_DIR(ProductionYear), '')
 
-    logger.debug("Sym link command: ln -s %s %s" % (LatestGoodRunInfoRelativePath, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt" % (ProductionYear)))
+        logger.debug("Sym link command: ln -s %s %s" % (LatestGoodRunInfoRelativePath, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt" % (ProductionYear)))
 
     if os.path.lexists(LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt" % (ProductionYear)):
         if not dryrun:
@@ -121,13 +122,14 @@ def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
 
     if not dryrun:
         sub.call(["ln", "-s", "%s" % LatestGoodRunInfoRelativePath, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt" % (ProductionYear)])
-       
-    LatestGoodRunInfoV = glob.glob(RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_Versioned*" % (ProductionYear, LatestProductionVersion))
-    LatestGoodRunInfoV.sort(key=lambda x: os.path.getmtime(x))
-    LatestGoodRunInfoV = LatestGoodRunInfoV[-1]
-    LatestGoodRunInfoVRelativePath = LatestGoodRunInfoV.replace(LEVEL2_DIR(ProductionYear), '')
+    
+    if not dryrun:   
+        LatestGoodRunInfoV = glob.glob(RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_Versioned*" % (ProductionYear, LatestProductionVersion))
+        LatestGoodRunInfoV.sort(key=lambda x: os.path.getmtime(x))
+        LatestGoodRunInfoV = LatestGoodRunInfoV[-1]
+        LatestGoodRunInfoVRelativePath = LatestGoodRunInfoV.replace(LEVEL2_DIR(ProductionYear), '')
 
-    logger.debug("Sym link command: ln -s %s %s" % (LatestGoodRunInfoVRelativePath, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt" % (ProductionYear)))
+        logger.debug("Sym link command: ln -s %s %s" % (LatestGoodRunInfoVRelativePath, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt" % (ProductionYear)))
 
     if os.path.lexists(LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt" % (ProductionYear)):
         if not dryrun:
