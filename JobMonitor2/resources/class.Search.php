@@ -1,7 +1,5 @@
 <?php
 
-require_once('class.ProcessingJobs.php');
-
 class Search {
     private $run_id;
     private $event_id;
@@ -79,7 +77,7 @@ class Search {
             }
 
             // Since the path starts with a 'file:', remove it
-            $path = substr($path, 5);
+            $path = Tools::remove_path_prefix($path);
 
             $run_id = intval($run['run_id']);
             $dataset_id = intval($run['dataset_id']);
@@ -122,7 +120,7 @@ class Search {
         while($info = $query->fetch_assoc()) {
             // Filter EHE and IT and other extensions files
             if(is_numeric(substr($info['name'], -8, 1)) && substr($info['name'], -7) === '.i3.bz2') {
-                $result[] = array('dataset_id' => $info['dataset_id'], 'file' => ProcessingJobs::join_paths(substr($info['path'], 5), $info['name']));
+                $result[] = array('dataset_id' => $info['dataset_id'], 'file' => Tools::join_paths(Tools::remove_path_prefix($info['path']), $info['name']));
             }
         }
 
@@ -171,7 +169,7 @@ class Search {
         foreach($folder as &$line) {
             $matches = null;
             if(preg_match('/\<a\ href\=\"([_a-zA-Z0-9-\.]+Run[0]*' . $run_id . '[_a-zA-Z0-9-\.]+)\"\>/', $line, $matches)) {
-                $files[] = ProcessingJobs::join_paths($path, $matches[1]);
+                $files[] = Tools::join_paths($path, $matches[1]);
             }
         }
 

@@ -44,3 +44,7 @@ function config_svn_parse(&$CONFIG) {
 }
 
 config_svn_parse($CONFIG);
+
+require_once('./resources/class.Tools.php');
+
+Tools::set_config($CONFIG);

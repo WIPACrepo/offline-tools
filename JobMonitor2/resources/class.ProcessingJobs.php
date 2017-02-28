@@ -15,8 +15,6 @@ class ProcessingJobs {
 
     private $dataset_list_only;
 
-    private $path_prefixes;
-
     private static $JOB_STATES = array('WAITING','QUEUEING','QUEUED','PROCESSING','OK','ERROR','READYTOCOPY','COPYING','SUSPENDED','RESET','FAILED','COPIED','EVICTED','CLEANING','IDLE','IDLEBDList','IDLEIncompleteFiles','IDLENoFiles','IDLETestRun','IDLEShortRun','IDLELid','IDLENoGCD','BadRun','FailedRun');
 
     /**
@@ -24,7 +22,7 @@ class ProcessingJobs {
      */
     private static $RUN_STATUS = array('NONE', 'OK', 'IDLE', 'PROCESSING', 'PROCESSING/ERRORS', 'FAILED');
 
-    public function __construct($host, $user, $password, $db, $default_dataset_id, array $l2_dataset_ids, $api_version, $live_host, $live_user, $live_password, $live_db, $path_prefixes) {
+    public function __construct($host, $user, $password, $db, $default_dataset_id, array $l2_dataset_ids, $api_version, $live_host, $live_user, $live_password, $live_db) {
         $this->mysql = @new mysqli($host, $user, $password, $db);
         $this->live = @new mysqli($live_host, $live_user, $live_password, $live_db);
         $this->result = array('api_version' => $api_version,'error' => 0, 'error_msg' => '', 'error_trace' => '', 'data' => array('runs' => array(), 'datasets' => array(), 'seasons' => array()));
@@ -34,7 +32,6 @@ class ProcessingJobs {
         $this->dataset_ids = null;
         $this->dataset_list_only = false;
         $this->pass2 = false;
-        $this->path_prefixes = $path_prefixes;
     }
 
     private function build_job_status_query($prev) {
@@ -87,19 +84,6 @@ class ProcessingJobs {
         return $this->result;
     }
 
-    private function remove_path_prefix($path) {
-        // Since the path starts with a 'file:' or 'gsiftp://gridftp.icecube.wisc.edu', remove it
-        foreach($this->path_prefixes as $prefix) {
-            $len = strlen($prefix);
-
-            if(substr($path, 0, $len) == $prefix) {
-                return substr($path, $len);
-            }
-        }
-
-        return $path;
-    }
-
     private function add_paths() {
         // Add paths to run folder (L2/3)
         $sql = "SELECT run_id,
@@ -131,7 +115,7 @@ class ProcessingJobs {
                 }
             }
 
-            $path = $this->remove_path_prefix($path);
+            $path = Tools::remove_path_prefix($path);
 
             // Add it to the list:
             if(isset($this->result['data']['runs'][$run['run_id']])) {
@@ -154,7 +138,7 @@ class ProcessingJobs {
         while($run = $query->fetch_assoc()) {
             // Add it to the list:
             if(isset($this->result['data']['runs'][$run['run_id']])) {
-                $this->result['data']['runs'][$run['run_id']]['gcd'] = self::join_paths($this->remove_path_prefix($run['path']), $run['name']);
+                $this->result['data']['runs'][$run['run_id']]['gcd'] = Tools::join_paths(Tools::remove_path_prefix($run['path']), $run['name']);
             }
         }
     }
@@ -659,17 +643,6 @@ class ProcessingJobs {
 
     public function set_dataset_list_only($only) {
         $this->dataset_list_only = (bool)$only;
-    }
-
-    public static function join_paths() {
-        // Found here: http://stackoverflow.com/a/15575293
-        $paths = array();
-    
-        foreach (func_get_args() as $arg) {
-            if ($arg !== '') { $paths[] = $arg; }
-        }
-    
-        return preg_replace('#/+#','/',join('/', $paths));
     }
 
     private static function get_status($name) {
