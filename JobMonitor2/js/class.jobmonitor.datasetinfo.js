@@ -290,6 +290,86 @@ JobMonitorDatasetInformation.prototype._generateCharts = function(data) {
     });
     // ===============================================================
 
+    
+    var jobsperdaychartdata = {
+        'labels': [],
+        'datasets': [],
+        'dates': Object.keys(data['data']['statistics']['job_completion']).sort(),
+        'grid_dataset_mapping': {},
+        'date_index_mapping': {}
+    };
+
+    var addDays = function(date, days) {
+        var dat = new Date(date.valueOf())
+        dat.setDate(dat.getDate() + days);
+        return dat;
+    };
+
+    var getDates = function(startDate, stopDate) {
+        var dateArray = new Array();
+        var currentDate = startDate;
+        while (currentDate <= stopDate) {
+            var d = new Date(currentDate);
+            dateArray.push('' + d.getFullYear() + '-' + (d.getMonth() < 10 ? '0' : '') + d.getMonth() + '-' + (d.getDate() < 10 ? '0' : '') + d.getDate())
+            currentDate = addDays(currentDate, 1);
+        }
+        return dateArray;
+    };
+
+    if(jobsperdaychartdata['dates'].length) {
+        var first_date = jobsperdaychartdata['dates'][0].split('-');
+        var last_date = jobsperdaychartdata['dates'][jobsperdaychartdata['dates'].length - 1].split('-');
+        jobsperdaychartdata['labels'] = getDates(new Date(first_date[0], first_date[1], first_date[2], 0, 0, 0, 0), new Date(last_date[0], last_date[1], last_date[2], 0, 0, 0, 0));
+    }
+
+    $.each(jobsperdaychartdata['labels'], function(index, date) {
+        jobsperdaychartdata['date_index_mapping'][date] = index;
+    });
+
+    $.each(data['data']['grid'], function(index, value) {
+        jobsperdaychartdata['datasets'].push({'label': value['name'], 'backgroundColor': undefined, 'data': Array.apply(null, Array(jobsperdaychartdata['labels'].length)).map(Number.prototype.valueOf,0)});
+        jobsperdaychartdata['grid_dataset_mapping'][value['name']] = jobsperdaychartdata['datasets'].length - 1;
+    });
+
+    $.each(data['data']['statistics']['job_completion'], function(index, grids) {
+        for(var i = 0; i < grids.length; ++i) {
+            var value = grids[i];
+            jobsperdaychartdata['datasets'][jobsperdaychartdata['grid_dataset_mapping'][value['grid']]]['data'][jobsperdaychartdata['date_index_mapping'][index]] = value['jobs'];
+        }
+    });
+
+    for(var i = 0; i < jobsperdaychartdata['datasets'].length; ++i) {
+        jobsperdaychartdata['datasets'][i]['backgroundColor'] = this._chartGetColorList(jobsperdaychartdata['datasets'].length)[i];
+    }
+
+    console.log(jobsperdaychartdata);
+
+    var jobs_per_day_chart_ctx = $('#jobs-par-day-chart');
+    var jobs_per_day_chart = new Chart(jobs_per_day_chart_ctx, {
+        type: 'bar',
+        data: {
+            datasets: jobsperdaychartdata['datasets'],
+            labels: jobsperdaychartdata['labels']
+        },
+        options: {
+            scales: {
+                yAxes: [{
+                    type: 'logarithmic',
+                    scaleLabel: {
+                        display: true,
+                        labelString: 'Number of Jobs'
+                    }
+                }]
+            },
+            responsive: true,
+            title: {
+                text: 'Job Completion per Day',
+                display: true
+            }
+        }
+    });
+
+    // ===============================================================
     var rawData = {};
 
     $.each(this.runData['runs'], function(runId, value) {
@@ -315,8 +395,6 @@ JobMonitorDatasetInformation.prototype._generateCharts = function(data) {
     sortedKeys.forEach(function(key) {
         statuschartdata['data'].push(rawData[key]);
     });
-
-    console.log(statuschartdata);
 
     var status_chart_ctx = $('#status-chart');
     var status_chart = new Chart(status_chart_ctx, {
@@ -427,6 +505,10 @@ JobMonitorDatasetInformation.prototype._queryComplete = function(data) {
     content += '<div class="row">';
     content += '<div class="col-md-8"><canvas id="jobs-chart"></canvas></div>';
     content += '<div class="col-md-4"><canvas id="status-chart"></canvas></div>';
+    content += '</div>';
+
+    content += '<div class="row">';
+    content += '<div class="col-md-12"><canvas id="jobs-par-day-chart"></canvas></div>';
     content += '</div>';
 
     this.getContent().html(content);

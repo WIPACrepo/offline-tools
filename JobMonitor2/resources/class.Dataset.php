@@ -77,15 +77,9 @@ WHERE
     }
 
     private static function make_host($name) {
-//        print("name = $name<br>");
-
         $splitname = explode('.', $name);
 
         $host = array_slice($splitname, -2);
-
-//        print_r($host);
-
-//        exit();
 
         if($host[count($host) - 1] == 'local') {
             return $host[count($host) - 1];
@@ -93,6 +87,10 @@ WHERE
             return $host[count($host) - 1];
         } elseif(preg_match("/^n[0-9]{4}$/", $host[0])) {
             return 'hyak.washington.edu';
+        } elseif(preg_match("/^cwrc\-c[0-9]{2}$/", $name)) {
+            return 'westgrid.ca';
+        } elseif(preg_match("/^muon-[0-9]{3}$/", $name)) {
+            return 'eri.u-tokyo.ac.jp';
         } elseif(count($splitname) > 3) {
             if($splitname[count($splitname) - 3] == 'icecube') {
                 return implode('.', array_slice($splitname, -3));
@@ -143,6 +141,34 @@ WHERE
         $this->result['data']['statistics']['execution_time'] = $data;
     }
 
+    public function add_num_of_jobs_completed_per_day() {
+        $this->result['data']['statistics']['job_completion'] = array();
+
+        $sql = "SELECT 
+    DATE(status_changed) AS `date`,
+    g.name AS `grid_name`,
+    COUNT(*) AS `jobs`
+FROM
+    i3filter.job j
+        JOIN
+    i3filter.grid g ON j.grid_id = g.grid_id
+WHERE
+    dataset_id = {$this->dataset_id}
+        AND status IN ('OK' , 'FAILED')
+        AND status_changed IS NOT NULL
+GROUP BY DATE(status_changed) , j.grid_id";
+
+        $query = $this->mysql->query($sql);
+
+        while($row = $query->fetch_assoc()) {
+            if(!array_key_exists($row['date'], $this->result['data']['statistics']['job_completion'])) {
+                $this->result['data']['statistics']['job_completion'][$row['date']] = array();
+            }
+
+            $this->result['data']['statistics']['job_completion'][$row['date']][] = array('grid' => $row['grid_name'], 'jobs' => intval($row['jobs']));
+        }
+    }
+
     public function execute() {
         if(is_null($this->dataset_id)) {
             throw new Exception("No dataset given.");
@@ -153,7 +179,8 @@ WHERE
         $this->add_grid_information();
         $this->add_total_number_of_jobs();
         $this->add_runntime_statistics();
-
+        $this->add_num_of_jobs_completed_per_day();
+    
         $this->result['data']['dataset_id'] = $this->dataset_id;
 
         return $this->result;
