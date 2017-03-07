@@ -874,6 +874,30 @@ def remove_path_prefix(path):
     return path
 
 #############################################
+
+def get_cosmicray_mc_gcd_file(season, logger):
+    if season == 2010:
+        gcd_mc="/data/sim/sim-new/downloads/GCD/GeoCalibDetectorStatus_IC79.55380_L2a.i3.gz"
+    elif season == 2011:
+        gcd_mc="/data/sim/sim-new/downloads/GCD/GeoCalibDetectorStatus_IC86.55697_corrected_V3_NovSnow.i3.gz" # new one javier created
+    elif season == 2012:
+        gcd_mc="/data/sim/sim-new/downloads/GCD/GeoCalibDetectorStatus_2012.56063_V1_OctSnow.i3.gz"
+    elif season == 2013:
+        gcd_mc="/data/sim/sim-new/downloads/GCD/GeoCalibDetectorStatus_2013.56429_V1_OctSnow.i3.gz"
+    elif season == 2014:
+        gcd_mc="/data/sim/sim-new/downloads/GCD/GeoCalibDetectorStatus_2014.56784_V0_NovSnow.i3.gz"
+    elif season == 2015:
+        gcd_mc="/data/sim/sim-new/downloads/GCD/GeoCalibDetectorStatus_2015.57161_V0_OctSnow.i3.gz"
+    elif season == 2016:
+        gcd_mc="/data/sim/sim-new/downloads/GCD/GeoCalibDetectorStatus_2016.57531_V0_OctSnow.i3.gz"
+    else:
+        gcd_mc = None
+
+    logger.debug("CosmicRay MC GCD file = %s" % gcd_mc)
+
+    return gcd_mc
+
+#############################################
 if __name__ == "__main__":
     for i in [get_rootdir(),get_logdir(),get_tmpdir()]:
         print i, os.path.exists(i)

@@ -230,6 +230,8 @@ def main(config, logger,dryrun = False, check = False):
         is_good_run = RunInfo_[r]['good_it'] or RunInfo_[r]['good_i3']
         logger.debug("Is run %s a good run? = %s" % (r, is_good_run))
 
+        CheckFiles = True
+
         if r in OldRecords_ : continue
         if r in NewRecords_:
             logger.info("entering new records for run = %s"%r)
@@ -267,7 +269,7 @@ def main(config, logger,dryrun = False, check = False):
         if RunInfo_[r]['good_tstart'] != "NULL" : goodStart = RunInfo_[r]['good_tstart']
         goodStart_frac = RunInfo_[r]['tStart_frac']
         if RunInfo_[r]['good_tstart_frac'] != "NULL" : goodStart_frac = RunInfo_[r]['good_tstart_frac']
-        
+         
         goodStop = RunInfo_[r]['tStop']
         if RunInfo_[r]['good_tstop'] != "NULL"  : goodStop = RunInfo_[r]['good_tstop']
         goodStop_frac = RunInfo_[r]['tStop_frac']

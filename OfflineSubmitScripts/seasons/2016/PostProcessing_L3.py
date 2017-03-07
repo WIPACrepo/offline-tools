@@ -30,7 +30,7 @@ import subprocess as sub
 
 import traceback
 
-from libs.files import get_logdir, get_tmpdir, write_meta_xml_post_processing, tar_log_files
+from libs.files import get_logdir, get_tmpdir, write_meta_xml_post_processing, tar_log_files, remove_path_prefix
 import libs.config
 sys.path.append(libs.config.get_config().get('DEFAULT', 'SQLClientPath'))
 sys.path.append(libs.config.get_config().get('DEFAULT', 'ProductionToolsPath'))
@@ -55,7 +55,7 @@ dbs4_ = dbs4.MySQL()
 import SQLClient_dbs2 as dbs2
 dbs2_ = dbs2.MySQL()
 
-def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryrun, logger):
+def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryrun, logger, special_gcd = False, it_files = False, aggregate = 1):
     SEASON = libs.config.get_season_by_run(START_RUN)
 
     season_of_end_run = libs.config.get_season_by_run(END_RUN)
@@ -141,7 +141,7 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
                 continue
 
             # Since there is a 'file:' at the beginning of the path...
-            outdir = outdir[5:]
+            outdir = remove_path_prefix(outdir)
 
             logger.debug("outdir: %s" % outdir)
 
@@ -157,20 +157,34 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
             elif not os.path.isfile(linkedGCD[0]):
                 verified = 0
                 logger.error("Listed GCD file in DB not in output dir. for run %s" % RunId)
-            elif gInfo['md5sum'] != FileTools(linkedGCD[0], logger).md5sum():
+            elif not special_gcd and gInfo['md5sum'] != FileTools(linkedGCD[0], logger).md5sum():
                 verified = 0
                 logger.error("GCD file linked from L3 dir. has different md5sum from source L2 dir. for run %s. Source: %s, linked: %s" % (RunId, gInfo, linkedGCD[0]))
             else:
                 logger.info("GCD check passed")
             # End: GCD check
-            
-            sRunInfo = [s for s in sRunInfo if "EHE" not in s['name'] and "_IT" not in s['name'] and "SLOP" not in s['name'] and "i3.bz2" in s['name']]
+           
+            if not it_files:
+                sRunInfo = [s for s in sRunInfo if "EHE" not in s['name'] and "_IT" not in s['name'] and "SLOP" not in s['name'] and "i3.bz2" in s['name']]
+            else:
+                sRunInfo = [s for s in sRunInfo if "_IT" in s['name'] and "i3.bz2" in s['name']]
+
             sRunInfo_sorted = sorted(sRunInfo, key=lambda k:['name'])
-            
+           
             for sr in sRunInfo:
+                if int(sr['sub_run']) % aggregate:
+                    continue
+
                 nName = sr['name'].replace("Level2_","Level3_").replace("Test_","")
+
+                if it_files:
+                    nName = nName.replace("_IT", "")
+
                 nRecord = []
                 nRecord = [d for d in dRunInfo if d['name']==nName]
+
+                logger.debug("nName = %s" % nName)
+                logger.debug("nRecord = %s" % nRecord)
 
                 if len(nRecord)!=1:
                     # may just be a subrun that is good in L2 but bad in L3 e.g. really small L2 output so no L3 events
@@ -196,7 +210,7 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
                     logger.error("DB record for in/output %s/%s dir. for run %s is %s" % (sr['name'], nName, RunId, nRecord['status']))
                     continue
 
-                L3Out = os.path.join(nRecord['path'][5:],nRecord['name'])
+                L3Out = os.path.join(remove_path_prefix(nRecord['path']),nRecord['name'])
                 if not os.path.isfile(L3Out):
                     verified = 0
                     logger.error("out L3 file %s does not exist in outdir. for run %s"%(L3Out,RunId))
@@ -220,13 +234,13 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
                                               and u.name like "%%hdf5%%"
                                               """%(DDatasetId,DDatasetId,DDatasetId,RunId),UseDict=True)
                 
-                hdf5Files = [h['path'][5:]+"/"+h['name'] for h in hInfo if "Merged" not in h['name']] # avoid previously meged hdf5 file if one exists
+                hdf5Files = [remove_path_prefix(h['path'])+"/"+h['name'] for h in hInfo if "Merged" not in h['name']] # avoid previously meged hdf5 file if one exists
 
                 if len(hdf5Files):
                     hdf5Files.sort()
                     hdf5Files = " ".join(hdf5Files)
                     
-                    hdf5Out = nRecord['path'][5:]+"/Level3_IC86.%s_data_Run00%s_Merged.hdf5"%(SEASON,RunId)
+                    hdf5Out = remove_path_prefix(nRecord['path'])+"/Level3_IC86.%s_data_Run00%s_Merged.hdf5"%(SEASON,RunId)
 
                     if not dryrun:
                         buildir = libs.config.get_config().get('L3', "I3_BUILD_%s" % DDatasetId)
@@ -309,6 +323,9 @@ if __name__ == '__main__':
               dest="NOMETADATA", help="Don't write meta data files")
 
     parser.add_argument("--cron", action="store_true", default=False, dest="CRON", help="Execute as cron. No other options required")
+    parser.add_argument("--special-gcd", action="store_true", default=False, dest="SPECIAL_GCD", help="The destination dataset was using a special GCD that was not used in L2.")
+    parser.add_argument("--use-icetop-files", action="store_true", default=False, dest="IT_FILES", help="Use IceTop files instead of standard L2 files")
+    parser.add_argument("--aggregate", type = int, default = 1, help="number of subruns to aggregate to form one job. Needs to match the value passed for the processing.")
 
     args = parser.parse_args()
 
@@ -343,7 +360,10 @@ if __name__ == '__main__':
             MERGEHDF5 = args.MERGEHDF5, 
             NOMETADATA = args.NOMETADATA, 
             dryrun = args.dryrun, 
-            logger = logger)
+            logger = logger,
+            special_gcd = args.SPECIAL_GCD,
+            it_files = args.IT_FILES,
+            aggregate = args.aggregate)
     else:
         # Find installed crons
         crons = libs.config.get_var_dict('L3', 'CronJobPostProcessing', keytype = int, valtype = int)
@@ -366,7 +386,10 @@ if __name__ == '__main__':
                 MERGEHDF5 = args.MERGEHDF5,
                 NOMETADATA = args.NOMETADATA, 
                 dryrun = args.dryrun, 
-                logger = logger)
+                logger = logger,
+                special_gcd = args.SPECIAL_GCD,
+                it_files = args.IT_FILES,
+                aggregate = args.aggregate)
 
             # counter contains how many runs have been submitted. Since
             # the cron is executed very often and will probably do nothing

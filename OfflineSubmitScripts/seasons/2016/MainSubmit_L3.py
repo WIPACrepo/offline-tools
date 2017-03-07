@@ -13,7 +13,7 @@ import time
 import datetime
 import pymysql as MySQLdb
 
-from libs.files import get_logdir, get_tmpdir, write_meta_xml_main_processing, remove_path_prefix
+from libs.files import get_logdir, get_tmpdir, write_meta_xml_main_processing, remove_path_prefix, get_cosmicray_mc_gcd_file
 import libs.config
 sys.path.append(libs.config.get_config().get('DEFAULT', 'SQLClientPath'))
 sys.path.append(libs.config.get_config().get('DEFAULT', 'ProductionToolsPath'))
@@ -148,6 +148,8 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
         if row['grid_id'] == 14:
             path_prefix = 'gsiftp://gridftp.icecube.wisc.edu'
             break
+
+    logger.debug("path_prefix = %s" % path_prefix)
  
     # FIXME: g["sub_run"] == 1 is a wild guess and not kosher!
     # FIXME: we need something to find the gcd for a run    
@@ -160,6 +162,8 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
     else:
         season = libs.config.get_season_by_run(Run)
 
+        logger.debug("Season: %s" % season)
+
         if season == -1:
             logger.critical("Could not determine season for run %s" % Run)
             exit(1)
@@ -170,6 +174,22 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
             logger.debug("glob = %s" % ("/data/ana/CosmicRay/IceTop_level3/exp/*/production/GCD/Level3_*%s_data_Run00%s_*_GCD.i3.gz" % (season, Run)))
             logger.critical("Found more than one GCD file: %s" % GCDFile)
             exit(1)
+
+        # Find MC GCD file
+        MCGCD = get_cosmicray_mc_gcd_file(season, logger)
+
+        if MCGCD is None:
+            logger.critical("Did not find a MC GCD file for CosmicRay. Exit.")
+            exit(1)
+
+        MCGCD = {
+            'name': os.path.basename(MCGCD),
+            'path': "gsiftp://gridftp.icecube.wisc.edu%s/" % os.path.dirname(MCGCD),
+            'md5sum': FileTools(MCGCD).md5sum(),
+            'size': os.path.getsize(MCGCD)
+        }
+
+        logger.debug("MCGCD = %s" % MCGCD)
 
         GCDFile = GCDFile[0]
 
@@ -220,6 +240,10 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
             dbs4_.execute("""insert into i3filter.job (dataset_id,queue_id,status) values (%s,%s,"WAITING")"""%(DDatasetId,QId))
             dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","INPUT","%s","%s")"""% \
            (DDatasetId,QId,GCDEntry['name'],GCDEntry['path'],GCDEntry['md5sum'],GCDEntry['size']))
+
+            if cosmicray:
+                dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","INPUT","%s","%s")"""% \
+               (DDatasetId,QId,MCGCD['name'],MCGCD['path'],MCGCD['md5sum'],MCGCD['size']))
     
         # p are the subruns in the aggregated batch 
         for q in p:
@@ -234,6 +258,10 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
         dbs4_.execute("""insert into i3filter.job (dataset_id,queue_id,status) values (%s,%s,"WAITING")"""%(DDatasetId,QId))
         dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","INPUT","%s","%s")"""% \
        (DDatasetId,QId,GCDEntry['name'],GCDEntry['path'],GCDEntry['md5sum'],GCDEntry['size']))
+
+        if cosmicray:
+            dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","INPUT","%s","%s")"""% \
+           (DDatasetId,QId, MCGCD['name'],MCGCD['path'],MCGCD['md5sum'],MCGCD['size']))
     
     p = None
     if not cosmicray:
