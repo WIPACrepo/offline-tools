@@ -32,17 +32,20 @@ class RunTools(object):
             self.passNumber = passNumber
 
         
-    def GetActiveStringsAndDoms(self,Season,UpdateDB=False):
-        startDate=self.GetRunTimes()['tStart']
-        
-        GCDFile = glob.glob("/data/exp/IceCube/%s/filtered/level2%s/VerifiedGCD/Level2%s_IC86.%s*%s*"%(startDate.year, self.passString, self.passString, Season, self.RunNumber))
+    def GetActiveStringsAndDoms(self, Season, UpdateDB = False, gcd_file = None):
+        GCDFile = gcd_file
+
+        if gcd_file is None:
+            startDate=self.GetRunTimes()['tStart']
+            GCDFile = glob.glob("/data/exp/IceCube/%s/filtered/level2%s/VerifiedGCD/Level2%s_IC86.%s*%s*"%(startDate.year, self.passString, self.passString, Season, self.RunNumber))
         
         if not len(GCDFile):
             self.logger.warning("No GCD file for run %s in Verified GCD Directory ... exiting"%self.RunNumber)
             return 1
         
-        GCDFile.sort(key=lambda x: os.path.getmtime(x))
-        GCDFile = GCDFile[-1]
+        if gcd_file is None:
+            GCDFile.sort(key=lambda x: os.path.getmtime(x))
+            GCDFile = GCDFile[-1]
 
         from icecube import icetray, dataio, dataclasses
 
