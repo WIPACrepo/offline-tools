@@ -79,7 +79,7 @@ def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
     
         StartTime = RunInfoDict[k]['tStart'] 
 
-        LiveTime = get_run_lifetime(k, logger)
+        LiveTime = round(get_run_lifetime(k, logger)['livetime'], 2)
 
         Comments = ""
         if config.is_test_run(int(k)):
@@ -805,7 +805,7 @@ class GapsFile:
     def get_file_livetime(self):
         return self.__values['File Livetime']
 
-def insert_gap_file_info_and_delete_files(run_path, dryrun, logger):
+def insert_gap_file_info_and_delete_files(run_path, dryrun, logger, do_not_delete_files = False):
     import databaseconnection
 
     gaps_files = glob.glob(os.path.join(run_path, '*_gaps.txt'))
@@ -831,6 +831,9 @@ def insert_gap_file_info_and_delete_files(run_path, dryrun, logger):
     gaps = []
     for file in gaps_files:
         logger.debug("File %s" % file)
+
+       # if os.path.getsize(file) == 0:
+       #     continue
 
         gf = GapsFile(file, logger)
         gf.read()
@@ -863,10 +866,11 @@ def insert_gap_file_info_and_delete_files(run_path, dryrun, logger):
         logger.debug('Insert sub runs into db')
         db.execute(sql % ','.join(sub_runs))
 
-        # Delete *_gaps.txt files
-        for file in gaps_files:
-            logger.debug("Deleting %s" % file)
-            os.remove(file)
+        if not do_not_delete_files:
+            # Delete *_gaps.txt files
+            for file in gaps_files:
+                logger.debug("Deleting %s" % file)
+                os.remove(file)
     
 #############################################
 

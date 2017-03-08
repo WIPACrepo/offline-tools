@@ -103,7 +103,7 @@ def MakeGCD(RunNum,FName,GCDName,ProductionVersion,SnapshotId,effectiveStartTime
 
     try:
         from icecube.BadDomList.BadDomListTraySegment import BadDomList
-        from icecube.phys_services.spe_fit_injector import I3SPEFitInjector
+        #from icecube.phys_services.spe_fit_injector import I3SPEFitInjector
           
         tray = I3Tray()
            
@@ -120,9 +120,9 @@ def MakeGCD(RunNum,FName,GCDName,ProductionVersion,SnapshotId,effectiveStartTime
                         #Database = 'I3OmDb'
                         )
         
-        spe_correction_file = config.get('GCDGeneration', 'SpeCorrectionFile')
+        #spe_correction_file = config.get('GCDGeneration', 'SpeCorrectionFile')
 
-        tray.AddModule(I3SPEFitInjector, "fixspe", Filename = spe_correction_file)
+        #tray.AddModule(I3SPEFitInjector, "fixspe", Filename = spe_correction_file)
 
         tray.AddModule(SetGRLInfo,"SetGRLInfo",
                         StartTime = effectiveStartTime,
@@ -278,7 +278,7 @@ def main(RunNum, ProductionVersion, SnapshotId, outdir):
     except Exception, err:
         raise Exception("Error: %s "%str(err))
 
-    R = RunTools(RunNum, passNumber = 2)
+    R = RunTools(RunNum)
     RunTimes = R.GetRunTimes()
     
     sDay = RunTimes['tStart']
@@ -460,8 +460,8 @@ def main(RunNum, ProductionVersion, SnapshotId, outdir):
                     if not outdir:
                         os.system("ln -sf %s %s/%s"%(os.path.relpath(GCDName, GCDDirVerified), GCDDirVerified, GCDLinkName))
                     
-                    dbs4_.execute("""update i3filter.grl_snapshot_info_pass2 set BadDOMsCheck=1
-                                  where run_id=%s and snapshot_id=%s """%(RunNum,SnapshotId))
+                        dbs4_.execute("""update i3filter.grl_snapshot_info_pass2 set BadDOMsCheck=1
+                                      where run_id=%s and snapshot_id=%s """%(RunNum,SnapshotId))
                     
                         
                     print "BadDoms Audit for %s OK"%GCDName 
