@@ -46,10 +46,13 @@ WHERE
     private function add_storage_information() {
         $sql = "SELECT SUM(size) AS `size`, COUNT(*) AS `num` FROM i3filter.urlpath WHERE dataset_id = {$this->dataset_id} AND type = 'PERMANENT'";
         $query = $this->mysql->query($sql);
-
         $fetch = $query->fetch_assoc();
-        $this->result['data']['storage'] = intval($fetch['size']);
-        $this->result['data']['number_of_output_files'] = intval($fetch['num']);
+        $this->result['data']['output'] = array('size' => intval($fetch['size']), 'files' => intval($fetch['num']));
+
+        $sql = "SELECT SUM(size) AS `size`, COUNT(*) AS `num` FROM i3filter.urlpath WHERE dataset_id = {$this->dataset_id} AND type = 'INPUT'";
+        $query = $this->mysql->query($sql);
+        $fetch = $query->fetch_assoc();
+        $this->result['data']['input'] = array('size' => intval($fetch['size']), 'files' => intval($fetch['num']));
     }
 
     private function add_grid_information() {
@@ -81,16 +84,20 @@ WHERE
 
         $host = array_slice($splitname, -2);
 
-        if($host[count($host) - 1] == 'local') {
-            return $host[count($host) - 1];
-        } elseif(substr($host[count($host) - 1], 0, 4) == 'tier') {
-            return $host[count($host) - 1];
+        if(preg_match("/^cn[0-9]+\.local$/", $name)) {
+            return 'stanford.edu';
+        #} elseif(substr($host[count($host) - 1], 0, 4) == 'tier') {
+        #    return $host[count($host) - 1];
         } elseif(preg_match("/^n[0-9]{4}$/", $host[0])) {
             return 'hyak.washington.edu';
         } elseif(preg_match("/^cwrc\-c[0-9]{2}$/", $name)) {
             return 'westgrid.ca';
         } elseif(preg_match("/^muon-[0-9]{3}$/", $name)) {
             return 'eri.u-tokyo.ac.jp';
+        } elseif(preg_match("/^cl[1-2]{1}n[0-9]{3}$/", $name)) {
+            return 'westgrid.ca, ualberta.ca';
+        } elseif(preg_match("/^compute\-[0-9]{1,2}[n]{0,1}\-[0-9]{1,2}\.tier2$/", $name) || preg_match("/^blade\-[0-9]+\.tier2$/", $name)) {
+            return 'ultralight.org';
         } elseif(count($splitname) > 3) {
             if($splitname[count($splitname) - 3] == 'icecube') {
                 return implode('.', array_slice($splitname, -3));

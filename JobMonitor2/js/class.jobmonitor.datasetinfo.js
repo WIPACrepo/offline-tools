@@ -150,8 +150,7 @@ JobMonitorDatasetInformation.prototype._chartGetColorList = function(length) {
     return result;
 }
 
-JobMonitorDatasetInformation.prototype._generateCharts = function(data) {
-    // ===============================================================
+JobMonitorDatasetInformation.prototype._generateChartExecutionTimeAndJobsPerHost = function(data) {
     var sortedKeysOfSites = Object.keys(data['data']['statistics']['execution_time']).sort(function(a,b) {
         return data['data']['statistics']['execution_time'][b]['jobs'] - data['data']['statistics']['execution_time'][a]['jobs'];
     });
@@ -220,7 +219,6 @@ JobMonitorDatasetInformation.prototype._generateCharts = function(data) {
             }
         }
     });
-
     // ===============================================================
     var jobs_chart_ctx = $('#jobs-chart');
     var jobs_chart = new Chart(jobs_chart_ctx, {
@@ -253,8 +251,9 @@ JobMonitorDatasetInformation.prototype._generateCharts = function(data) {
             }
         }
     });
+}
 
-    // ===============================================================
+JobMonitorDatasetInformation.prototype._generateChartJobsPerGrid = function(data) {
     var gridchartdata = {
         'data': [data['data']['number_of_jobs']],
         'labels': ['unassigned'],
@@ -288,9 +287,9 @@ JobMonitorDatasetInformation.prototype._generateCharts = function(data) {
             }
         }
     });
-    // ===============================================================
+}
 
-    
+JobMonitorDatasetInformation.prototype._generateChartJobsPerDay = function(data) {
     var jobsperdaychartdata = {
         'labels': [],
         'datasets': [],
@@ -310,7 +309,7 @@ JobMonitorDatasetInformation.prototype._generateCharts = function(data) {
         var currentDate = startDate;
         while (currentDate <= stopDate) {
             var d = new Date(currentDate);
-            dateArray.push('' + d.getFullYear() + '-' + (d.getMonth() < 10 ? '0' : '') + d.getMonth() + '-' + (d.getDate() < 10 ? '0' : '') + d.getDate())
+            dateArray.push('' + d.getFullYear() + '-' + ((d.getMonth() + 1) < 10 ? '0' : '') + (d.getMonth() + 1) + '-' + (d.getDate() < 10 ? '0' : '') + d.getDate())
             currentDate = addDays(currentDate, 1);
         }
         return dateArray;
@@ -319,7 +318,11 @@ JobMonitorDatasetInformation.prototype._generateCharts = function(data) {
     if(jobsperdaychartdata['dates'].length) {
         var first_date = jobsperdaychartdata['dates'][0].split('-');
         var last_date = jobsperdaychartdata['dates'][jobsperdaychartdata['dates'].length - 1].split('-');
-        jobsperdaychartdata['labels'] = getDates(new Date(first_date[0], first_date[1], first_date[2], 0, 0, 0, 0), new Date(last_date[0], last_date[1], last_date[2], 0, 0, 0, 0));
+
+        console.log(first_date);
+        console.log(last_date);
+
+        jobsperdaychartdata['labels'] = getDates(new Date(first_date[0], first_date[1] - 1, first_date[2], 0, 0, 0, 0), new Date(last_date[0], last_date[1] - 1, last_date[2], 0, 0, 0, 0));
     }
 
     $.each(jobsperdaychartdata['labels'], function(index, date) {
@@ -334,6 +337,10 @@ JobMonitorDatasetInformation.prototype._generateCharts = function(data) {
     $.each(data['data']['statistics']['job_completion'], function(index, grids) {
         for(var i = 0; i < grids.length; ++i) {
             var value = grids[i];
+
+            console.log(index);
+            console.log(jobsperdaychartdata['date_index_mapping'][index]);
+
             jobsperdaychartdata['datasets'][jobsperdaychartdata['grid_dataset_mapping'][value['grid']]]['data'][jobsperdaychartdata['date_index_mapping'][index]] = value['jobs'];
         }
     });
@@ -368,8 +375,9 @@ JobMonitorDatasetInformation.prototype._generateCharts = function(data) {
             }
         }
     });
+}
 
-    // ===============================================================
+JobMonitorDatasetInformation.prototype._generateChartJobsPerStatus = function(data) {
     var rawData = {};
 
     $.each(this.runData['runs'], function(runId, value) {
@@ -398,7 +406,7 @@ JobMonitorDatasetInformation.prototype._generateCharts = function(data) {
 
     var status_chart_ctx = $('#status-chart');
     var status_chart = new Chart(status_chart_ctx, {
-        type: 'bar',
+        type: 'pie',
         data: {
             labels: statuschartdata['label'],
             datasets: [{
@@ -411,23 +419,16 @@ JobMonitorDatasetInformation.prototype._generateCharts = function(data) {
             title: {
                 display: true,
                 text: 'Job Status'
-            },
-            legend: {
-                position: 'left',
-                display: false
-            },
-            scales: {
-                yAxes: [{
-                    type: 'logarithmic',
-                    scaleLabel: {
-                        display: true,
-                        labelString: 'Number of Jobs'
-                    }
-                }]
             }
         }
     });
+}
 
+JobMonitorDatasetInformation.prototype._generateCharts = function(data) {
+    this._generateChartExecutionTimeAndJobsPerHost(data);
+    this._generateChartJobsPerGrid(data);
+    this._generateChartJobsPerDay(data);
+    this._generateChartJobsPerStatus(data);
 }
 
 JobMonitorDatasetInformation.prototype._queryComplete = function(data) {
@@ -460,9 +461,9 @@ JobMonitorDatasetInformation.prototype._queryComplete = function(data) {
 
     var content = '<div class="row">';
     //content += '<div class="col-md-4"><img src="http://grid.icecube.wisc.edu/filtering/graph/type/grid%20contribution/dataset/' + datasetId + '" /></div>';
-    content += '<div class="col-md-4"><table class="table table-striped"><thead><th colspan="2">Storage</th></thead><tbody>';
-    content += '<tr><td>Disk usage</td><td>' + this.formatBytes(data['data']['storage']) + '</td></tr>';
-    content += '<tr><td>Number of Files</td><td>' + data['data']['number_of_output_files'] + '</td></tr>';
+    content += '<div class="col-md-4"><table class="table table-striped"><thead><th></th><th>Data</th><th>Files</th></thead><tbody>';
+    content += '<tr><td>Input</td><td>' + this.formatBytes(data['data']['input']['size']) + '</td><td>' + data['data']['input']['files'] + '</td></tr>';
+    content += '<tr><td>Output</td><td>' + this.formatBytes(data['data']['output']['size']) + '</td><td>' + data['data']['output']['files'] + '</td></tr>';
     content += '</tbody></table></div>';
     content += '<div class="col-md-4">' +
                 '<table class="table table-striped">' +
