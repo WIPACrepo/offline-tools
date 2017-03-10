@@ -212,9 +212,8 @@ def main(config, logger,dryrun = False, check = False):
                 logger.info("halting processig due to user intervention ...")
                 exit (0)
     
-    #ChangedRecords_ = [c_['run_id'] for c_ in cRecords_]
     ChangedRecords_ = newSnapshotForRun
-    if len(cRecords_):
+    if len(ChangedRecords_):
         CurrentProductionVersion +=1
     
     if not len(NewRecords_) and not len(ChangedRecords_):
