@@ -35,6 +35,9 @@ def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
     Returns:
         None
     """
+
+    from FileTools import FileTools
+
     RunInfo = dbs4_.fetchall("""SELECT * FROM i3filter.grl_snapshot_info g
                                  JOIN i3filter.run_info_summary r ON r.run_id=g.run_id
                                  JOIN i3filter.run jr ON jr.run_id=r.run_id
@@ -54,7 +57,22 @@ def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
     ProductionYear = str(RunInfoDict[keys_[0]]['tStart'].year)
     
     LatestProductionVersion = str(RunInfoDict[keys_[-1]]['production_version'])
+
+    # Before creating the new GRLs, finding the path of the latest files
+    latest_grl = glob.glob(RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_2*" % (ProductionYear, LatestProductionVersion))
+    latest_grl.sort(key = lambda x: os.path.getmtime(x))
+    latest_grl = latest_grl[-1]
     
+    latest_versioned_grl = glob.glob(RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_Versioned*" % (ProductionYear, LatestProductionVersion))
+    latest_versioned_grl.sort(key = lambda x: os.path.getmtime(x))
+    latest_versioned_grl = latest_versioned_grl[-1]
+   
+    logger.debug("Latest GRLs: %s, %s" % (latest_grl, latest_versioned_grl))
+
+    latest_grl_checksum = FileTools(latest_grl, logger = logger).md5sum()
+    latest_versioned_grl_checksum = FileTools(latest_versioned_grl, logger = logger).md5sum()
+ 
+    # Create the new GRLs
     RunInfoFile = RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_"%(ProductionYear,LatestProductionVersion)+time.strftime("%Y_%m_%d-%H_%M_%S",time.localtime()) + ".txt"
     
     RunInfoFileV = RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_Versioned_"%(ProductionYear,LatestProductionVersion)+time.strftime("%Y_%m_%d-%H_%M_%S",time.localtime()) + ".txt"
@@ -106,7 +124,21 @@ def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
     
     RI_File.close()
     RI_FileV.close()
-    
+   
+    # Ok, the files have been created. Now check if something has changed compared to the previous one. If not, delete the just created one
+    if FileTools(RunInfoFile).md5sum() == latest_grl_checksum:
+        logger.warning("Newly created GRL has no changes compared to the latest one. Will not keep the newly created one. Delete %s" % RunInfoFile)
+
+        if not dryrun:
+            os.remove(RunInfoFile)
+
+    if FileTools(RunInfoFileV).md5sum() == latest_versioned_grl_checksum:
+        logger.warning("Newly created GRL has no changes compared to the latest one. Will not keep the newly created one. Delete %s" % RunInfoFileV)
+
+        if not dryrun:
+            os.remove(RunInfoFileV)
+
+    # Update the symlink
     LatestGoodRunInfo = glob.glob(RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_2*" % (ProductionYear, LatestProductionVersion))
     LatestGoodRunInfo.sort(key=lambda x: os.path.getmtime(x))
     LatestGoodRunInfo = LatestGoodRunInfo[-1]
