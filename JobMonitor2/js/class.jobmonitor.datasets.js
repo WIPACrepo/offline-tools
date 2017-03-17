@@ -40,6 +40,7 @@ JobMonitorDatasets.prototype.update = function(data) {
     }
 
     // DropDown
+    var datasetTypes = []
     var orderedDatasets = {};
     
     $.each(seasons, function(season, value) {
@@ -52,6 +53,10 @@ JobMonitorDatasets.prototype.update = function(data) {
                 }
 
                 orderedDatasets[season][dataset['type']].push(dataset);
+
+                if(-1 == $.inArray(dataset['type'], datasetTypes)) {
+                    datasetTypes.push(dataset['type']);
+                }
             }
         });
     });
@@ -62,6 +67,8 @@ JobMonitorDatasets.prototype.update = function(data) {
     var seasonSorted = Object.keys(orderedDatasets);
     seasonSorted.sort();
     seasonSorted.reverse();
+
+    datasetTypes.sort();
 
     var makeNiceL2DatasetList = function(list) {
         var html = '';
@@ -92,20 +99,25 @@ JobMonitorDatasets.prototype.update = function(data) {
     seasonSorted.forEach(function(season) {
         var numOfLines = 1;
 
-        if(typeof orderedDatasets[season]['L2'] !== 'undefined') {
-            numOfLines += orderedDatasets[season]['L2'].length;
-        }
+        var first = true;
+        datasetTypes.forEach(function(type) {
+            if(typeof orderedDatasets[season][type] !== 'undefined') {
+                numOfLines += orderedDatasets[season][type].length;
 
-        if(typeof orderedDatasets[season]['L3'] !== 'undefined') {
-            numOfLines += orderedDatasets[season]['L3'].length + 1;
-        }
+                if(first) {
+                    first = false;
+                } else {
+                    numOfLines += 1;
+                }
+            }
+        });
 
         dropDownHtml += '<tr>';
         dropDownHtml += '<td rowspan="' + numOfLines + '"><strong>' + season + '</strong></td>';
 
         var first = true;
 
-        ['L2', 'L3'].forEach(function(type) {
+        datasetTypes.forEach(function(type) {
             if(typeof orderedDatasets[season][type] !== 'undefined') {
                 if(first) {
                     first = false;
