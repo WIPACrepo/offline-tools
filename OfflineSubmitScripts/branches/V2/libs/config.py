@@ -159,7 +159,14 @@ class Config(ConfigParser.SafeConfigParser):
             seasons = {}
 
             for row in data:
-                seasons[int(row['season')] = {'first': row['first_run'], 'test': [int(r) for r in row['test_runs'].split(',')]}
+                self.logger.debug("Season data: {0}".format(row))
+
+                testruns = []
+
+                if row['test_runs'] is not None:
+                    testruns = [int(r) for r in row['test_runs'].split(',')]
+
+                seasons[int(row['season'])] = {'first': row['first_run'], 'test': testruns}
 
             self.season_info = collections.OrderedDict(sorted(seasons.items()))
 
@@ -188,7 +195,7 @@ class Config(ConfigParser.SafeConfigParser):
             datasets = {}
 
             for row in data:
-                datasets[int(row['dataset_id')] = row
+                datasets[int(row['dataset_id'])] = row
 
             self.dataset_info = collections.OrderedDict(sorted(datasets.items()))
 
@@ -313,7 +320,7 @@ def get_config(logger):
         ConfigParser.SafeConfigParser: The config parser
     """
     if not hasattr(get_config, 'configparser'):
-        get_config.configparser = ExtParser({
+        get_config.configparser = Config({
             'tmpdir': path.get_tmpdir(),
             'rootdir': path.get_rootdir(),
             'logdir': path.get_logdir()

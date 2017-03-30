@@ -223,7 +223,7 @@ class GapsFile(File):
                 else:
                     self._values[key] = value
     
-        self._values['subrun'] = path.get_sub_run_id_from_path(self.path, 'L2', self.logger)
+        self._values['subrun'] = path.get_sub_run_id_from_path(self.path, 'Level2', self.logger)
 
     def has_gaps(self):
         return 'gap' in self._values.keys()
@@ -275,11 +275,11 @@ def create_good_run_list(dataset_id, db, logger, dryrun):
         snapshot_id = '*'
     )
 
-    latest_grl_glob_str = format_grl_path(config.get('L2', 'GRLFileName'))
+    latest_grl_glob_str = format_grl_path(config.get('Level2', 'GRLFileName'))
     logger.debug('latest_grl_glob_str = {0}'.format(latest_grl_glob_str))
     latest_grl = glob(latest_grl_glob_str)
 
-    latest_grl_versioned_glob_str = format_grl_path(config.get('L2', 'GRLFileVersionedName'))
+    latest_grl_versioned_glob_str = format_grl_path(config.get('Level2', 'GRLFileVersionedName'))
     logger.debug('latest_grl_versioned_glob_str = {0}'.format(latest_grl_versioned_glob_str))
     latest_grl_versioned = glob(latest_grl_versioned_glob_str)
 
@@ -320,8 +320,8 @@ def create_good_run_list(dataset_id, db, logger, dryrun):
         now = datetime.datetime.now()
     )
 
-    grl = GoodRunList(format_grl_path(config.get('L2', 'GRLFileName')), logger, mode = 'w')
-    grl_versioned = GoodRunList(format_grl_path(config.get('L2', 'GRLFileVersionedName')), logger, mode = 'w')
+    grl = GoodRunList(format_grl_path(config.get('Level2', 'GRLFileName')), logger, mode = 'w')
+    grl_versioned = GoodRunList(format_grl_path(config.get('Level2', 'GRLFileVersionedName')), logger, mode = 'w')
 
     logger.debug("New file: {0}".format(grl.path))
     logger.debug("New file: {0}".format(grl_versioned.path))
@@ -377,11 +377,11 @@ def create_good_run_list(dataset_id, db, logger, dryrun):
             grl_row['ActiveInIce'] = grl_row['active_in_ice_doms']
 
         # Not versioned version:
-        grl_row['OutDir'] = format_run_path(config.get('L2', 'RunLinkName'))
+        grl_row['OutDir'] = format_run_path(config.get('Level2', 'RunLinkName'))
         grl.add_run(grl_row.deepcopy())
 
         # Versioned version:
-        grl_row['OutDir'] = format_run_path(config.get('L2', 'RunFolder'))
+        grl_row['OutDir'] = format_run_path(config.get('Level2', 'RunFolder'))
         grl_versioned.add_run(grl_row)
 
     # Write files
@@ -406,7 +406,7 @@ def create_good_run_list(dataset_id, db, logger, dryrun):
     # Create symlinks
     if new_grl:
         # Remove existing symlink
-        symlink = File(format_grl_path(config.get('L2', 'GRLLinkName')), logger)
+        symlink = File(format_grl_path(config.get('Level2', 'GRLLinkName')), logger)
         if symlink.exists():
             symlink.remove()
 
@@ -414,7 +414,7 @@ def create_good_run_list(dataset_id, db, logger, dryrun):
 
     if new_grl_versioned:
         # Remove existing symlink
-        symlink = File(format_grl_path(config.get('L2', 'GRLLinkVersionedName')), logger)
+        symlink = File(format_grl_path(config.get('Level2', 'GRLLinkVersionedName')), logger)
         if symlink.exists():
             symlink.remove()
 

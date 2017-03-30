@@ -54,7 +54,7 @@ def get_sub_run_id_from_path(path, ptype, logger):
     The pattern is gathered from the config file. The `ptype` matches the section. The name of the pattern must be `RegExpForSubRunId`.
 
     Args:
-        ptype (str): L2, L2Pass2, PFFilt, PFDST
+        ptype (str): Level2, Level2pass2, PFFilt, PFDST
         logger (Logger): The logger
 
     Returns:

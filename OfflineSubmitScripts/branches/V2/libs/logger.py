@@ -54,9 +54,10 @@ def get_logger(loglevel, logfile):
         logfile (str): write logging to this file as well as stdout
     """
 
-    from files import get_rootdir
+    from path import get_rootdir
 
-    logformat = get_config(DummyLogger()).get('Logger', 'Format')
+    # logformat = get_config(DummyLogger()).get('Logger', 'Format')
+    logformat = '[%(asctime)s] %(levelname)s: %(module)s(%(lineno)d):   %(message)s'
 
     def exception_handler(exctype, value, tb):
         logger.critical("Uncaught exception", exc_info=(exctype, value, tb))

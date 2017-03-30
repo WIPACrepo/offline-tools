@@ -10,6 +10,7 @@ from libs.argparser import get_defaultparser
 from libs.logger import get_logger
 from libs.path import get_logdir
 from libs.runs import Run, validate_file_integrity
+from libs.databaseconnection import DatabaseConnection
 
 import os
 
@@ -48,8 +49,8 @@ def main(inputfiletype, logger, dryrun, check):
         FROM i3filter.runs
     """)[0]
 
-    current_info['snapshot_id'] = current_info['max_snapshot_id']
-    current_info['production_version'] = current_info['max_production_version']
+    current_info['snapshot_id'] = current_info['max_snapshot_id'] or 0
+    current_info['production_version'] = current_info['max_production_version'] or 0
 
     logger.debug("Got current max production_version {max_production_version} and max snapshot_id {max_snapshot_id} from i3filter.runs".format(**current_info))
 
@@ -99,7 +100,7 @@ def main(inputfiletype, logger, dryrun, check):
    
     logger.debug("SQL to get data from live: {0}".format(livesql))
 
-    i3live_query = m_live.fetchall(livesql)
+    i3live_query = db_i3live.fetchall(livesql)
 
     if not len(i3live_query):
         logger.info("no results from i3Live DB for runs >= {first_run}".format(first_run = first_run))
@@ -139,12 +140,12 @@ def main(inputfiletype, logger, dryrun, check):
     old_data = [row['run_id'] for row in db_filter.fetchall(old_data_sql)]
 
     changed_data_sql = """
-        SELECT s.run_id, snapshot_id
-        FROM i3filter.runs r
-        WHERE (r.run_id >= {first_run} OR r.run_id IN ({test_runs}))
-           AND r.run_id <= {last_run}
-           AND r.run_id NOT IN ({exclude_next_testruns})
-        ORDER BY s.run_id""".format(
+        SELECT run_id, snapshot_id
+        FROM i3filter.runs
+        WHERE (run_id >= {first_run} OR run_id IN ({test_runs}))
+           AND run_id <= {last_run}
+           AND run_id NOT IN ({exclude_next_testruns})
+        ORDER BY run_id""".format(
             first_run = first_run,
             test_runs = ','.join([str(r) for r in seasons[current_season]['test']] + ['-1']),
             last_run = last_run,
@@ -201,6 +202,8 @@ def main(inputfiletype, logger, dryrun, check):
         send_check_notification(new_data, changed_runs, logger, dryrun)
         exit(0)
 
+    logger.info('Found: new runs = {new_runs}, updated runs = {updated_runs}'.format(new_runs = len(new_data), updated_runs = len(changed_runs)))
+
     for r in run_ids:
         current_run_data = run_data[r]
 
@@ -247,7 +250,7 @@ def main(inputfiletype, logger, dryrun, check):
             # Print files that are empty or have wrong permissions
             detailed_info = detailed_info[run.run_id]
 
-            if len(detailed_info['empty_files']) > 0 or len(detailed_info['wrong_permission']) > 0
+            if len(detailed_info['empty_files']) > 0 or len(detailed_info['wrong_permission']) > 0:
                 logger.warning("Run {run_id} has issues with input files".format(run_id = run.run_id))
 
                 logger.warning('  Empty files:')
@@ -295,7 +298,7 @@ def main(inputfiletype, logger, dryrun, check):
                     tstop_frac = current_run_data['tStop_frac'],
                     nevents = current_run_data['nEvents'],
                     rate = current_run_data['rateHz']
-            ))
+            )
 
             logger.debug('Run insertion SQL: {0}'.format(run_insertion_sq))
             db_filter.execute(run_insertion_sq)

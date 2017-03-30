@@ -294,11 +294,8 @@ class Run(object):
             dataclasses.I3Time: The time
         """
 
-        try:
-            self._load_data(force_reload)
-            return dataclasses.I3Time(self._data['good_tstop'].year, self._data['good_tstop_frac'])
-        except LoadRunDataException as e:
-            # Ok, looks like this run is not in the offline production db yet. Lets try to get the time data from i3live
+        self._load_data(force_reload)
+        return dataclasses.I3Time(self._data['good_tstop'].year, self._data['good_tstop_frac'])
 
     def get_livetime(self, force_reload = False):
         """
@@ -339,7 +336,7 @@ class Run(object):
             next_day = self.get_start_time().date_time + relativedelta(days = 1)
 
             todays_path = self.format(path_pattern)
-            tomorrows_path = self.format(path_pattern.format(year = next_day.year, month = next_day.month, day = next_day.day))
+            tomorrows_path = self.format(path_pattern, **{'year': next_day.year, 'month': next_day.month, 'day': next_day.day})
 
             paths = glob(todays_path)
             paths.extend(glob(tomorrows_path))
@@ -351,21 +348,19 @@ class Run(object):
 
             self._subruns[x] = {}
 
-            for sub_run_id, path in self._get_x_files(result).items():
+            for sub_run_id, path in result.items():
                 sr = None
 
                 if sub_run_id in self._subruns['common']:
-                    sr = copy.deepcopy(self._subruns['common'][sub_run_id]
+                    sr = copy.deepcopy(self._subruns['common'][sub_run_id])
                 else:
-                    sr = SubRun(path, logger)
+                    sr = SubRun(path, self.logger)
                     sr.run = self
                     sr.sub_run_id = sub_run_id
 
                 sr.filetype = x
 
                 self._subruns[x][sub_run_id] = sr
-
-        self._subruns[x].sort(key = lambda sr: sr.sub_run_id)
 
         return self._subruns[x]
 
@@ -380,7 +375,7 @@ class Run(object):
             list: List of SubRuns
         """
 
-        return self._get_x_files(get_config().get('PFFilt', 'PFFiltFile'), 'PFFilt', force_reload).values()
+        return self._get_x_files(get_config(self.logger).get('PFFilt', 'PFFiltFile'), 'PFFilt', force_reload).values()
 
     def get_pfdst_files(self, force_reload = False):
         """
@@ -393,7 +388,7 @@ class Run(object):
             list: List of SubRuns
         """
 
-        return self._get_x_files(get_config().get('PFDST', 'PFDSTFile'), 'PFDST', force_reload).values()
+        return self._get_x_files(get_config(self.logger).get('PFDST', 'PFDSTFile'), 'PFDST', force_reload).values()
 
     def get_level2_files(self, production_version = None, force_reload = False):
         """
@@ -406,7 +401,7 @@ class Run(object):
             list: List of SubRuns
         """
 
-        return self._get_x_files(get_config().get('Level2', 'Level2File'), 'Level2', force_reload).values()
+        return self._get_x_files(get_config(self.logger).get('Level2', 'Level2File'), 'Level2', force_reload).values()
 
     def get_level2pass2_files(self, production_version = None, force_reload = False):
         """
@@ -419,7 +414,7 @@ class Run(object):
             list: List of SubRuns
         """
 
-        return self._get_x_files(get_config().get('Level2pass2', 'Level2pass2File'), 'Level2pass2', force_reload).values()
+        return self._get_x_files(get_config(self.logger).get('Level2pass2', 'Level2pass2File'), 'Level2pass2', force_reload).values()
 
     def set_post_processing_state(self, dataset_id, validated):
         """
@@ -506,7 +501,7 @@ class Run(object):
         config = get_config(self.logger)
 
         paths = [
-            config.get('L2', 'RunFolderGCD'),
+            config.get('Level2', 'RunFolderGCD'),
             config.get('GCD', 'VerifiedGCDPath'),
             config.get('GCD', 'AllGCDPath'),
             config.get('GCD', 'GCDDataPath'),
@@ -517,7 +512,7 @@ class Run(object):
             f = files.File(self.format(path, force_reload), self.logger)
             if f.exists():
                 break
-            else
+            else:
                 f = None
 
         return f
@@ -576,20 +571,34 @@ class Run(object):
 
         self._load_data(force_reload)
 
-        return path.format(
-            run_id = self.run_id,
-            year = self._data['tstart'].year,
-            month = self._data['tstart'].month,
-            day = self._data['tstart'].day,
-            season = self.get_season(),
-            production_version = self._data['production_version'],
-            snapshot_id = self._data['snapshot_id'],
-            now = datetime.datetime.now(),
-            **kwargs
-        )
+        if 'run_id' not in kwargs:
+            kwargs['run_id'] =self.run_id
+        
+        if 'ywar' not in kwargs:
+            kwargs['year'] =self._data['tstart'].year
+        
+        if 'month' not in kwargs:
+            kwargs['month'] =self._data['tstart'].month
+        
+        if 'day' not in kwargs:
+            kwargs['day'] =self._data['tstart'].day
+        
+        if 'season' not in kwargs:
+            kwargs['season'] =self.get_season()
+        
+        if 'production_version' not in kwargs:
+            kwargs['production_version'] =self._data['production_version']
+        
+        if 'snapshot_id' not in kwargs:
+            kwargs['snapshot_id'] =self._data['snapshot_id']
+        
+        if 'now' not in kwargs:
+            kwargs['now'] =datetime.datetime.now()
+
+        return path.format(**kwargs)
 
 class SubRun(files.File):
-    def __init__(self, path, logger)
+    def __init__(self, path, logger):
         super(SubRun, self).__init__(path, logger)
 
         self.run = None
@@ -685,6 +694,8 @@ def validate_file_integrity(files, logger, run_start_time = None, run_stop_time 
         boolean: `True` if everything is OK
     """
 
+    from icecube import dataclasses
+
     for f in files:
         if f.filetype not in ['PFDST', 'PFFilt']:
             raise Exception('This function only works with PFDST and PFFilt files')
@@ -701,6 +712,12 @@ def validate_file_integrity(files, logger, run_start_time = None, run_stop_time 
         # OK, the run is not in the DB yet. Check if the times are provided
         if run_start_time is None or run_stop_time is None:
             raise Exception('Run {run_id} is not in the offline production DB yet. Therefore, you need to provide the good start/stop times explicitely')
+
+    if isinstance(run_start_time, dataclasses.I3Time):
+        run_start_time = run_start_time.date_time
+
+    if isinstance(run_stop_time, dataclasses.I3Time):
+        run_stop_time = run_stop_time.date_time
 
     # We have the start/stop times. Keep going
     detailed_info[files[0].run.run_id] = {'missing_files': [], 'metadata_start_time': None, 'metadata_stop_time': None, 'empty_files': [], 'wrong_permission': []}
@@ -724,23 +741,25 @@ def validate_file_integrity(files, logger, run_start_time = None, run_stop_time 
 
     # Check time start/stop: i3live times (the data in the DB) and the times in the metadata of the run files
     import tarfile
+    import os
+
     from xml.etree.ElementTree import ElementTree
     from dateutil.parser import parse
 
     def get_meta_xml(f):
-        with tarfile.open(f) as tfile:
-            for member in tfile.getmembers():
-                if '.meta.xml' in member.name:
-                    return tfile.extractfile(member)
+        tfile = tarfile.open(f)
+        for member in tfile.getmembers():
+            if '.meta.xml' in member.name:
+                return tfile.extractfile(member), tfile
 
-        return None
+        return None, tfile
 
     # Times of run
     start_time = None
     stop_time = None
 
     # First file
-    meta_xml = get_meta_xml(files[0].path)
+    meta_xml, tfile = get_meta_xml(files[0].path)
 
     if meta_xml is None:
         raise Exception('Could not find *.meta.xml in tar file')
@@ -748,13 +767,15 @@ def validate_file_integrity(files, logger, run_start_time = None, run_stop_time 
     doc = ElementTree(file = meta_xml)
     start_time = [t.text for t in doc.getiterator() if t.tag=="Start_DateTime"]
 
+    tfile.close()
+
     if not len(start_time):
         raise Exception('Could not find start time')
 
     start_time = parse(start_time[0])
 
     # Last file
-    meta_xml = get_meta_xml(files[-1].path)
+    meta_xml, tfile = get_meta_xml(files[-1].path)
 
     if meta_xml is None:
         raise Exception('Could not find *.meta.xml in tar file')
@@ -762,10 +783,12 @@ def validate_file_integrity(files, logger, run_start_time = None, run_stop_time 
     doc = ElementTree(file = meta_xml)
     stop_time = [t.text for t in doc.getiterator() if t.tag=="End_DateTime"]
 
+    tfile.close()
+
     if not len(stop_time):
         raise Exception('Could not find stop time')
 
-    stop_time = parse(start_time[0])
+    stop_time = parse(stop_time[0])
 
     mismatches = False
     if start_time <= run_start_time:
@@ -791,7 +814,7 @@ def validate_file_integrity(files, logger, run_start_time = None, run_stop_time 
             detailed_info_element['empty_files'].append(f.path)
             logger.debug('Found empty file: {0}'.format(f.path))
 
-        if not (os.stat(f).st_mode & stat.S_IRGRP):
+        if not (os.stat(f.path).st_mode & stat.S_IRGRP):
             detailed_info_element['wrong_permission'].append(f.path)
             logger.debug('Found file with wrong permissions: {0}'.format(f.path))
 
