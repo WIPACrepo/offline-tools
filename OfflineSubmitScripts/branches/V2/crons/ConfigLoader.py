@@ -7,7 +7,6 @@ import libs.files
 from libs.config import get_config
 
 config = get_config()
-#config.readfp(sys.stdin)
 
 for sec in config.sections():
     print "declare -A %s" % (sec)
