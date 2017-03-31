@@ -15,16 +15,17 @@ from libs.logger import DummyLogger
 from RunTools import RunTools
 
 class GoodRunListGenerator:
-    def __init__(self):
+    def __init__(self, skip):
         self.active_doms = None
         self.first_run = None
         self.last_run = None
+        self.skip = skip
 
     def get_gcd_file(self, path, run_id):
         files = glob(os.path.join(path, "Level2*%s*GCD*.i3.gz" % run_id))
     
         if len(files) != 1:
-            raise Exception('Did not finmd exactly one GCD file: %s' % files)
+            raise Exception('Did not find exactly one GCD file in %s: %s' % (path, files))
     
         return files[0]
     
@@ -81,11 +82,21 @@ class GoodRunListGenerator:
         pass_x_folder_str = ''
         if pass_number > 1:
             pass_x_folder_str = 'pass2'
-    
-        path = "/data/exp/IceCube/%s/filtered/level2%s/IC86_%s_GoodRunInfo.txt" % (season, pass_x_folder_str, season)
+  
+        path_column = 7
+ 
+        if pass_number == 2:
+            path_column = 4
+            path = "/data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_pass2/tmp/GRL_%s.txt" % (season)
+        else: 
+            path = "/data/exp/IceCube/%s/filtered/level2%s/IC86_%s_GoodRunInfo.txt" % (season, pass_x_folder_str, season)
     
         grl = read_file(path)
-    
+   
+        if pass_number == 2:
+            for run_id in grl.keys():
+                grl[run_id][path_column] = sorted(glob("%s_*" % grl[run_id][path_column].rstrip('/')))[-1]
+ 
         sorted_runs = sorted(grl.keys())
    
         self.first_run = sorted_runs[0]
@@ -101,14 +112,21 @@ class GoodRunListGenerator:
             counter += 1
     
             print "Process run %s [%s / %s]" % (run_id, counter, len(sorted_runs))
-    
-            files = self.get_data_files(grl[run_id][7], run_id)
-            gcd_file = self.get_gcd_file(grl[run_id][7], run_id)
+   
+            if int(run_id) in self.skip:
+                print "  skip this run"
+                continue
+ 
+            files = self.get_data_files(grl[run_id][path_column], run_id)
+            gcd_file = self.get_gcd_file(grl[run_id][path_column], run_id)
     
             active_strings, active_doms, active_in_ice = self.get_active_dom_data(run_id, pass_number, gcd_file)
     
             files.sort()
             for f in files:
+                if os.path.getsize(f) < 100000:
+                    continue
+
                 sub_run = self.get_subrun_number(f)
                 filepath = f
     
@@ -175,6 +193,6 @@ if __name__ == "__main__":
     parser.add_argument('--pass-number', help = "Pass1 = 1 (default), pass2 = 2, etc.", required = False, default = 1, type = int)
     args = parser.parse_args()
 
-    grl_generator = GoodRunListGenerator()
+    grl_generator = GoodRunListGenerator(skip = [122202])
     grl_generator.create_file(grl_generator.create_list(args.season, args.pass_number), args.out)
 
