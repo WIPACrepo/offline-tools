@@ -11,6 +11,7 @@ from libs.logger import get_logger
 from libs.path import get_logdir
 from libs.runs import Run, validate_file_integrity
 from libs.databaseconnection import DatabaseConnection
+from libs import times
 
 import os
 
@@ -233,7 +234,17 @@ def main(inputfiletype, logger, dryrun, check):
             continue
 
         if r in new_data:
-            logger.info("Entering new records for run = {0}".format(r))
+            run_info = []
+
+            if run.is_test_run():
+                run_info.append("test run")
+
+            if run.is_good_run():
+                run_info.append("good run")
+            else:
+                run_info.append("bad run")
+
+            logger.info("Entering new records for run = {0}, snapshot_id = {1}, production_version = {2}: {3}".format(r, run.get_snapshot_id(), run.get_production_version(), ', '.join(run_info)))
 
             in_files = None
 
@@ -245,7 +256,7 @@ def main(inputfiletype, logger, dryrun, check):
                 raise Exception('File type `{0}` cannot be handled'.format(inputfiletype))
 
             detailed_info = {}
-            check_files = validate_file_integrity(files = in_files, logger = logger, show_mismatches = run.is_good_run(), detailed_info = detailed_info)
+            check_files = validate_file_integrity(files = in_files, logger = logger, show_mismatches = run.is_good_run() or run.is_test_run(), detailed_info = detailed_info)
 
             # Print files that are empty or have wrong permissions
             detailed_info = detailed_info[run.run_id]
@@ -262,6 +273,7 @@ def main(inputfiletype, logger, dryrun, check):
                     logger.warning('    ' + f)
 
             logger.debug("Check files returned {0}".format(check_files))
+            logger.debug("detailed_info = {0}".format(detailed_info))
 
         update_comment = ''
         if r in changed_runs.keys():
@@ -269,7 +281,9 @@ def main(inputfiletype, logger, dryrun, check):
             update_comment = 'Updated in snapshot {0}'.format(run.get_snapshot_id())
 
         # Insert new runs from live in filter-db
-        if not dryrun and (check_files or not is_good_run):
+        if check_files or (not run.is_good_run() and not run.is_test_run()):
+            logger.info('Insert run into database')
+
             run_insertion_sql = """
                 INSERT INTO `i3filter`.`runs` (
                     `run_id`, `snapshot_id`, `production_version`, `good_i3`, `good_it`, `reason_i3`, `reason_it`,
@@ -284,24 +298,25 @@ def main(inputfiletype, logger, dryrun, check):
                     run_id = run.run_id,
                     snapshot_id = run.get_snapshot_id(),
                     production_version = run.get_production_version(),
-                    good_i3 = run.is_good_in_ice_run(),
-                    good_it = run.is_good_ice_top_run(),
+                    good_i3 = int(run.is_good_in_ice_run()),
+                    good_it = int(run.is_good_ice_top_run()),
                     reason_i3 = current_run_data['reason_i3'],
                     reason_it = current_run_data['reason_it'],
-                    good_tstart = current_run_data['good_tstart'],
-                    good_tstart_frac = current_run_data['good_tstart_frac'],
-                    good_tstop = current_run_data['good_tstop'],
-                    good_tstop_frac = current_run_data['good_tstop_frac'],
+                    good_tstart = times.get_db_time(run.get_good_start_time()),
+                    good_tstart_frac = times.get_db_frac(run.get_good_start_time()),
+                    good_tstop = times.get_db_time(run.get_good_stop_time()),
+                    good_tstop_frac = times.get_db_frac(run.get_good_stop_time()),
                     tstart = current_run_data['tStart'],
                     tstart_frac = current_run_data['tStart_frac'],
                     tstop = current_run_data['tStop'],
                     tstop_frac = current_run_data['tStop_frac'],
-                    nevents = current_run_data['nEvents'],
-                    rate = current_run_data['rateHz']
+                    nevents = run.get_number_of_events(),
+                    rate = run.get_rate()
             )
 
-            logger.debug('Run insertion SQL: {0}'.format(run_insertion_sq))
-            db_filter.execute(run_insertion_sq)
+            logger.debug('Run insertion SQL: {0}'.format(run_insertion_sql))
+            if not dryrun:
+                db_filter.execute(run_insertion_sql)
 
 if __name__ == "__main__":
     parser = get_defaultparser(__doc__, dryrun = True)

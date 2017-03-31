@@ -1,5 +1,6 @@
 
 import files
+import times
 from config import get_config
 from icecube import dataclasses, icetray
 
@@ -22,6 +23,46 @@ class Run(object):
         self._subruns = {'common': None, 'PFDST': None, 'PFFilt': None, 'Level2': None, 'Level2pass2': None}
         self._gcd_file = None
         self._season = None
+
+    def is_test_run(self, force_reload = False):
+        """
+        Returns `True` if the run is a test run. This is a shortcut for `libs.config.get_config(<logger>).is_test_run(run.run_id)`.
+
+        Note: The database needs to be up to date in order to be able to determine the return value correctly.
+
+        Args:
+            force_reload (boolean): If `True`, no cached data will be used. The default is `False` and usally the value does not change within a script.
+        """
+
+        return get_config(self.logger).is_test_run(self.run_id, force_reload)
+
+    def get_number_of_events(self, force_reload = False):
+        """
+        Returns the number of events provided by i3live.
+
+        Args:
+            force_reload (boolean): If `True`, no cached data will be used. The default is `False` and usally the value does not change within a script.
+
+        Returns:
+            int: The number of events
+        """
+
+        self._load_data(force_reload)
+        return int(self._data['nevents'])
+
+    def get_rate(self, force_reload = False):
+        """
+        Returns the rate provided by i3live.
+
+        Args:
+            force_reload (boolean): If `True`, no cached data will be used. The default is `False` and usally the value does not change within a script.
+
+        Returns:
+            float: The rate
+        """
+
+        self._load_data(force_reload)
+        return float(self._data['rate'])
 
     def is_good_in_ice_run(self, force_reload = False):
         """
@@ -253,7 +294,7 @@ class Run(object):
         """
 
         self._load_data(force_reload)
-        return dataclasses.I3Time(self._data['tstart'].year, self._data['tstart_frac'])
+        return times.get_i3time(self._data['tstart'], self._data['tstart_frac'])
 
     def get_stop_time(self, force_reload = False):
         """
@@ -267,7 +308,7 @@ class Run(object):
         """
 
         self._load_data(force_reload)
-        return dataclasses.I3Time(self._data['tstop'].year, self._data['tstop_frac'])
+        return times.get_i3time(self._data['tstop'], self._data['tstop_frac'])
 
     def get_good_start_time(self, force_reload = False):
         """
@@ -281,7 +322,7 @@ class Run(object):
         """
 
         self._load_data(force_reload)
-        return dataclasses.I3Time(self._data['good_tstart'].year, self._data['good_tstart_frac'])
+        return times.get_i3time(self._data['good_tstart'], self._data['good_tstart_frac'])
 
     def get_good_stop_time(self, force_reload = False):
         """
@@ -295,7 +336,7 @@ class Run(object):
         """
 
         self._load_data(force_reload)
-        return dataclasses.I3Time(self._data['good_tstop'].year, self._data['good_tstop_frac'])
+        return times.get_i3time(self._data['good_tstop'], self._data['good_tstop_frac'])
 
     def get_livetime(self, force_reload = False):
         """
@@ -719,6 +760,9 @@ def validate_file_integrity(files, logger, run_start_time = None, run_stop_time 
     if isinstance(run_stop_time, dataclasses.I3Time):
         run_stop_time = run_stop_time.date_time
 
+    run_start_time = run_start_time.replace(microsecond = 0)
+    run_stop_time = run_stop_time.replace(microsecond = 0)
+
     # We have the start/stop times. Keep going
     detailed_info[files[0].run.run_id] = {'missing_files': [], 'metadata_start_time': None, 'metadata_stop_time': None, 'empty_files': [], 'wrong_permission': []}
     detailed_info_element = detailed_info[files[0].run.run_id]
@@ -759,6 +803,7 @@ def validate_file_integrity(files, logger, run_start_time = None, run_stop_time 
     stop_time = None
 
     # First file
+    logger.info("Check start time")
     meta_xml, tfile = get_meta_xml(files[0].path)
 
     if meta_xml is None:
@@ -775,6 +820,7 @@ def validate_file_integrity(files, logger, run_start_time = None, run_stop_time 
     start_time = parse(start_time[0])
 
     # Last file
+    logger.info("Check stop time")
     meta_xml, tfile = get_meta_xml(files[-1].path)
 
     if meta_xml is None:
@@ -791,15 +837,17 @@ def validate_file_integrity(files, logger, run_start_time = None, run_stop_time 
     stop_time = parse(stop_time[0])
 
     mismatches = False
-    if start_time <= run_start_time:
+    if start_time > run_start_time:
         if show_mismatches:
             logger.warning('Mismatch in start time. Reported by i3Live: {i3live}; file metadata: {meta}'.format(i3live = run_start_time, meta = start_time))
+            logger.warning('File: {0}'.format(files[0].path))
 
         mismatches = True
 
-    if stop_time >= run_stop_time:
+    if stop_time < run_stop_time:
         if show_mismatches:
-            logger.warning('Mismatch in end time. Reported by i3Live: {i3live}; file metadata: {meta}'.format(i3live = run_start_time, meta = start_time))
+            logger.warning('Mismatch in end time. Reported by i3Live: {i3live}; file metadata: {meta}'.format(i3live = run_stop_time, meta = stop_time))
+            logger.warning('File: {0}'.format(files[-1].path))
 
         mismatches = True
 
@@ -808,6 +856,8 @@ def validate_file_integrity(files, logger, run_start_time = None, run_stop_time 
 
     # Check file size and file permissions
     import stat
+
+    logger.info("Check file size and file permissions")
 
     for f in files:
         if f.size() == 0:
@@ -818,7 +868,7 @@ def validate_file_integrity(files, logger, run_start_time = None, run_stop_time 
             detailed_info_element['wrong_permission'].append(f.path)
             logger.debug('Found file with wrong permissions: {0}'.format(f.path))
 
-    return (not mismatches) and len(detailed_info_element['empty_files']) == 0 and len(detailed_info_element['wrong_permission'])
+    return (not mismatches) and len(detailed_info_element['empty_files']) == 0 and len(detailed_info_element['wrong_permission']) == 0
 
 
 
