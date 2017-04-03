@@ -76,3 +76,20 @@ def make_relative_symlink(source, link_name, dryrun = False, logger = None):
     if not dryrun:
         os.symlink(rel_source, link_name)
 
+def get_condor_scratch_folder(default = None):
+    """
+    Tries to get the _CONDOR_SCRATCH_DIR. If not available or not writable, `default` will be returned.
+
+    Args:
+        default (str): The value if the scratch is not available. Default is `None`.
+
+    Returns:
+        str: The path or `default` if not available.
+    """
+
+    try:
+        if os.access(os.environ["_CONDOR_SCRATCH_DIR"], os.W_OK):
+            return os.environ["_CONDOR_SCRATCH_DIR"]
+    except:
+        return None
+
