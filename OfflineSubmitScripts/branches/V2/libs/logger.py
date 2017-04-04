@@ -16,34 +16,37 @@ class DummyLogger(object):
 
     def __init__(self, *args, **kwargs):
         self.silence = False
+        self.level = 20
 
     def debug(self, text):
-        if not self.silence:
+        if not self.silence and self.level <= 10:
             print text
 
     def error(self, text):
-        if not self.silence:
+        if not self.silence and self.level <= 40:
             print text
     
     def info(self, text):
-        if not self.silence:
+        if not self.silence and self.level <= 20:
             print text
 
     def warning(self, text):
-        if not self.silence:
+        if not self.silence and self.level <= 30:
             print text
     
-    def log(self, text):
-        if not self.silence:
+    def log(self, level, text):
+        if not self.silence and self.level <= level:
             print text
 
     def exception(self, text):
-        if not self.silence:
-            print text
+        self.error(text)
 
     def critical(self, text):
-        if not self.silence:
+        if not self.silence and self.level <= 50:
             print text
+
+    def set_level(self, level):
+        self.level = level
 
 def get_logger(loglevel, logfile):
     """
