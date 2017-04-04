@@ -3,9 +3,11 @@
 import os
 import subprocess
 
+from libs.config import get_config
 from libs.argparser import get_defaultparser
 from libs.logger import get_logger
 from libs.path import get_logdir, get_tmpdir, get_rootdir
+from libs.runs import Run
 
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__, dryrun = True)
@@ -26,7 +28,7 @@ if __name__ == '__main__':
     config = get_config(logger)
 
     # Temporary submit file
-    condor_file_path = config.get('GCDGeneration', 'TmpCondorcondor_file')
+    condor_file_path = config.get('GCDGeneration', 'TmpCondorSubmitFile')
     logger.debug('Temporary condor submit file: {0}'.format(condor_file_path))
 
     # I3Build
@@ -34,6 +36,9 @@ if __name__ == '__main__':
 
     # Check arguments
     runs = args.runs
+
+    if runs is None:
+        runs = []
 
     if args.startrun is not None:
         if args.endrun is None:
@@ -45,9 +50,13 @@ if __name__ == '__main__':
         logger.critical('If --endrun, -e has been set, also the --startrun, -s needs to be set.')
         exit(1)
 
-    logger.info("Generate GCD files for {0}".format(', '.join(runs)))
+    if not len(runs):
+        logger.critical("No runs given.")
+        exit(1)
 
-    runs = [Run(run_id, logger, dryrun) for run_id in runs]
+    logger.info("Generate GCD files for {0}".format(', '.join([str(r) for r in runs])))
+
+    runs = [Run(run_id, logger = logger, dryrun = args.dryrun) for run_id in runs]
 
     for run in runs:
         logger.info('Submit GCD generation script for run {0}'.format(run.run_id))
@@ -57,14 +66,14 @@ if __name__ == '__main__':
             continue
 
         if not args.resubmission and run.get_gcd_file() is not None:
-            logger.info('Skip this run because it already has a GCd file. If you want to re-create it, use the --resubmission option.')
+            logger.info('Skip this run because it already has a GCD file. If you want to re-create it, use the --resubmission option.')
             continue
 
         condor_log = run.format(config.get('GCDGeneration', 'CondorLog'))
         condor_err = run.format(config.get('GCDGeneration', 'CondorErrorLog'))
         out_log = run.format(config.get('GCDGeneration', 'OutLog'))
 
-        if not dryrun:
+        if not args.dryrun:
             if not os.path.exists(condor_log):
                 logger.info('{0} does not exist yet. Creating...'.format(condor_log))
                 os.makedirs(condor_log)
@@ -87,7 +96,7 @@ if __name__ == '__main__':
             condor_file.write('\ngetenv = True')
             condor_file.write("\nQueue")
 
-        if not dryrun:
+        if not args.dryrun:
             if args.resubmission:
                 logger.debug("Update i3filter.runs: GCDCheck = 0, BadDOMsCheck = 0, PoleGCDCheck = NULL, TemplateGCDCheck = NULL")
                 dbs4_.execute(run.format("""UPDATE i3filter.runs

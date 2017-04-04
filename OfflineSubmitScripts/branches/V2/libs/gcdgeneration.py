@@ -1,5 +1,8 @@
 
-from icecube import icetray
+from icecube import icetray, dataclasses
+from I3Tray import *
+
+from path import get_rootdir
 
 from icecube.gcdserver.Config import get_config as get_server_config
 from icecube.gcdserver.I3GeometryBuilder import buildI3Geometry
@@ -21,18 +24,20 @@ class GCDGenerator(icetray.I3Module):
                           'I3Live host',
                           get_server_config().get('gcdserver', 'i3live_host'))
 
+        self.AddOutBox("OutBox")
+
     def Configure(self):
         self.run_id = self.GetParameter('RunId')
         self.i3live_host = self.GetParameter('I3LiveHost')
 
-    def Process():
-        run_data = getLiverun_data(self.run_id, self.i3live_host)
+    def Process(self):
+        run_data = getLiveRunData(self.run_id, self.i3live_host)
 
         if run_data.startTime is None:
             icetray.logging.log_fatal("No run data available for run {0}".format(self.run_id))
             raise Exception("No run data available for run {0}".format(self.run_id))
 
-        blob_db = fillblob_db(getDB(), run = self.run_id, configuration = run_data.configName)
+        blob_db = fillBlobDB(getDB(), run = self.run_id, configuration = run_data.configName)
 
         g = buildI3Geometry(blob_db)
         c = buildI3Calibration(blob_db)
@@ -43,21 +48,21 @@ class GCDGenerator(icetray.I3Module):
 
         fr = icetray.I3Frame(icetray.I3Frame.Geometry)
         fr['I3Geometry'] = g
-        self.push(fr)
+        self.PushFrame(fr)
 
         fr = icetray.I3Frame(icetray.I3Frame.Calibration)
         fr['I3Calibration'] = c
-        self.push(fr)
+        self.PushFrame(fr)
 
         fr = icetray.I3Frame(icetray.I3Frame.DetectorStatus)
         fr['I3DetectorStatus'] = d
-        self.push(fr)
+        self.PushFrame(fr)
 
 def set_production_information(frame, production_version, snapshot_id, good_start_time, good_stop_time):
-    frame["Offlineproduction_version"] = dataclasses.I3Double(production_version)
-    frame["GRLsnapshot_id"] = dataclasses.I3Double(snapshot_id)
-    frame["GoodRungood_start_time"] = good_start_time
-    frame["GoodRungood_stop_time"] = good_stop_time
+    frame["OfflineProductionVersion"] = dataclasses.I3Double(production_version)
+    frame["GRLSnapshotId"] = dataclasses.I3Double(snapshot_id)
+    frame["GoodRunStartTime"] = good_start_time
+    frame["GoodRunEndTime"] = good_stop_time
 
 def adjust_dst_time(frame, run, logger):
     """
@@ -79,16 +84,17 @@ def adjust_dst_time(frame, run, logger):
     if abs((frame['I3DetectorStatus'].end_time.date_time - run.get_stop_time().date_time).total_seconds()) > 100:
         logger.warning("DS End Time Needed Adjustment")
         logger.warning("Original End Time is: {0}".format(frame['I3DetectorStatus'].end_time.date_time))
-        print "Replaced with End Time from i3live: {0}".format(run.get_stop_time())))
+        logger.warning("Replaced with End Time from i3live: {0}".format(run.get_stop_time()))
         frame['I3DetectorStatus'].end_time = run.get_stop_time()
 
 def generate_gcd(run, gcd_path, spe_correction_file, logger):
     from icecube.BadDomList.BadDomListTraySegment import BadDomList
     from icecube.phys_services.spe_fit_injector import I3SPEFitInjector
+    from icecube import dataio
 
     tray = I3Tray()
 
-    trau.Add(GCDGenerator, "GCDGenerator", RunId = run.run_id)
+    tray.Add(GCDGenerator, "GCDGenerator", RunId = run.run_id)
     tray.Add(I3SPEFitInjector, "fixspe", Filename = spe_correction_file)
     tray.Add(set_production_information, "set_production_information",
              good_start_time = run.get_good_start_time(),
@@ -115,13 +121,10 @@ def generate_gcd(run, gcd_path, spe_correction_file, logger):
     del tray
 
 def run_gcd_audit(path, logger):
-    from I3Tray import *
-
     try:
         tray = I3Tray()
         tray.AddModule("I3Reader","readGCD", filename = path)
         tray.AddModule('I3GCDAuditor', 'GCDAuditor', MaximumParanoia=True)
-
         tray.Execute()
         tray.Finish()
 
@@ -163,7 +166,7 @@ def parse_gcd_audit_output(path, logger):
             logger.info("GCD Audit for OK")
             return True
         else:
-            logger.error("GCD audit failed)
+            logger.error("GCD audit failed")
             logger.info("====== GCD output after filtering ====")
             for line in h.split('\n'):
                 logger.info(line)
@@ -196,7 +199,8 @@ def parse_bad_dom_audit(path, logger):
             return False
 
 def rehydrate(gcd_path, input_path, tmp_name, logger):
-    from I3Tray import *
+    from icecube.filterscripts.offlineL2.Rehydration import Rehydration
+
     tray = I3Tray()
 
     tray.AddModule( "I3Reader", "Reader", Filenamelist = [gcd_path, input_path])
@@ -209,8 +213,10 @@ def rehydrate(gcd_path, input_path, tmp_name, logger):
     del tray
 
 def run_bad_dom_audit(gcd_path, rehydrated_input_file, logger):
-    from I3Tray import *
-    from config import get_config()
+    from config import get_config
+
+    logger.debug('BadDOMList = {0}'.format(get_config(logger).get('GCD', 'BadDomListNameSLC')))
+
     tray = I3Tray()
     tray.AddModule('I3Reader', 'reader', FilenameList = [gcd_path, rehydrated_input_file])
     tray.AddModule('I3BadDOMAuditor', 'BadDOMAuditor',

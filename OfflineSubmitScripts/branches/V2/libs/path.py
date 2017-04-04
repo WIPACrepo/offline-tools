@@ -91,5 +91,5 @@ def get_condor_scratch_folder(default = None):
         if os.access(os.environ["_CONDOR_SCRATCH_DIR"], os.W_OK):
             return os.environ["_CONDOR_SCRATCH_DIR"]
     except:
-        return None
+        return default
 

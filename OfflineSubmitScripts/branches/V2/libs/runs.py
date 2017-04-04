@@ -16,6 +16,9 @@ class Run(object):
         if db is None:
             from databaseconnection import DatabaseConnection
             self._db = DatabaseConnection.get_connection('filter-db', logger)
+            if self._db is None:
+
+                raise Exception('No database connection')
         else:
             self._db = db
 
@@ -132,7 +135,7 @@ class Run(object):
             return
 
         # Run information
-        sql = self.format('SELECT * FROM i3filter.runs WHERE run_id = {run_id} ORDER BY production_version DESC LIMIT 1')
+        sql = 'SELECT * FROM i3filter.runs WHERE run_id = {run_id} ORDER BY production_version DESC LIMIT 1'.format(run_id = self.run_id)
         data = self._db.fetchall(sql)
 
         if not len(data):
@@ -144,10 +147,10 @@ class Run(object):
         self._data = data[0]
 
         # Common sub run information
-        sql = self.format('SELECT * FROM i3filter.sub_runs WHERE run_id = {run_id}')
+        sql = 'SELECT * FROM i3filter.sub_runs WHERE run_id = {run_id}'.format(run_id = self.run_id)
         subrun_data = self._db.fetchall(sql)
 
-        sql = self.format('SELECT * FROM i3filter.gaps WHERE run_id = {run_id}')
+        sql = 'SELECT * FROM i3filter.gaps WHERE run_id = {run_id}'.format(run_id = self.run_id)
         gaps_data = self._db.fetchall(sql)
 
         self._subruns['common'] = {}
@@ -385,15 +388,14 @@ class Run(object):
             result = {get_sub_run_id_from_path(p, x, self.logger): p for p in paths}
 
             # Create SubRuns
-            import copy
-
             self._subruns[x] = {}
 
             for sub_run_id, path in result.items():
                 sr = None
 
                 if sub_run_id in self._subruns['common']:
-                    sr = copy.deepcopy(self._subruns['common'][sub_run_id])
+                    sr = self._subruns['common'][sub_run_id].copy()
+                    sr.path = path
                 else:
                     sr = SubRun(path, self.logger)
                     sr.run = self
@@ -646,6 +648,22 @@ class SubRun(files.File):
         self.sub_run_id = None
         self.filetype = None
         self._data = None
+
+    def copy(self):
+        """
+        Creates a copy of the subrun.
+
+        Returns:
+            SubRun: The copy
+        """
+
+        copy = SubRun(self.path, self.logger)
+        copy.run = self.run
+        copy.sub_run_id = self.sub_run_id
+        copy.filetype = self.filetype
+        copy._data = self._data
+
+        return copy
 
     def get_start_time(self):
         """
