@@ -9,6 +9,8 @@ import os
 import files
 import datetime
 
+from libs.path import get_tmpdir
+
 class Lock:
     def __init__(self, script_name, logger, lock_file = None):
         """
@@ -24,7 +26,7 @@ class Lock:
         if lock_file is None:
             # Create lock file path: $TMP_DIR_PATH/<script_name>.lock
             # From <script_name> is the file extension removed
-            self._lock_file = os.path.join(files.get_tmpdir(), os.path.splitext(os.path.basename(script_name))[0] + '.lock')
+            self._lock_file = os.path.join(get_tmpdir(), os.path.splitext(os.path.basename(script_name))[0] + '.lock')
         else:
             self._lock_file = lock_file
 
@@ -74,7 +76,7 @@ class Lock:
                         return True
         
             self._logger.info("Removing stale lock file")
-            os.system("rm -f " + self._lock_file)
+            os.remove(self._lock_file)
         else:
             self._logger.debug("Lock file %s does not exist"%self._lock_file)
         
@@ -103,7 +105,7 @@ class Lock:
 
         if os.path.isfile(self._lock_file):
             self._logger.info("Removing lock file")
-            os.system("rm -f " + self._lock_file)
+            os.remove(self._lock_file)
 
             return True
         else:

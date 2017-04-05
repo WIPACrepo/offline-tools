@@ -2,7 +2,7 @@
 <DIF_Plus xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="IceCubeDIFPlus.xsd">
    <DIF>
       <Entry_ID>TBD</Entry_ID>
-      <Entry_Title>IC86_%s %s files for run %s</Entry_Title>
+      <Entry_Title>IC86_{season} {subcategory_capitalized} files for run {run_id}</Entry_Title>
       <Parameters>SPACE SCIENCE &gt; Astrophysics &gt; Neutrinos</Parameters>
       <ISO_Topic_Category>geoscientificinformation</ISO_Topic_Category>
       <Data_Center>
@@ -12,29 +12,29 @@
             <Email>datacenter@icecube.wisc.edu</Email>
          </Personnel>
       </Data_Center>
-      <Summary>IC86_%s %s files for run %s</Summary>
+      <Summary>IC86_{season} {subcategory_capitalized} files for run {run_id}</Summary>
       <Metadata_Name>[CEOS IDN DIF]</Metadata_Name>
       <Metadata_Version>9.4</Metadata_Version>
       <Personnel>
          <Role>Technical Contact</Role>
-         <First_Name>%s</First_Name>
-         <Last_Name>%s</Last_Name>
-         <Email>%s</Email>
+         <First_Name>{ts_first_name}</First_Name>
+         <Last_Name>{ts_last_name}</Last_Name>
+         <Email>{ts_email}</Email>
       </Personnel>
       <Sensor_Name>ICECUBE &gt; IceCube</Sensor_Name>
       <Source_Name>EXPERIMENTAL &gt; Data with an instrumentation based source</Source_Name>
-      <DIF_Creation_Date>%s</DIF_Creation_Date>
+      <DIF_Creation_Date>{dif_creation_date}</DIF_Creation_Date>
    </DIF>
    <Plus>
-      <Start_DateTime>%s</Start_DateTime>
-      <End_DateTime>%s</End_DateTime>
+      <Start_DateTime>{start_date_time}</Start_DateTime>
+      <End_DateTime>{end_date_time}</End_DateTime>
       <Category>filtered</Category>
-      <Subcategory>%s</Subcategory>
-      <Run_Number>%s</Run_Number>
+      <Subcategory>{subcategory}</Subcategory>
+      <Run_Number>{run_id}</Run_Number>
       <Project>
         <Name>icerec</Name>
-        <Version>%s</Version>
-        <DateTime>%s</DateTime>
+        <Version>{icerec_version}</Version>
+        <DateTime>{now}</DateTime>
       </Project>
    </Plus>
 </DIF_Plus>

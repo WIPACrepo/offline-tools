@@ -103,13 +103,13 @@ class Config(ConfigParser.SafeConfigParser):
         for v in vars:
             # To make it possible that the keys 'nameXXX', ... and 'name' are existing,
             # the length of the key has to be checked
-            if len(v[0]) > len(varbeginning) and v[0][:len(varbeginning)].lower() == varbeginning.lower():
+            if v[0].lower().startswith(varbeginning.lower()):
                 key = keytype(v[0][len(varbeginning):])
 
                 if type(valtype) == str and valtype.lower() == 'json':
                     vars_dict[key] = json.loads(v[1])
                 else:
-                    vars_dict[key] = valtype(v[1])
+                    vars_dict[key] = valtype(self.get(section, v[0]))
 
         return collections.OrderedDict(sorted(vars_dict.items()))
 
@@ -121,7 +121,7 @@ class Config(ConfigParser.SafeConfigParser):
         Args:
             section (str): The section
             name (str): The name of the var. That means, the begging of the config key that is followed by some other characters
-            valtyoe (type|json): Default is `str`. Tries to convert the value to the given type. If the string `'json'` is passed, it json parses the value.
+            valtype (type|json): Default is `str`. Tries to convert the value to the given type. If the string `'json'` is passed, it json parses the value.
         """
 
         val_list = []

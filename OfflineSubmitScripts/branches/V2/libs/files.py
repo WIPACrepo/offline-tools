@@ -1,6 +1,7 @@
 
 import os
 import path
+import json
 
 class File(object):
     def __init__(self, path, logger):
@@ -46,6 +47,22 @@ class File(object):
 
     def sha512(self, buffersize = 16384):
         return self.checksum('sha512', buffersize)
+
+    def get_name(self):
+        return os.path.basename(self.path)
+
+    def get_dirname(self):
+        return os.path.dirname(self.path)
+
+    @classmethod
+    def get_md5(cls, path, logger):
+        f = cls(path, logger)
+        return f.md5()
+
+    @classmethod
+    def get_sha512(cls, path, logger):
+        f = cls(path, logger)
+        return f.sha512()
 
 class GoodRunList(File):
     def __init__(self, path, logger, columns = ['RunNum', 'Good_i3', 'Good_it', 'LiveTime', 'ActiveStrings', 'ActiveDoms', 'ActiveInIce', 'OutDir', 'Comment(s)'], run_id_column = 0, empty_cell_value = 'N/A', mode = 'r'):
@@ -249,6 +266,268 @@ class GapsFile(File):
     def get_file_livetime(self):
         return float(self._values['File Livetime'])
 
+class ChecksumCache(File):
+    def __init__(self, logger):
+        from libs.config import get_config
+        super(ChecksumCache, self).__init__(get_config(logger).get('CacheCheckSums', 'CacheFile'), logger)
+        self._data = {'md5': {}, 'sha512': {}}
+
+        self._load()
+
+    def _load(self):
+        if os.path.exists(self.path):
+            with open(self.path, 'r') as f:
+                self._data = json.load(f)
+
+    def has_md5(self, path):
+        """
+        Checks if the cache has the checksum for the given path.
+
+        Args:
+            path (str): The path to the file
+
+        Returns:
+            boolean: `True` if the checksum for the given path is in the cache.
+        """
+
+        return path in self._data['md5']
+
+    def has_sha512(self, path):
+        """
+        Checks if the cache has the checksum for the given path.
+
+        Args:
+            path (str): The path to the file
+
+        Returns:
+            boolean: `True` if the checksum for the given path is in the cache.
+        """
+
+        return path in self._data['sha512']
+
+    def get_md5(self, path):
+        """
+        Returns the MD5 sum of the path. If the path is not found in the cache, it will be calculated, added to the cache and returned.
+
+        Args:
+            path (str): Path to the file
+
+        Returns:
+            str: MD5 checksum.
+        """
+
+        if self.has_md5(path):
+            return self._data['md5'][path]
+        else:
+            self.logger.warning('Checksum for {0} not in cache. Calculating checksum...'.format(path))
+            return self.set_md5(path)
+
+    def get_sha512(self, path):
+        """
+        Returns the SHA512 sum of the path. If the path is not found in the cache, it will be calculated, added to the cache and returned.
+
+        Args:
+            path (str): Path to the file
+
+        Returns:
+            str: SHA512 checksum.
+        """
+
+        if self.has_sha512(path):
+            return self._data['sha512'][path]
+        else:
+            self.logger.warning('Checksum for {0} not in cache. Calculating checksum...'.format(path))
+            return self.set_sha512(path)
+
+    def set_md5(self, path, checksum = None):
+        """
+        Sets the MD5 checksum of the given path.
+
+        Args:
+            path (str): Path to the file
+            checksum (str): The checksum of the file. If it is `None` (as default) the checksum will be calculated and then added.
+
+        Returns:
+            str: The checksum
+        """
+
+        self._data['md5'][path] = checksum or File.get_md5(path, self.logger)
+        return self._data['md5'][path]
+
+    def set_sha512(self, path, checksum = None):
+        """
+        Sets the SHA512 checksum of the given path.
+
+        Args:
+            path (str): Path to the file
+            checksum (str): The checksum of the file. If it is `None` (as default) the checksum will be calculated and then added.
+
+        Returns:
+            str: The checksum
+        """
+
+        self._data['sha512'][path] = checksum or File.get_sha512(path, self.logger)
+        return self._data['sha512'][path]
+
+    def write(self):
+        """
+        Stores the data that has been added via the `set` methods in file or DB.
+        """
+
+        if self._data is None:
+            self.logger.error('No data to write')
+        else:
+            with open(self.path, 'w') as f:
+                json.dump(f, self._data)
+
+class MetaXMLFile(File):
+    def __init__(self, dest_folder, run, level, dataset_id, logger):
+        super(MetaXMLFile, self).__init__(None, logger)
+
+        if level not in ['L2', 'L3']:
+            raise Exception('Level must be L2 or L3')
+
+        from libs.config import get_config
+        self.config = get_config(logger)
+
+        if level == 'L2':
+            self.path = os.path.join(dest_folder, self.config.get('Level2', 'MetaFileName'))
+        elif level == 'L3':
+            self.path = os.path.join(dest_folder, self.config.get('Level3', 'MetaFileName'))
+
+        self.run = run
+        self.level = level
+        self.dataset_id = dataset_id
+
+    def add_main_processing_info(self):
+        """
+        Writes a meta XML file for a specific run.
+
+        Utilizes a lot of information from the config/offline_processing.cfg, which also specifies
+        which template file should be used.
+
+        Args:
+            dataset_id (int): The dataset id if the run
+        """
+
+        # Get all information that is required
+        now = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+        season = run.get_season()
+        ts_first_name = self.config.get('PERSONNEL', 'FirstName')
+        ts_last_name = self.config.get('PERSONNEL', 'LastName')
+        ts_email = self.config.get('PERSONNEL', 'eMail')
+        dif_creation_date = self.run.get_start_time().date_time.strftime('%Y-%m-%d')
+        start_date_time = self.run.get_start_time().date_time.strftime('%Y-%m-%dT%H:%M:%S')
+        end_date_time = self.run.get_stop_time().date_time.strftime('%Y-%m-%dT%H:%M:%S')
+        subcategory = '' # assigned later
+        subcategory_capitalized = '' # assigned later
+        icerec_version = '' # assigned later
+        file_name = '' # assigned later
+        template_file = self.config.get('DEFAULT', 'MetaFileTemplateMainProcessing')
+        working_group = None # Will be assigned automatically if it is a L3 dataset
+
+        template = ''
+        with open(template_file, 'r') as file:
+            template = file.read()
+
+        if level == 'L2':
+            subcategory = 'level2'
+            icerec_version = os.path.basename(conf.get('Level2', 'I3_SRC'))
+        elif level == 'L3':
+            subcategory = 'level3'
+            l3_datasets = self.config.get_var_dict('Level3', 'I3_SRC_', keytype = int)
+            if self.dataset_id not in l3_datasets.keys():
+                logger.critical("Dataset {0} is not configured in config file.".format(self.dataset_id))
+                raise Exception("Dataset {0} is not configured in config file.".format(self.dataset_id))
+
+            icerec_version = os.path.basename(l3_datasets[self.dataset_id])
+
+        subcategory_capitalized = subcategory.title()
+
+        if level == 'L3':
+            working_groups = self.config.get_var_dict('Level3', 'WG', keytype = int)
+
+            if working_groups[self.dataset_id] is None:
+                logger.critical("Working group name is not defined for dataset {0}. Check config file.".format(self.dataset_id))
+                raise Exception("Working group name is not defined for dataset {0}. Check config file.".format(self.dataset_id))
+
+            subcategory_capitalized = "{0} ({1})".format(subcategory_capitalized, working_groups[self.dataset_id])
+
+        if not os.path.isdir(self.get_dirname()):
+            logger.critical("Folder '{0}' does not exist".format(dest_folder))
+            raise Exception("Folder '{0}' does not exist".format(dest_folder))
+
+        # Fill the template
+        meta_file_content = template.format(
+            season = season,
+            subcategory_capitalized =subcategory_capitalized,
+            run_id = run_id,
+            ts_first_name = ts_first_name,
+            ts_last_name = ts_last_name,
+            ts_email = ts_email,
+            dif_creation_date = dif_creation_date,
+            start_date_time = start_date_time,
+            end_date_time = end_date_time,
+            subcategory = subcategory,
+            icerec_version = icerec_version,
+            now = now)
+
+        with open(self.path, 'w') as f:
+            logger.debug("Write meta file: {0}".format(path))
+            f.write(meta_file_content)
+
+    def add_post_processing_info(self):
+        import xml.etree.ElementTree as ET
+        import xml.dom.minidom as minidom
+        from libs.svn import SVN
+        from libs.path import get_rootdir
+        import datetime
+
+        svn = SVN(get_rootdir(), logger)
+
+        # Since it is the post processing, there should already be a meta file
+        # If there is no meta file, display a warning.
+
+        if not self.exists():
+            logger.warning("Meta file '{0}' does not exist. That means that no meta information are avilable from main processing, and we can not proceed adding information.".format(self.path))
+            return
+
+        # Adding post processing information
+        xml_tree = ET.parse(path)
+        xml_root = xml_tree.getroot()
+        xml_post_processing = ET.Element('Project')
+
+        xml_name = ET.Element('Name')
+        xml_version = ET.Element('Version')
+        xml_date_time = ET.Element('DateTime')
+
+        xml_name.text = os.path.join(svn.get('URL'), os.path.basename(script_file))
+        xml_version.text = "Revision %s" % svn.get('Revision')
+        xml_date_time.text = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+
+        # Finding Plus section
+        xml_plus = xml_root.find('Plus')
+        if xml_plus is None:
+            logger.critical("Cannot find 'Plus' elemnt in meta xml file {0}".format(path))
+            exit(1)
+
+        # The actual adding
+        xml_post_processing.append(xml_name)
+        xml_post_processing.append(xml_version)
+        xml_post_processing.append(xml_date_time)
+
+        xml_plus.append(xml_post_processing)
+
+        # Writing file
+        with open(self.path, 'w') as f:
+            formatted_xml = minidom.parseString(ET.tostring(xml_root)).toprettyxml(indent = '    ')
+
+            # It contains empty lines. Remove them
+            formatted_xml = os.linesep.join([s for s in formatted_xml.splitlines() if s.strip()])
+
+            logger.debug("Write meta file: {0}".format(path))
+            f.write(formatted_xml)
+
 def create_good_run_list(dataset_id, db, logger, dryrun):
     """
     Creates the GRLs: Versioned and unversioned. The versioned one uses the run folders with production version.
@@ -419,4 +698,38 @@ def create_good_run_list(dataset_id, db, logger, dryrun):
             symlink.remove()
 
         path.make_relative_symlink(grl.path, symlink.path, dryrun, logger)
+
+def clean_datawarehouse(run, logger, dryrun):
+    """
+    Cleans the run folder (Level2) of the given run. Removes ALL files and ALL folders
+    that are in the run folder.
+
+    Args:
+        run (runs.Run): The run
+        logger (Logger): The logger
+        dryrun (boolean): If `True`, this function does NOT delete files.
+    """
+
+    from config import get_config
+    from glob import glob
+    import shutil
+
+    run_folder = run.format(get_config(logger).get('Level2', 'RunFolder'))
+
+    files = glob(os.path.join(path, '*'))
+
+    logger.debug('Found {0} files/folders in {1}'.format(len(files), run_folder))
+
+    for f in files:
+        logger.debug('Delete {0}'.format(f))
+
+        if not dryrun:
+            if os.path.isdir(f):
+                shutil.rmtree(f)
+            elif os.path.isfile(f):
+                os.remove(f)
+            else:
+                raise Exception('{0} is not a file and not a folder'.format(f))
+
+
 

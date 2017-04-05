@@ -560,6 +560,36 @@ class Run(object):
 
         return f
 
+    def get_gcd_generated(self, force_reload = False):
+        """
+        Checks if the GCD file has been generated and the GCD audit was successful.
+
+         Args:
+            force_reload (boolean): If `True`, no cached data will be used. The default is `False` and usally the value does not change within a script.
+
+        Returns:
+            boolean: `True`, if the GCD file has been generated
+        """
+
+        self._load_data(force_reload = force_reload)
+
+        return bool(self._data['gcd_generated'])
+
+    def get_gcd_bad_dom_list_checked(self, force_reload = False):
+        """
+        Checks if the bad dom audit was successful.
+
+         Args:
+            force_reload (boolean): If `True`, no cached data will be used. The default is `False` and usally the value does not change within a script.
+
+        Returns:
+            boolean: `True`, if the bad dom audit was successful
+        """
+
+        self._load_data(force_reload = force_reload)
+
+        return bool(self._data['gcd_bad_doms_validated'])
+
     def is_validated(self, dataset_id):
         """
         Checks if the run has been validated for the given dataset.
