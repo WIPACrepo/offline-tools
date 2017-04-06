@@ -767,7 +767,7 @@ class SubRun(files.File):
 
         return self._data['gaps']
 
-def validate_file_integrity(files, logger, run_start_time = None, run_stop_time = None, show_mismatches = True, detailed_info = {}):
+def validate_file_integrity(run, files, logger, run_start_time = None, run_stop_time = None, show_mismatches = True, detailed_info = {}):
     """
     Checks if the files are OK. Only PFDST and PFFilt files!
 
@@ -784,6 +784,10 @@ def validate_file_integrity(files, logger, run_start_time = None, run_stop_time 
     """
 
     from icecube import dataclasses
+
+    # We have the start/stop times. Keep going
+    detailed_info[run.run_id] = {'missing_files': [], 'metadata_start_time': None, 'metadata_stop_time': None, 'empty_files': [], 'wrong_permission': []}
+    detailed_info_element = detailed_info[run.run_id]
 
     for f in files:
         if f.filetype not in ['PFDST', 'PFFilt']:
@@ -810,10 +814,6 @@ def validate_file_integrity(files, logger, run_start_time = None, run_stop_time 
 
     run_start_time = run_start_time.replace(microsecond = 0)
     run_stop_time = run_stop_time.replace(microsecond = 0)
-
-    # We have the start/stop times. Keep going
-    detailed_info[files[0].run.run_id] = {'missing_files': [], 'metadata_start_time': None, 'metadata_stop_time': None, 'empty_files': [], 'wrong_permission': []}
-    detailed_info_element = detailed_info[files[0].run.run_id]
 
     files.sort(key = lambda sr: sr.sub_run_id)
 

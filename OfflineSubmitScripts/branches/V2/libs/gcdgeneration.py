@@ -4,59 +4,22 @@ from I3Tray import *
 
 from path import get_rootdir
 
-from icecube.gcdserver.Config import get_config as get_server_config
-from icecube.gcdserver.I3GeometryBuilder import buildI3Geometry
-from icecube.gcdserver.I3CalibrationBuilder import buildI3Calibration
-from icecube.gcdserver.I3DetectorStatusBuilder import buildI3DetectorStatus
-from icecube.gcdserver.MongoDB import fillBlobDB, getDB
-from icecube.gcdserver.I3Live import getLiveRunData
-from icecube.gcdserver.util import setStartStopTime
+from icecube.gcdserver.GCDGeneratorModule import GCDGenerator
 
-class GCDGenerator(icetray.I3Module):
-    def __init__(self, context):
-        icetray.I3Module.__init__(self, context)
+def get_latest_transaction_of_gcd_db(logger):
+    from libs.config import get_config
+    import pymongo
 
-        self.AddParameter('RunId',
-                          'The run id',
-                          -1)
+    client = pymongo.MongoClient(get_config(logger).get('GCDGeneration', 'MongoDBHost'))
+    collection = client.omdb.transaction
 
-        self.AddParameter('I3LiveHost',
-                          'I3Live host',
-                          get_server_config().get('gcdserver', 'i3live_host'))
+    transactions = collection.find().sort('transaction', pymongo.DESCENDING)
 
-        self.AddOutBox("OutBox")
+    if not transactions.count():
+        logger.critical('No transaction found')
+        raise Exception('No transaction found')
 
-    def Configure(self):
-        self.run_id = self.GetParameter('RunId')
-        self.i3live_host = self.GetParameter('I3LiveHost')
-
-    def Process(self):
-        run_data = getLiveRunData(self.run_id, self.i3live_host)
-
-        if run_data.startTime is None:
-            icetray.logging.log_fatal("No run data available for run {0}".format(self.run_id))
-            raise Exception("No run data available for run {0}".format(self.run_id))
-
-        blob_db = fillBlobDB(getDB(), run = self.run_id, configuration = run_data.configName)
-
-        g = buildI3Geometry(blob_db)
-        c = buildI3Calibration(blob_db)
-        d = buildI3DetectorStatus(blob_db, run_data)
-
-        setStartStopTime(g, d)
-        setStartStopTime(c, d)
-
-        fr = icetray.I3Frame(icetray.I3Frame.Geometry)
-        fr['I3Geometry'] = g
-        self.PushFrame(fr)
-
-        fr = icetray.I3Frame(icetray.I3Frame.Calibration)
-        fr['I3Calibration'] = c
-        self.PushFrame(fr)
-
-        fr = icetray.I3Frame(icetray.I3Frame.DetectorStatus)
-        fr['I3DetectorStatus'] = d
-        self.PushFrame(fr)
+    return transactions[0]
 
 def set_production_information(frame, production_version, snapshot_id, good_start_time, good_stop_time):
     frame["OfflineProductionVersion"] = dataclasses.I3Double(production_version)
@@ -91,10 +54,14 @@ def generate_gcd(run, gcd_path, spe_correction_file, logger):
     from icecube.BadDomList.BadDomListTraySegment import BadDomList
     from icecube.phys_services.spe_fit_injector import I3SPEFitInjector
     from icecube import dataio
+    from config import get_config
 
     tray = I3Tray()
 
-    tray.Add(GCDGenerator, "GCDGenerator", RunId = run.run_id)
+    tray.Add(GCDGenerator, "GCDGenerator",
+             RunId = run.run_id,
+             I3LiveHost = get_config(logger).get('GCDGeneration', 'I3LiveHost'),
+             MongoDBHost = get_config(logger).get('GCDGeneration', 'MongoDBHost'))
     tray.Add(I3SPEFitInjector, "fixspe", Filename = spe_correction_file)
     tray.Add(set_production_information, "set_production_information",
              good_start_time = run.get_good_start_time(),

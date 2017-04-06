@@ -73,16 +73,20 @@ if __name__ == '__main__':
         condor_err = run.format(config.get('GCDGeneration', 'CondorErrorLog'))
         out_log = run.format(config.get('GCDGeneration', 'OutLog'))
 
+        logger.debug('condor_log = {0}'.format(condor_log))
+        logger.debug('condor_err = {0}'.format(condor_err))
+        logger.debug('out_log = {0}'.format(out_log))
+
         if not args.dryrun:
-            if not os.path.exists(condor_log):
-                logger.info('{0} does not exist yet. Creating...'.format(condor_log))
-                os.makedirs(condor_log)
-            if not os.path.exists(condor_err):
-                logger.info('{0} does not exist yet. Creating...'.format(condor_err))
-                os.makedirs(condor_err)
-            if not os.path.exists(out_log):
-                logger.info('{0} does not exist yet. Creating...'.format(out_log))
-                os.makedirs(out_log)
+            if not os.path.exists(os.path.dirname(condor_log)):
+                logger.info('{0} does not exist yet. Creating...'.format(os.path.dirname(condor_log)))
+                os.makedirs(os.path.dirname(condor_log))
+            if not os.path.exists(os.path.dirname(condor_err)):
+                logger.info('{0} does not exist yet. Creating...'.format(os.path.dirname(condor_err)))
+                os.makedirs(os.path.dirname(condor_err))
+            if not os.path.exists(os.path.dirname(out_log)):
+                logger.info('{0} does not exist yet. Creating...'.format(os.path.dirname(out_log)))
+                os.makedirs(os.path.dirname(out_log))
 
         with open(condor_file_path,"w") as condor_file:
             condor_file.write("Universe = vanilla ")

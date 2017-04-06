@@ -256,7 +256,7 @@ def main(inputfiletype, logger, dryrun, check):
                 raise Exception('File type `{0}` cannot be handled'.format(inputfiletype))
 
             detailed_info = {}
-            check_files = validate_file_integrity(files = in_files, logger = logger, show_mismatches = run.is_good_run() or run.is_test_run(), detailed_info = detailed_info)
+            check_files = validate_file_integrity(run = run, files = in_files, logger = logger, show_mismatches = run.is_good_run() or run.is_test_run(), detailed_info = detailed_info)
 
             # Print files that are empty or have wrong permissions
             detailed_info = detailed_info[run.run_id]

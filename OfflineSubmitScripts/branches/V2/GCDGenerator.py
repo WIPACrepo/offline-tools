@@ -37,7 +37,7 @@ def main(run_id, production_version, snapshot_id, outdir, logger):
         gcd_data_path = os.path.join(outdir, os.path.basename(gcd_data_path))
     else:
         if not os.path.exists(os.path.dirname(gcd_data_path)):
-            os.mkdir(os.path.dirname(gcd_data_path))
+            os.makedirs(os.path.dirname(gcd_data_path))
 
     # Create folders if neccessary
     if not os.path.exists(os.path.dirname(gcd_all_path)):
@@ -54,7 +54,7 @@ def main(run_id, production_version, snapshot_id, outdir, logger):
 
     if os.path.isfile(gcd_data_path) and os.path.getsize(gcd_data_path) > 0:
         if not outdir:
-            make_relative_symlink(gcd_data_path, gcd_all_path)
+            make_relative_symlink(gcd_data_path, gcd_all_path, dryrun = False, logger = logger)
 
         logger.info(run.format("Auditing GCD file for run {run_id}"))
 
@@ -104,7 +104,7 @@ def main(run_id, production_version, snapshot_id, outdir, logger):
 
             if last_bad_dom_audit_result:
                 if not outdir:
-                    make_relative_symlink(gcd_data_path, gcd_verified_path)
+                    make_relative_symlink(gcd_data_path, gcd_verified_path, dryrun = False, logger = logger)
                     db.execute(run.format("UPDATE i3filter.runs SET gcd_bad_doms_validated = 1 WHERE run_id = {run_id} and snapshot_id = {snapshot_id}"))
 
                 logger.info("Bad doms audit for {0} OK".format(gcd_data_path))
@@ -127,7 +127,10 @@ if __name__ == '__main__':
     logger.set_level(args.loglevel)
 
     logger.info("Generating GCD file for run {run_id} with production version {production_version} and snapshot id {snapshot_id}".format(run_id = args.run_id, snapshot_id = args.snapshot_id, production_version = args.production_version))
- 
+
+    latest_transaction = get_latest_transaction_of_gcd_db(logger)
+    logger.info('GCD DB status: Latest transaction (transaction: {transaction}, insertDate: {insertDate}, status: {status}, _id: {_id})'.format(**latest_transaction))
+
     main(args.run_id, args.production_version, args.snapshot_id, args.out, logger)
 
 
