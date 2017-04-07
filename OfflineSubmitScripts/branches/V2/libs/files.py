@@ -378,7 +378,7 @@ class ChecksumCache(File):
             self.logger.error('No data to write')
         else:
             with open(self.path, 'w') as f:
-                json.dump(f, self._data)
+                json.dump(self._data, f)
 
 class MetaXMLFile(File):
     def __init__(self, dest_folder, run, level, dataset_id, logger):
@@ -410,9 +410,11 @@ class MetaXMLFile(File):
             dataset_id (int): The dataset id if the run
         """
 
+        import datetime
+
         # Get all information that is required
         now = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-        season = run.get_season()
+        season = self.run.get_season()
         ts_first_name = self.config.get('PERSONNEL', 'FirstName')
         ts_last_name = self.config.get('PERSONNEL', 'LastName')
         ts_email = self.config.get('PERSONNEL', 'eMail')
@@ -430,10 +432,10 @@ class MetaXMLFile(File):
         with open(template_file, 'r') as file:
             template = file.read()
 
-        if level == 'L2':
+        if self.level == 'L2':
             subcategory = 'level2'
-            icerec_version = os.path.basename(conf.get('Level2', 'I3_SRC'))
-        elif level == 'L3':
+            icerec_version = os.path.basename(self.config.get('Level2', 'I3_SRC'))
+        elif self.level == 'L3':
             subcategory = 'level3'
             l3_datasets = self.config.get_var_dict('Level3', 'I3_SRC_', keytype = int)
             if self.dataset_id not in l3_datasets.keys():
@@ -444,7 +446,7 @@ class MetaXMLFile(File):
 
         subcategory_capitalized = subcategory.title()
 
-        if level == 'L3':
+        if self.level == 'L3':
             working_groups = self.config.get_var_dict('Level3', 'WG', keytype = int)
 
             if working_groups[self.dataset_id] is None:
@@ -461,7 +463,7 @@ class MetaXMLFile(File):
         meta_file_content = template.format(
             season = season,
             subcategory_capitalized =subcategory_capitalized,
-            run_id = run_id,
+            run_id = self.run.run_id,
             ts_first_name = ts_first_name,
             ts_last_name = ts_last_name,
             ts_email = ts_email,
@@ -473,7 +475,7 @@ class MetaXMLFile(File):
             now = now)
 
         with open(self.path, 'w') as f:
-            logger.debug("Write meta file: {0}".format(path))
+            self.logger.debug("Write meta file: {0}".format(self.path))
             f.write(meta_file_content)
 
     def add_post_processing_info(self):

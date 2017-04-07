@@ -1,6 +1,8 @@
 
 import iceprodinterface
+
 from files import File
+from libs.databaseconnection import DatabaseConnection
 
 class IceProd1(iceprodinterface.IceProdInterface):
     def __init__(self, logger, dryrun):
@@ -32,33 +34,33 @@ class IceProd1(iceprodinterface.IceProdInterface):
             checksumcache (files.ChecksumCache): The cache that manages the checksums
         """
 
-        logger.info(run.format('IceProd1: Submitting run {run_id}, snapshot_id = {snapshot_id}, production_version = {production_version}'))
+        self.logger.info(run.format('IceProd1: Submitting run {run_id}, snapshot_id = {snapshot_id}, production_version = {production_version}'))
 
         path_prefix = 'gsiftp://gridftp.icecube.wisc.edu'
 
-        logger.debug('Get PFFilt files')
+        self.logger.debug('Get PFFilt files')
         input_files = run.get_pffilt_files()
         gcd_file = run.get_gcd_file()
         gcd_checksum = None
 
-        logger.debug("GCD file: {0}"format(GCDFileName))
+        self.logger.debug("GCD file: {0}".format(gcd_file.path))
         
         if gcd_file is not None:
-            logger.debug('Calculate MD5 sum for gcd file')
-            gcd_checksum = File.get_md5(gcd_file, logger)
+            self.logger.debug('Calculate MD5 sum for gcd file')
+            gcd_checksum = gcd_file.md5()
         else:
-            logger.critical("No GCD file found.")
+            self.logger.critical("No GCD file found.")
             raise Exception('No GCD file found')
         
         if not len(input_files):
-            logger.critical('No PFFilt files have been found')
+            self.logger.critical('No PFFilt files have been found')
             raise Exception('No input files found')
         else:
-            queue_id = _get_max_queue_id(dataset_id)
+            queue_id = self._get_max_queue_id(dataset_id)
 
-            logger.debug('Last queue_id = {0}'.format(queue_id))
+            self.logger.debug('Last queue_id = {0}'.format(queue_id))
 
-            logger.info("Attempting to submit {0} PFFilt Files for run {1}".format(len(input_files), run.run_id))
+            self.logger.info("Attempting to submit {0} PFFilt Files for run {1}".format(len(input_files), run.run_id))
         
             for f in input_files:
                 queue_id += 1
@@ -68,9 +70,9 @@ class IceProd1(iceprodinterface.IceProdInterface):
                         VALUES ({dataset_id}, {queue_id},"{status}")
                     """.format(dataset_id = dataset_id, queue_id = queue_id, status = 'WAITING')
 
-                logger.debug('SQL: {0}'.format(sql))
+                self.logger.debug('SQL: {0}'.format(sql))
 
-                if not dryrun:
+                if not self.dryrun:
                     self._dbs4.execute(sql)
 
                 sql = """
@@ -78,14 +80,14 @@ class IceProd1(iceprodinterface.IceProdInterface):
                         VALUES ({dataset_id}, {queue_id}, "{file_name}", "{file_path}", "INPUT", "{checksum}", {file_size})""".format(
                             dataset_id = dataset_id,
                             queue_id = queue_id,
-                            file_name = os.path.basename(gcd_file),
-                            file_path = path_prefix + os.path.dirname(gcd_file) + "/",
+                            file_name = gcd_file.get_name(),
+                            file_path = path_prefix + gcd_file.get_dirname() + "/",
                             checksum = gcd_checksum,
-                            file_size = os.path.getsize(gcd_file))
+                            file_size = gcd_file.size())
 
-                logger.debug('SQL: {0}'.format(sql))
+                self.logger.debug('SQL: {0}'.format(sql))
 
-                if not dryrun:
+                if not self.dryrun:
                     self._dbs4.execute(sql)
 
                 sql = """
@@ -95,12 +97,12 @@ class IceProd1(iceprodinterface.IceProdInterface):
                             queue_id = queue_id,
                             file_name = f.get_name(),
                             file_path = path_prefix + f.get_dirname() + "/",
-                            checksum = f.md5(),
+                            checksum = checksumcache.get_md5(f.path),
                             file_size = f.size())
 
-                logger.debug('SQL: {0}'.format(sql))
+                self.logger.debug('SQL: {0}'.format(sql))
 
-                if not dryrun:
+                if not self.dryrun:
                     self._dbs4.execute(sql)
 
                 sql = """
@@ -112,9 +114,9 @@ class IceProd1(iceprodinterface.IceProdInterface):
                         sub_run = f.sub_run_id,
                         date = run.get_start_time().date_time.date())
 
-                logger.debug('SQL: {0}'.format(sql))
+                self.logger.debug('SQL: {0}'.format(sql))
 
-                if not dryrun:
+                if not self.dryrun:
                     self._dbs4.execute(sql)
 
     def clean_run(self, dataset_id, run):
@@ -129,13 +131,17 @@ class IceProd1(iceprodinterface.IceProdInterface):
 
         queue_ids = [q['queue_id'] for q in query]
 
+        if not len(queue_ids):
+            self.logger.info('Nothing to clean')
+            return
+
         # Clean job table
         sql = "DELETE FROM i3filter.job WHERE dataset_id = {dataset_id} AND queue_id IN ({queue_ids})".format(
             dataset_id = dataset_id,
             queue_ids = ','.join(queue_ids)
         )
 
-        logger.debug('Cleaning SQL: {0}'.format(sql))
+        self.logger.debug('Cleaning SQL: {0}'.format(sql))
 
         if not self.dryrun:
              self._dbs4.execute(sql)
@@ -146,7 +152,7 @@ class IceProd1(iceprodinterface.IceProdInterface):
             queue_ids = ','.join(queue_ids)
         )
 
-        logger.debug('Cleaning SQL: {0}'.format(sql))
+        self.logger.debug('Cleaning SQL: {0}'.format(sql))
 
         if not self.dryrun:
              self._dbs4.execute(sql)
@@ -157,7 +163,7 @@ class IceProd1(iceprodinterface.IceProdInterface):
             queue_ids = ','.join(queue_ids)
         )
 
-        logger.debug('Cleaning SQL: {0}'.format(sql))
+        self.logger.debug('Cleaning SQL: {0}'.format(sql))
 
         if not self.dryrun:
              self._dbs4.execute(sql)

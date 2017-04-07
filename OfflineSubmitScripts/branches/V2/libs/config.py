@@ -274,7 +274,7 @@ class Config(ConfigParser.SafeConfigParser):
         Returns:
             list: Datset ids. If no dataset id found, the list will be empty.
         """
-        datasets = self.get_dataset_info(force_reload = force_reload)
+        datasets = self.get_datasets_info(force_reload = force_reload)
         season = self.get_season_by_run(run_id, force_reload)
 
         found_dataset = []
