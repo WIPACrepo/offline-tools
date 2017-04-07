@@ -231,7 +231,7 @@ class Config(ConfigParser.SafeConfigParser):
 
         Args:
             force_reload (boolean): If `True`, no cached data will be used. The default is `False` and usally the value does not change within a script.
-            dataset_id (int): The season
+            dataset_id (int): The dataset id
 
         Returns:
             dict: All info about the given `dataset_id`.

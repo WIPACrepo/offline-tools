@@ -1,4 +1,5 @@
 
+import os
 import files
 import times
 from config import get_config
@@ -17,7 +18,6 @@ class Run(object):
             from databaseconnection import DatabaseConnection
             self._db = DatabaseConnection.get_connection('filter-db', logger)
             if self._db is None:
-
                 raise Exception('No database connection')
         else:
             self._db = db
@@ -26,6 +26,23 @@ class Run(object):
         self._subruns = {'common': None, 'PFDST': None, 'PFFilt': None, 'Level2': None, 'Level2pass2': None}
         self._gcd_file = None
         self._season = None
+
+    def get_sub_runs(self, force_reload = False):
+        """
+        Returns all currently available information for sub runs.
+
+        *Note*: Usually less or no information is available before post processing has been successfully performed.
+        Usually, there is only information available if a sub run has been manually marked as `bad`. The dict is probably empty!
+
+        Args:
+            force_reload (boolean): If `True`, no cached data will be used. The default is `False` and usally the value does not change within a script.
+
+        Returns:
+            dict: {<sub run id>: SubRun(), ...}
+        """
+
+        self._load_data(force_reload)
+        return self._subruns['common']
 
     def is_test_run(self, force_reload = False):
         """
@@ -433,7 +450,7 @@ class Run(object):
 
         return self._get_x_files(get_config(self.logger).get('PFDST', 'PFDSTFile'), 'PFDST', force_reload).values()
 
-    def get_level2_files(self, production_version = None, force_reload = False):
+    def get_level2_files(self, force_reload = False):
         """
         Returns a list of SubRuns of type `Level2` (list of Level2 files).
 
@@ -446,7 +463,7 @@ class Run(object):
 
         return self._get_x_files(get_config(self.logger).get('Level2', 'Level2File'), 'Level2', force_reload).values()
 
-    def get_level2pass2_files(self, production_version = None, force_reload = False):
+    def get_level2pass2_files(self, force_reload = False):
         """
         Returns a list of SubRuns of type `Level2pass2` (list of Level2pass2 files).
 
@@ -645,28 +662,28 @@ class Run(object):
         self._load_data(force_reload)
 
         if 'run_id' not in kwargs:
-            kwargs['run_id'] =self.run_id
-        
+            kwargs['run_id'] = self.run_id
+
         if 'ywar' not in kwargs:
-            kwargs['year'] =self._data['tstart'].year
-        
+            kwargs['year'] = self._data['tstart'].year
+
         if 'month' not in kwargs:
-            kwargs['month'] =self._data['tstart'].month
-        
+            kwargs['month'] = self._data['tstart'].month
+
         if 'day' not in kwargs:
-            kwargs['day'] =self._data['tstart'].day
-        
+            kwargs['day'] = self._data['tstart'].day
+
         if 'season' not in kwargs:
-            kwargs['season'] =self.get_season()
-        
+            kwargs['season'] = self.get_season()
+
         if 'production_version' not in kwargs:
-            kwargs['production_version'] =self._data['production_version']
-        
+            kwargs['production_version'] = self._data['production_version']
+
         if 'snapshot_id' not in kwargs:
-            kwargs['snapshot_id'] =self._data['snapshot_id']
-        
+            kwargs['snapshot_id'] = self._data['snapshot_id']
+
         if 'now' not in kwargs:
-            kwargs['now'] =datetime.datetime.now()
+            kwargs['now'] = datetime.datetime.now()
 
         return path.format(**kwargs)
 
@@ -694,6 +711,22 @@ class SubRun(files.File):
         copy._data = self._data
 
         return copy
+
+    def is_in_good_time_range(self):
+        """
+        Checks if the file is completely or partly in good time range.
+
+        Returns:
+            boolean: `True` if the file is completely or partly in good time range
+        """
+
+        if self.run.get_good_start_time() >= self.get_stop_time():
+            return False
+
+        if self.run.get_stop_time() <= self.get_start_time():
+            return False
+
+        return True
 
     def get_start_time(self):
         """
@@ -747,6 +780,19 @@ class SubRun(files.File):
 
         return self._data['livetime']
 
+    def is_bad(self):
+        """
+        Checks if this sub run has been marked as bad.
+
+        Returns:
+            boolean: `True` if marked as bad
+        """
+
+        if 'bad' in self._data:
+            return bool(self._data['bad'])
+        else:
+            return False
+
     def get_gaps(self):
         """
         Returns a list of gaps.
@@ -766,6 +812,30 @@ class SubRun(files.File):
         """
 
         return self._data['gaps']
+
+    def format(self, path, force_reload = False, **kwargs):
+        """
+        Same as Run.format() but it also knows about the sub run id.
+        """
+
+        if 'sub_run_id' not in kwargs:
+            kwargs['sub_run_id'] = self.sub_run_id
+
+        return self.run.format(path, force_reload = force_reload, **kwargs)
+
+    @classmethod
+    def sort_sub_runs(cls, sub_runs):
+        """
+        Sorts a list of sub runs by sub run id.
+
+        Args:
+            sub_runs (list): List of sub runs
+
+        Returns:
+            list: Sorted list of sub runs
+        """
+
+        return sorted(sub_runs, key = lambda sr: sr.sub_run_id)
 
 def validate_file_integrity(run, files, logger, run_start_time = None, run_stop_time = None, show_mismatches = True, detailed_info = {}):
     """
@@ -815,10 +885,11 @@ def validate_file_integrity(run, files, logger, run_start_time = None, run_stop_
     run_start_time = run_start_time.replace(microsecond = 0)
     run_stop_time = run_stop_time.replace(microsecond = 0)
 
-    files.sort(key = lambda sr: sr.sub_run_id)
+    files = SubRun.sort_sub_runs(files)
 
     # Check if we have all files. That means if there is a gap between the first and last file
-    if len(files) != files[-1].sub_run_id - files[0].sub_run_id + 1:
+    # Note: We should always start with part 0!
+    if len(files) != files[-1].sub_run_id + 1:
         logger.warning('We have missing files')
 
         # Ok, find missing parts
@@ -917,7 +988,5 @@ def validate_file_integrity(run, files, logger, run_start_time = None, run_stop_
             logger.debug('Found file with wrong permissions: {0}'.format(f.path))
 
     return (not mismatches) and len(detailed_info_element['empty_files']) == 0 and len(detailed_info_element['wrong_permission']) == 0
-
-
 
 

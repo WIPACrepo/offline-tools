@@ -3,6 +3,8 @@ import os
 import path
 import json
 
+import utils
+
 class File(object):
     def __init__(self, path, logger):
         self.path = path
@@ -17,7 +19,7 @@ class File(object):
     def remove(self):
         os.remove(self.path)
 
-    def checksum(self, type, buffersize = 16384):
+    def checksum(self, ctype, buffersize = 16384):
         """Return checksum of type `type` digest of file"""
 
         self.logger.debug("Try to open file for {type} checksum sum: {path}".format(type = type, path = self.path))
@@ -26,11 +28,13 @@ class File(object):
             import hashlib
             digest = None
 
-            if type.lower() == 'md5':
+            if ctype.lower() == 'md5':
                 digest = hashlib.md5()
-            elif type.lower() == 'sha512':
+            elif ctype.lower() == 'sha512':
                 digest = hashlib.sha512()
-    
+            else:
+                raise Exception('Unsupported checksum type: {0}'.format(ctype))
+
             self.logger.debug("Read file")
 
             buffer = f.read(buffersize)
@@ -63,6 +67,11 @@ class File(object):
     def get_sha512(cls, path, logger):
         f = cls(path, logger)
         return f.sha512()
+
+    @classmethod
+    def get_checksum(cls, path, ctype, logger):
+        f = cls(path, logger)
+        return f.checksum(ctype)
 
 class GoodRunList(File):
     def __init__(self, path, logger, columns = ['RunNum', 'Good_i3', 'Good_it', 'LiveTime', 'ActiveStrings', 'ActiveDoms', 'ActiveInIce', 'OutDir', 'Comment(s)'], run_id_column = 0, empty_cell_value = 'N/A', mode = 'r'):
@@ -266,11 +275,12 @@ class GapsFile(File):
     def get_file_livetime(self):
         return float(self._values['File Livetime'])
 
-class ChecksumCache(File):
-    def __init__(self, logger):
+class ChecksumCache(File, utils.ChecksumCache):
+    def __init__(self, logger, ctypes = ['md5', 'sha512']):
         from libs.config import get_config
-        super(ChecksumCache, self).__init__(get_config(logger).get('CacheCheckSums', 'CacheFile'), logger)
-        self._data = {'md5': {}, 'sha512': {}}
+
+        File.__init__(self, get_config(logger).get('CacheCheckSums', 'CacheFile'), logger)
+        utils.ChecksumCache.__init__(self, logger, ctypes)
 
         self._load()
 
@@ -278,96 +288,6 @@ class ChecksumCache(File):
         if os.path.exists(self.path):
             with open(self.path, 'r') as f:
                 self._data = json.load(f)
-
-    def has_md5(self, path):
-        """
-        Checks if the cache has the checksum for the given path.
-
-        Args:
-            path (str): The path to the file
-
-        Returns:
-            boolean: `True` if the checksum for the given path is in the cache.
-        """
-
-        return path in self._data['md5']
-
-    def has_sha512(self, path):
-        """
-        Checks if the cache has the checksum for the given path.
-
-        Args:
-            path (str): The path to the file
-
-        Returns:
-            boolean: `True` if the checksum for the given path is in the cache.
-        """
-
-        return path in self._data['sha512']
-
-    def get_md5(self, path):
-        """
-        Returns the MD5 sum of the path. If the path is not found in the cache, it will be calculated, added to the cache and returned.
-
-        Args:
-            path (str): Path to the file
-
-        Returns:
-            str: MD5 checksum.
-        """
-
-        if self.has_md5(path):
-            return self._data['md5'][path]
-        else:
-            self.logger.warning('Checksum for {0} not in cache. Calculating checksum...'.format(path))
-            return self.set_md5(path)
-
-    def get_sha512(self, path):
-        """
-        Returns the SHA512 sum of the path. If the path is not found in the cache, it will be calculated, added to the cache and returned.
-
-        Args:
-            path (str): Path to the file
-
-        Returns:
-            str: SHA512 checksum.
-        """
-
-        if self.has_sha512(path):
-            return self._data['sha512'][path]
-        else:
-            self.logger.warning('Checksum for {0} not in cache. Calculating checksum...'.format(path))
-            return self.set_sha512(path)
-
-    def set_md5(self, path, checksum = None):
-        """
-        Sets the MD5 checksum of the given path.
-
-        Args:
-            path (str): Path to the file
-            checksum (str): The checksum of the file. If it is `None` (as default) the checksum will be calculated and then added.
-
-        Returns:
-            str: The checksum
-        """
-
-        self._data['md5'][path] = checksum or File.get_md5(path, self.logger)
-        return self._data['md5'][path]
-
-    def set_sha512(self, path, checksum = None):
-        """
-        Sets the SHA512 checksum of the given path.
-
-        Args:
-            path (str): Path to the file
-            checksum (str): The checksum of the file. If it is `None` (as default) the checksum will be calculated and then added.
-
-        Returns:
-            str: The checksum
-        """
-
-        self._data['sha512'][path] = checksum or File.get_sha512(path, self.logger)
-        return self._data['sha512'][path]
 
     def write(self):
         """
@@ -733,5 +653,129 @@ def clean_datawarehouse(run, logger, dryrun):
             else:
                 raise Exception('{0} is not a file and not a folder'.format(f))
 
+def tar_files(files, tar_file, logger, dryrun, mode = 'w'):
+    """
+    Tars all files into tar_file. If dryrun is `True`, the file will be created in get_tmpdir().
 
+    Args:
+        mode (str): Default is `w`. Same values as for tarfile.open() mode are allowed.
+    """
+
+    import tarfile
+    import sys
+    from path import get_tmpdir
+
+    logger.info('Tar {0} files into {1}'.format(len(files), tar_file))
+
+    if dryrun:
+        tar_file = os.path.join(get_tmpdir(), os.path.basename(tar_file))
+        logger.warning('Since it is a dryrun, the tar file will be {0}'.format(tar_file))
+
+    if not len(files):
+        logger.warning('No files to be tar-ed')
+        return
+
+    with tarfile.open(tar_file, mode) as tar:
+        for f in files:
+            logger.debug("Adding {0} to tar file".format(f))
+            tar.add(f)
+
+def tar_gaps_files(iceprod, dataset_id, run, logger, dryrun):
+    """
+    Tar the gaps files together and update the urlpath table with 
+    the newly created file
+
+    Args:
+        run (runs.Run): The run
+        iceprod (iceprodinterface.IceProdInterface): Iceprod API
+        dataset_id (int): The dataset id
+        logger (Logger): The logger
+        dryrun (boolea): Dryrun?
+    """
+
+    from config import get_config
+
+    gaps_path_pattern = get_config(logger).get('Level2', 'GapsFile')
+    gaps_tar_file = run.format(get_config(logger).get('Level2', 'GapsTarFile'))
+
+    l2files = run.get_level2_files()
+    gaps_files = [f.format(gaps_path_pattern) for f in l2files]
+
+    logger.debug('Gaps files: {0}'.format(gaps_files))
+
+    tar_files(gaps_files, gaps_tar_file, logger, dryrun, mode = 'w')
+
+    for f in gaps_files:
+        iceprod.remove_file_from_catalog(dataset_id, run, File(f))
+
+    iceprod.add_file_to_catalog(dataset_id, run, File(gaps_tar_file))
+
+def insert_gaps_file_info_into_db(run, dryrun, logger):
+    from databaseconnection import DatabaseConnection
+    from config import get_config
+
+    gaps_path_pattern = get_config(logger).get('Level2', 'GapsFile')
+
+    l2files = run.get_level2_files()
+    gaps_files = [f.format(gaps_path_pattern) for f in l2files]
+    gaps_files = [f for f in gaps_files if os.path.isfile(f)]
+
+    logger.debug('Gaps files: {0}'.format(gaps_files))
+
+    sql = """INSERT INTO sub_runs 
+                (run_id, sub_run, first_event, last_event, first_event_year, first_event_frac, last_event_year, last_event_frac, livetime)
+             VALUES {0}
+             ON DUPLICATE KEY UPDATE first_event = VALUES(first_event),
+                                     last_event = VALUES(last_event),
+                                     first_event_year = VALUES(first_event_year),
+                                     first_event_frac = VALUES(first_event_frac),
+                                     last_event_year = VALUES(last_event_year),
+                                     last_event_frac = VALUES(last_event_frac),
+                                     livetime = VALUES(livetime)"""
+
+    sub_runs = []
+    gaps = []
+    for f in gaps_files:
+        logger.debug("File {0}".format(f))
+
+        gf = GapsFile(f, logger)
+        gf.read()
+        sub_runs.append("(%s, %s, %s, %s, %s, %s, %s, %s, %s)" % (gf.get_run_id(), \
+                                                                  gf.get_sub_run_id(), \
+                                                                  gf.get_first_event()['event'], \
+                                                                  gf.get_last_event()['event'], \
+                                                                  gf.get_first_event()['year'],\
+                                                                  gf.get_first_event()['frac'],\
+                                                                  gf.get_last_event()['year'],\
+                                                                  gf.get_last_event()['frac'],\
+                                                                  gf.get_file_livetime()))
+
+        logger.debug("INSERT set: {0}".format(sub_runs[-1]))
+
+        if gf.has_gaps():
+            for gap in gf.get_gaps():
+                gap_insert_sql = 'INSERT INTO gaps (run_id, sub_run, prev_event_id, curr_event_id, delta_time, prev_event_frac, curr_event_frac) VALUES (%s, %s, %s, %s, %s, %s, %s)'
+                gaps.append(gap_insert_sql % (gf.get_run_id(), gf.get_sub_run_id(), gap['prev_event_id'],  gap['curr_event_id'],  gap['dt'],  gap['prev_event_frac'], gap['curr_event_frac']))
+
+    db = DatabaseConnection.get_connection('filter-db', logger)
+
+    if gaps:
+        # Insert gaps
+        logger.debug('Insert gaps into db')
+        sql = ';'.join(gaps)
+        logger.debug('SQL: {0}'.format(sql))
+
+        if not dryrun:
+            db.execute(sql)
+
+    # Insert sub runs
+    logger.debug('Insert sub runs into db')
+    sql = sql % ','.join(sub_runs)
+
+    logger.debug('SQL: {0}'.format(sql))
+
+    if not dryrun:
+        db.execute(sql)
+
+    return gaps_files
 
