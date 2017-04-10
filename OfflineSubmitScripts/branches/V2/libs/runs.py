@@ -508,9 +508,6 @@ class Run(object):
         if not self.dryrun:
             self._db.execute(sql)
 
-    def remove_bad_sub_runs(self, force_reload = False):
-        pass
-
     def get_production_version(self, force_reload = False):
         """
         Returns the production version.
@@ -812,6 +809,35 @@ class SubRun(files.File):
         """
 
         return self._data['gaps']
+
+    def get_gaps_file(self):
+        """
+        Returns a `files.GapsFile` object that has the path to the gaps file: `GapsFile.path`.
+
+        Returns:
+            files.GapsFile: Object for the corresponding. gaps file.
+        """
+
+        from files import GapsFile
+        return GapsFile(self.format(get_config(self.logger).get('Level2', 'GapsFile')), self.logger)
+
+    def mark_as_bad(self):
+        """
+        Marks the sub run as bad. It uses the `dryrun` flag of `SubRun.run.dryrun` to decide if the SQL
+        statement should be really executed.
+        """
+
+        sql = """
+            INSERT INTO i3filter.sub_runs 
+                (run_id, sub_run, bad)
+             VALUES ({run_id}, {sub_run_id}, {bad})
+             ON DUPLICATE KEY UPDATE bad = {bad}
+        """
+
+        logger.debug('SQL: {0}'.format(sql))
+
+        if not self.run.dryrun:
+            self.run._db.execute(self.format(sql, bad = 1))
 
     def format(self, path, force_reload = False, **kwargs):
         """

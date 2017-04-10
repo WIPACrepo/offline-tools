@@ -275,6 +275,39 @@ class GapsFile(File):
     def get_file_livetime(self):
         return float(self._values['File Livetime'])
 
+    def create_from_data(self, f, overwrite = False):
+        """
+        Reads the L2 file `f` and creates the gaps file. The filename has been specified with `GapsFile.path`. After
+        the gaps file has been created, the data can be accessed through this class as well. `GapsFile.read()` is called automatically.
+
+        If `GapsFile.path` is `None`, an Exception will be thrown. If `overwrite` is `False` and `GapsFile.path`
+        exists, also an Exception is thrown.
+
+        Args:
+            f (str): Path to L2 data file
+            overwrite (boolean): If the gaps file alreayd exists, it wil be overwritten if this option has been set to `True`
+        """
+
+        if self.path is None:
+            raise Exception('No gaps file name has been specified')
+
+        if os.path.isfile(self.path) and not overwrite:
+            raise Exception('Gaps file already exist')
+
+        from icecube import dataio, icetray, dataclasses
+        from I3Tray import *
+        from iceube.filterscripts.offlineL2 import SpecialWriter
+
+        tray = I3Tray()
+        tray.Add("I3Reader","readL2File", filename = f)
+        tray.Add(SpecialWriter.GapsWriter, Filename = self.path, MinGapTime = 1)
+        tray.AddModule("TrashCan","trash")
+        tray.Execute()
+        tray.Finish()
+
+        # Gaps file has been created. Let's parse the gaps file to have easily access to the values
+        self.read()
+
 class ChecksumCache(File, utils.ChecksumCache):
     def __init__(self, logger, ctypes = ['md5', 'sha512']):
         from libs.config import get_config
@@ -415,7 +448,7 @@ class MetaXMLFile(File):
             return
 
         # Adding post processing information
-        xml_tree = ET.parse(path)
+        xml_tree = ET.parse(self.path)
         xml_root = xml_tree.getroot()
         xml_post_processing = ET.Element('Project')
 
@@ -678,7 +711,36 @@ def tar_files(files, tar_file, logger, dryrun, mode = 'w'):
     with tarfile.open(tar_file, mode) as tar:
         for f in files:
             logger.debug("Adding {0} to tar file".format(f))
-            tar.add(f)
+            try:
+                # In case it is a type of File
+                tar.add(f.path)
+            except AttributeError:
+                tar.add(f)
+
+def tar_log_files(run, logger, dryrun):
+    from config import get_config
+    from glob import glob
+
+    config = get_config(logger)
+    tar_name = config.get('Level2', 'TarLogFileName')
+    glob_str = config.get_var_list('Level2', 'LogFileGlob')
+
+    globs = [run.format(gs) for gs in glob_str]
+
+    files = []
+    for g in globs:
+        logger.debug('Find files: {0}'.format(g))
+        files.extend(glob(g))
+
+    logger.info('Found {0} log files that will be tar-ed'.format(len(files)))
+
+    tar_files(files, tar_name, logger, dryrun, mode = 'w:bz2')
+
+    logger.info('Delete the log files')
+    for f in files:
+        logger.debug('Delete {0}'.format(f))
+        if not dryrun:
+            os.remove(f)
 
 def tar_gaps_files(iceprod, dataset_id, run, logger, dryrun):
     """
@@ -699,14 +761,14 @@ def tar_gaps_files(iceprod, dataset_id, run, logger, dryrun):
     gaps_tar_file = run.format(get_config(logger).get('Level2', 'GapsTarFile'))
 
     l2files = run.get_level2_files()
-    gaps_files = [f.format(gaps_path_pattern) for f in l2files]
+    gaps_files = [f.get_gaps_file() for f in l2files]
 
     logger.debug('Gaps files: {0}'.format(gaps_files))
 
-    tar_files(gaps_files, gaps_tar_file, logger, dryrun, mode = 'w')
+    tar_files(gaps_files, gaps_tar_file, logger, dryrun, mode = 'w:bz2')
 
     for f in gaps_files:
-        iceprod.remove_file_from_catalog(dataset_id, run, File(f))
+        iceprod.remove_file_from_catalog(dataset_id, run, f)
 
     iceprod.add_file_to_catalog(dataset_id, run, File(gaps_tar_file))
 
@@ -717,8 +779,8 @@ def insert_gaps_file_info_into_db(run, dryrun, logger):
     gaps_path_pattern = get_config(logger).get('Level2', 'GapsFile')
 
     l2files = run.get_level2_files()
-    gaps_files = [f.format(gaps_path_pattern) for f in l2files]
-    gaps_files = [f for f in gaps_files if os.path.isfile(f)]
+    gaps_files = [f.get_gaps_file() for f in l2files]
+    gaps_files = [f for f in gaps_files if f.exists()]
 
     logger.debug('Gaps files: {0}'.format(gaps_files))
 
@@ -735,10 +797,9 @@ def insert_gaps_file_info_into_db(run, dryrun, logger):
 
     sub_runs = []
     gaps = []
-    for f in gaps_files:
-        logger.debug("File {0}".format(f))
+    for gf in gaps_files:
+        logger.debug("File {0}".format(gf.path))
 
-        gf = GapsFile(f, logger)
         gf.read()
         sub_runs.append("(%s, %s, %s, %s, %s, %s, %s, %s, %s)" % (gf.get_run_id(), \
                                                                   gf.get_sub_run_id(), \

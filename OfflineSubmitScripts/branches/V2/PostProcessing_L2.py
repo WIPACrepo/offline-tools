@@ -12,10 +12,13 @@ from libs.databaseconnection import DatabaseConnection
 from libs.runs import Run
 from libs.iceprod1 import IceProd1
 from libs.postprocessing import validate_files
-from libs.files import tar_gaps_files, insert_gaps_file_info_into_db
+from libs.files import tar_gaps_files, insert_gaps_file_info_into_db, tar_log_files
 from libs.trimrun import trim_to_good_run_time_range
+from libs.path import make_relative_symlink
 
 def validate_run(dataset_id, run, args, iceprod, logger):
+    config = get_config(logger)
+
     logger.info(run.format("======= Checking run {run_id}, production_version {production_version}, dataset_id = {dataset_id} ===========", dataset_id = dataset_id))
 
     # Check run status
@@ -40,58 +43,39 @@ def validate_run(dataset_id, run, args, iceprod, logger):
     # Delete the gaps files
     logger.info('Remove {0} gaps files'.format(len(gaps_files)))
     for f in gaps_files:
-        logger.debug('Remove {0}'.format(f))
+        logger.debug('Remove {0}'.format(f.path))
         if not args.dryrun:
-            os.remove(f)
+            os.remove(f.path)
 
     ## delete/trim files when food start/stop differ from run start/stop
-    trim_to_good_run_time_range(iceprod, dataset_id, run, logger, args.dryrun)
     logger.info('Check if run is in good start/stop time range')
+    trim_to_good_run_time_range(iceprod, dataset_id, run, logger, args.dryrun)
 
-    # TODO
-    logger.info( "--Attempting to collect Active Strings/DOMs information from verified GCD file ...")
-
-    R = RunTools(r['run_id'])
-    if 1 == R.GetActiveStringsAndDoms(season, UpdateDB = not dryrun):
-        logger.error("GetActiveStringsAndDoms failed")
-        return
-
-    if not dryrun: dbs4_.execute("""update i3filter.grl_snapshot_info 
-                         set validated=1
-                         where run_id=%s and production_version=%s"""%\
-                     (r['run_id'],str(r['production_version'])))
-
-    sDay = r['tStart']
-    sY = sDay.year
-    sM = str(sDay.month).zfill(2)
-    sD = str(sDay.day).zfill(2)
-
-    run_folder = "/data/exp/IceCube/%s/filtered/level2/%s%s/Run00%s_%s" % (sY, sM, sD, r['run_id'], r['production_version'])
+    logger.debug('Get active DOMs/string information from GCD file and store it in DB')
+    run.write_active_x_to_db()
 
     if not nometadata:
         dest_folder = ''
         if dryrun:
-            dest_folder = get_tmpdir()
+            meta_file_dest = get_tmpdir()
         else:
-            dest_folder = run_folder
+            meta_file_dest = run.format(config.get('Level2', 'RunFolder'))
 
-        write_meta_xml_post_processing(dest_folder = dest_folder,
-                                       level = 'L2',
-                                       script_file = __file__,
-                                       logger = logger)
+        metafile = MetaXMLFile(meta_file_dest, run, 'L2', dataset_id, logger)
+        metafile.add_post_processing_info()
     else:
         logger.info("No meta data files will be written")
 
     logger.debug('tar log files')
+    tar_log_files(run, logger, dryrun)
 
-    tar_log_files(run_path = run_folder, dryrun = dryrun, logger = logger)
+    logger.info('Create run sym link')
+    make_relative_symlink(run.format(config.get('Level2', 'RunFolder')), run.format(config.format('Level2', 'RunLinkName')), dryrun, logger)
 
-    # TODO: Make symlink to run folder
-    # TODO: Mark as validated
+    logger.info('Mark as validated')
+    run.set_post_processing_state(dataset_id, True)
 
     logger.info("Checks passed")
-    logger.info("======= End Checking %i %i ======== " %(r['run_id'],r['production_version'])) 
-    return
 
 def main(args, runs, config, logger):
     db = DatabaseConnection.get_connection('filter-db', logger)

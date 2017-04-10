@@ -56,7 +56,8 @@ def trim_to_good_run_time_range(iceprod, dataset_id, run, logger, dryrun):
     """
     Checks if the L2 output files of the given run are within the good start/stop times.
     If not, the run start/stop files that are outside the range will be moved to a sub folder
-    or if the start/stop time is within a file, the file will be trimmed.
+    or if the start/stop time is within a file, the file will be trimmed (but the original file will be kept
+    in the 'bad do not use' folder).
 
     Args:
         run (Run): The run
@@ -91,7 +92,12 @@ def trim_to_good_run_time_range(iceprod, dataset_id, run, logger, dryrun):
             if not dryrun:
                 os.rename(f.path, dest)
 
+            logger.debug('Remove file from catalog')
             iceprod.remove_file_from_catalog(dataset_id, run, f)
+
+            logger.info(f.format('Mark sub run {run_id}/{sub_rub_id} as bad'))
+            # Note: Dryrun is considered within this method:
+            f.mark_as_bad()
 
     # Check if a file needs to be trimmed
     if good_l2_files[0].get_start_time() < run.get_good_start_time():
@@ -102,7 +108,13 @@ def trim_to_good_run_time_range(iceprod, dataset_id, run, logger, dryrun):
             good_start_time = run.get_good_start_time(),
             good_stop_time = run.get_good_stop_time()
         ))
-        trim_sub_run(iceprod, dataset_id, good_l2_files[0], logger, dryrun)
+
+        if not os.path.isdir(bad_sub_run_folder):
+            logger.debug('Create bad sub run folder: {0}'.format(bad_sub_run_folder))
+            if not dryrun:
+                os.mkdir(bad_sub_run_folder)
+
+        trim_sub_run(iceprod, dataset_id, good_l2_files[0], bad_sub_run_folder, logger, dryrun)
 
     if good_l2_files[-1].get_stop_time() > run.get_stop_time():
         logger.info('Last subrun in good time range needs to be trimmed: sub_run_id = {sub_run_id}, start_time = {start_time}, stop_time = {stop_time}, good_start_time = {good_start_time}, good_stop_time = {good_stop_time}'.format(
@@ -112,12 +124,19 @@ def trim_to_good_run_time_range(iceprod, dataset_id, run, logger, dryrun):
             good_start_time = run.get_good_start_time(),
             good_stop_time = run.get_good_stop_time()
         ))
-        trim_sub_run(iceprod, dataset_id, good_l2_files[-1], logger, dryrun)
 
-def trim_sub_run(iceprod, dataset_id, sub_run, logger, dryrun)
+        if not os.path.isdir(bad_sub_run_folder):
+            logger.debug('Create bad sub run folder: {0}'.format(bad_sub_run_folder))
+            if not dryrun:
+                os.mkdir(bad_sub_run_folder)
+
+        trim_sub_run(iceprod, dataset_id, good_l2_files[-1], bad_sub_run_folder, logger, dryrun)
+
+def trim_sub_run(iceprod, dataset_id, sub_run, bad_sub_run_folder, logger, dryrun)
     from path import get_tmpdir
     from iceube import dataio, dataclasses, icetray
     from I3Tray import *
+    from files import GapsFile
 
     # bzip2 -f of a zero-sized file results in a 
     # 14 byte large file 
@@ -126,6 +145,7 @@ def trim_sub_run(iceprod, dataset_id, sub_run, logger, dryrun)
         return
 
     tmp_file = os.path.join(get_tmpdir(), 'Trimmed_' + sub_run.get_name())
+    tmp_gaps_file = os.path.join(get_tmpdir(), 'Trimmed_' + sub_run.get_gaps_file().get_name())
 
     # The actual trimming is done with the TrimFileClass,
     # so it is required to boot I3Tray
@@ -142,50 +162,27 @@ def trim_sub_run(iceprod, dataset_id, sub_run, logger, dryrun)
     )
     tray.AddModule("TrashCan","trash")
     tray.Execute()
-    tray.Finish()  
+    tray.Finish()
 
+    # Move files
+    new_subrun_name = os.path.join(bad_sub_run_folder, sub_run.get_name())
+
+    logger.info("Moving {0} to {1}".format(sub_run.path, new_subrun_name))
     logger.info("Moving {0} to {1}".format(tmp_file, sub_run.path))
     if not dryrun:
+        os.rename(sub_run.path, new_subrun_name)
         os.rename(tmp_file, sub_run.path)
 
     iceprod.update_file_in_catalog(dataset_id, sub_run.run, sub_run)
 
-    # TODO
     # re-write gaps.txt file using new (trimmed) .i3 file
-    if InFile_ == InFile:
-        TFile = dataio.I3File(InFile_)
-        FirstEvent = TFile.pop_frame()['I3EventHeader']
-        while TFile.more(): LastEvent = TFile.pop_frame()['I3EventHeader']
-        TFile.close()
-        GFile = InFile.replace(".i3.bz2","_gaps.txt")
-        if os.path.isfile(GFile):
-            UpdatedGFile = os.path.join(os.path.dirname(GFile),'Updated_'+os.path.basename(GFile))
-            # for dryrun, write the stuff to a temporary file
-            if dryrun:
-                UpdatedGFile = os.path.join(get_tmpdir(),os.path.split(UpdatedGFile)[1])
-                logger.info("--dryrun set, writing to temporary file %s" %UpdatedGFile)
-            with open(UpdatedGFile,"w") as u:
-                u.write('Run: %s\n'%FirstEvent.run_id)
-                u.write('First Event of File: %s %s %s\n'%(FirstEvent.event_id,\
-                                                         FirstEvent.start_time.utc_year,\
-                                                         FirstEvent.start_time.utc_daq_time)
-                        )
-                u.write('Last Event of File: %s %s %s\n'%(LastEvent.event_id,\
-                                                         LastEvent.end_time.utc_year,\
-                                                         LastEvent.end_time.utc_daq_time)
-                        )
-                u.write("File Livetime: %s\n"%str((LastEvent.end_time - FirstEvent.start_time)/1e9))
-                    
-            logger.info("moving %s to %s"%(UpdatedGFile,GFile))
-            if not dryrun:
-                os.system("mv -f %s %s"%(UpdatedGFile,GFile))
-                dbs4_.execute("""update i3filter.urlpath u
-                            set md5sum="%s", size="%s"
-                            where u.dataset_id=%s 
-                            and concat(substring(u.path,6),"/",u.name) = "%s" """%\
-                            (str(FileTools(GFile, logger).md5sum()),str(os.path.getsize(GFile)), dataset_id, GFile))
-            else: # here we actually have to do something
-                  # as we haven't overwritten the original file
-                  # we have a stale Trimmed_ file...
-                os.remove(TrimmedFile)
+    logger.info('Re-creating the gaps file')
+    gaps_file = GapsFile(tmp_gaps_file, logger)
+    gaps_file.create_from_data(sub_run.path, overwrite = True) # Just overwriting the file in the tmp folder!
+
+    if not dryrun:
+        # OK, it's not a dryrun. Let's move the tmp gaps file to the correct place
+        os.rename(tmp_gaps_file, sub_run.get_gaps_file().path)
+
+        iceprod.update_file_in_catalog(dataset_id, sub_run.run, sub_run.get_gaps_file())
 
