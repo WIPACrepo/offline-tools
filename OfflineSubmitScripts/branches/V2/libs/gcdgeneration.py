@@ -62,7 +62,6 @@ def generate_gcd(run, gcd_path, spe_correction_file, logger):
              RunId = run.run_id,
              I3LiveHost = get_config(logger).get('GCDGeneration', 'I3LiveHost'),
              MongoDBHost = get_config(logger).get('GCDGeneration', 'MongoDBHost'))
-    tray.Add(I3SPEFitInjector, "fixspe", Filename = spe_correction_file)
     tray.Add(set_production_information, "set_production_information",
              good_start_time = run.get_good_start_time(),
              good_stop_time = run.get_good_stop_time(),
