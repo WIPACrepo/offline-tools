@@ -34,7 +34,7 @@ m_live = live.MySQL()
 dbs4_ = dbs4.MySQL()   
 dbs2_ = dbs2.MySQL()    
 
-def main_run(r, logger, dataset_id, season, nometadata, dryrun = False):
+def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2_gcd_file = False):
     logger.info("======= Checking %s %s ==========="  %(str(r['run_id']),str(r['production_version'])))
 
     if dataset_id < 0:
@@ -51,7 +51,7 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False):
      
     # check i/o files in data warehouse and Db
     logger.info("Checking Files in Data warehouse and database records ...")
-    if CheckFiles(r, logger, dataset_id = dataset_id, season = season, dryrun = dryrun):
+    if CheckFiles(r, logger, dataset_id = dataset_id, season = season, dryrun = dryrun, no_pass2_gcd_file = no_pass2_gcd_file):
         logger.error("FilesCheck failed: for Run=%s, production_version=%s"\
         %(r['run_id'],str(r['production_version'])))
         return
@@ -109,7 +109,7 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False):
     logger.info("======= End Checking %i %i ======== " %(r['run_id'],r['production_version'])) 
     return
 
-def main(runinfo, logger, nometadata, dryrun = False):
+def main(runinfo, logger, nometadata, dryrun = False, no_pass2_gcd_file = False):
     datasets = set()
 
     for run in runinfo:
@@ -122,7 +122,7 @@ def main(runinfo, logger, nometadata, dryrun = False):
             if dataset_id > 0:
                 datasets.add(dataset_id)
             
-            main_run(run, logger, dataset_id = dataset_id, season = season, nometadata = nometadata, dryrun = dryrun) 
+            main_run(run, logger, dataset_id = dataset_id, season = season, nometadata = nometadata, dryrun = dryrun, no_pass2_gcd_file = no_pass2_gcd_file) 
         except Exception as e:
             logger.exception("Exception %s thrown for: Run=%s, production_version=%s" %(e.__repr__(),run['run_id'],str(run['production_version'])))
    
@@ -139,6 +139,7 @@ if __name__ == '__main__':
     parser = get_defaultparser(__doc__,dryrun=True)
     parser.add_argument('-r',nargs="?", help="run to postprocess",dest="run",type=int)
     parser.add_argument("--nometadata", action="store_true", default=False, dest="NOMETADATA", help="Don't write meta data files")
+    parser.add_argument("--no-pass2-gcd-file", action="store_true", default=False, help="If there is no special pass2 GCD file for this runs or season, use this option. Then it looks at the pass1 folder for the verified GCDs.")
     parser.add_argument("--cron", action="store_true", default=False, dest="CRON", help="Use this option if you call this script via a cron")
     args = parser.parse_args()
     LOGFILE=os.path.join(get_logdir(sublogpath = 'PostProcessing'), 'PostProcessing_')
@@ -181,7 +182,7 @@ if __name__ == '__main__':
 
     logger.debug("RunInfo = %s" % str(RunInfo))
 
-    main(RunInfo, logger, args.NOMETADATA, dryrun = args.dryrun)
+    main(RunInfo, logger, args.NOMETADATA, dryrun = args.dryrun, no_pass2_gcd_file = args.no_pass2_gcd_file)
 
     if args.CRON:
         lock.unlock()

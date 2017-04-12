@@ -32,3 +32,5 @@ tray.Execute()
 sql = "UPDATE grl_snapshot_info_pass2 SET GCDCheck = 1, BadDOMsCheck = 1, PoleGCDCheck = 0, TemplateGCDCheck = 0 WHERE run_id = %s AND snapshot_id = %s AND production_version = %s" % (run_id, snapshot_id, production_version)
 
 DatabaseConnection.get_connection('dbs4', DummyLogger()).execute(sql)
+
+print "Done Run %s" % run_id

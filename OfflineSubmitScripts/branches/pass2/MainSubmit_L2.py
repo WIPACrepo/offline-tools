@@ -50,7 +50,7 @@ def main(params, logger, DryRun):
         logger.warning("No new runs to submit or old to update, check start:%s and end:%s run arguments"%(START_RUN,END_RUN))
         exit(0)
 
-    if Resubmission:
+    if Resubmission and not args.out:
         if not runs_already_submitted(dbs4_, START_RUN, END_RUN, logger, DryRun):
             logger.critical('At least one run has not been submitted before. Do not use the resubmission flag to submit runs for the first time.')
             logger.critical('Exit')
@@ -76,10 +76,15 @@ def main(params, logger, DryRun):
 
         logger.info("************** Attempting to (Re)submit %s"%(Run))
 
-        GRLInfo = dbs4_.fetchall("""select g.*,r.tStart, r.tStop, r.FilesComplete from i3filter.grl_snapshot_info_pass2 g
-                                join i3filter.run_info_summary_pass2 r on r.run_id=g.run_id
-                                where g.run_id=%s and not submitted"""%(Run),UseDict=True)
-        
+        if not args.out:
+            GRLInfo = dbs4_.fetchall("""select g.*,r.tStart, r.tStop, r.FilesComplete from i3filter.grl_snapshot_info_pass2 g
+                                    join i3filter.run_info_summary_pass2 r on r.run_id=g.run_id
+                                    where g.run_id=%s and not submitted"""%(Run),UseDict=True)
+        else:
+            GRLInfo = dbs4_.fetchall("""select g.*,r.tStart, r.tStop, r.FilesComplete from i3filter.grl_snapshot_info_pass2 g
+                                    join i3filter.run_info_summary_pass2 r on r.run_id=g.run_id
+                                    where g.run_id=%s"""%(Run),UseDict=True)
+
         if not len(GRLInfo):
             logger.info("Run %s already submitted or no information for new submission "%Run)
             continue
@@ -91,7 +96,7 @@ def main(params, logger, DryRun):
         
             QId = max_queue_id(dbs4_, dataset_id)
             
-            submit_run(dbs4_, g, status, dataset_id, QId, ExistingChkSums, DryRun, logger, use_std_gcds = args.USE_STD_GCDS)
+            submit_run(dbs4_, g, status, dataset_id, QId, ExistingChkSums, DryRun, logger, use_std_gcds = args.USE_STD_GCDS, gcd = args.gcd, input = args.input, out = args.out)
         
             if not args.NOMETADATA and (g['good_i3'] or g['good_it']):
                 meta_file_dest = ''
@@ -105,6 +110,9 @@ def main(params, logger, DryRun):
     
                     meta_file_dest = "/data/exp/IceCube/%s/filtered/level2pass2/%s%s/Run00%s_%s" % (sY, sM, sD, g['run_id'], g['production_version'])
 
+                    if args.out:
+                        meta_file_dest = args.out.format(year = sY, month = sM, day = sD, run_id = g['run_id'], production_version = g['production_version'], dataset_id = dataset_id, snapshot_id = g['snapshot_id'])
+
                 write_meta_xml_main_processing(dest_folder = meta_file_dest,
                                                dataset_id = dataset_id,
                                                run_id = g['run_id'],
@@ -115,7 +123,7 @@ def main(params, logger, DryRun):
             else:
                 logger.info("No meta data files will be written")
    
-            if not DryRun: 
+            if not DryRun and not args.out: 
                 dbs4_.execute("""update i3filter.grl_snapshot_info_pass2\
                                  set submitted=1 \
                                  where run_id=%s and production_version=%s"""%\
@@ -139,6 +147,11 @@ if __name__ == '__main__':
     parser.add_argument("-e", "--endrun", type=int, required = False,
                                       dest="ENDRUN", help="end submission at this run")
 
+    parser.add_argument("--input", type = str, required = False, default = None, help="Specify input path where the input files can be found. Use {year}, {month}, {day}, {run_id}, *, and [0-9] if needed. E.g. /data/exp/IceCube/{year}/filtered/PFFilt/{month}{day}/")
+
+    parser.add_argument("--gcd", type = str, required = False, default = None, help="Specify the GCD path where the input files can be found. Use {year}, {month}, {day}, {run_id} if needed. E.g. /data/exp/IceCube/{year}/filtered/PFFilt/{month}{day}/")
+
+    parser.add_argument("--out", type = str, required = False, default = None, help="Specify output path where the output files should be written. Use {year}, {month}, {day}, {run_id}, *, and [0-9] if needed. E.g. /data/exp/IceCube/{year}/filtered/PFFilt/{month}{day}/")
 
     parser.add_argument("-c", "--cleandatawarehouse", action="store_true", default=False,
               dest="CLEANDW", help="Clean output files in datawarehouse as part of (re)submission process.")

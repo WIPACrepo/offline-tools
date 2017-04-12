@@ -67,6 +67,8 @@ if __name__ == '__main__':
     parser.add_argument("-b", "--i3build", default=I3BUILD_DIR,
                       dest="I3BUILD", help="Icerec build directory")
     
+    parser.add_argument("--out", type=str, default=None,
+                                      help="The directory in which the GCD file should be written.")
     
     parser.add_argument("-p", "--pythonscriptdir", default=get_rootdir(),
                       dest="PythonScriptDir", help="directory containing python scripts to be used for GCD generation and auditing")
@@ -147,6 +149,17 @@ if __name__ == '__main__':
         Cerr = "/data/exp/IceCube/%s/filtered/level2pass2/OfflinePreChecks/run_logs/condor_err/%s%s/"%(sY,sM,sD)
         Olog = "/data/exp/IceCube/%s/filtered/level2pass2/OfflinePreChecks/run_logs/logs/%s%s/"%(sY,sM,sD)
         
+        if options.out:
+            Clog = os.path.join(options.out, sY, "%s%s" % (sM, sD), 'condor_logs')
+            Cerr = os.path.join(options.out, sY, "%s%s" % (sM, sD), 'condor_err')
+            Olog = os.path.join(options.out, sY, "%s%s" % (sM, sD), 'logs')
+ 
+            GCDDir = os.path.join(options.out, sY, "%s%s" % (sM, sD))
+
+        logger.debug("Clog = %s" % Clog)
+        logger.debug("Cerr = %s" % Cerr)
+        logger.debug("Olog = %s" % Olog)
+
         if not dryrun:
             if not os.path.exists(Clog):
                 os.makedirs(Clog)
@@ -156,10 +169,12 @@ if __name__ == '__main__':
                 os.makedirs(Olog)
             if not os.path.exists(GCDDir):
                 os.makedirs(GCDDir)
-            if not os.path.exists(GCDDirAll):
-                os.makedirs(GCDDirAll)
-            if not os.path.exists(GCDDirVerified):
-                os.makedirs(GCDDirVerified)
+
+            if not options.out:
+                if not os.path.exists(GCDDirAll):
+                    os.makedirs(GCDDirAll)
+                if not os.path.exists(GCDDirVerified):
+                    os.makedirs(GCDDirVerified)
       
         GCDFilesPass1 = glob.glob(os.path.join(GCDDirPass1, "Level2_%sdata_Run00%s_*GCD.i3.gz" % (Season, r)))
 
@@ -177,7 +192,7 @@ if __name__ == '__main__':
         GCDName = os.path.join(GCDDir, "Level2pass2_%sdata_Run00%s_%s_%s_GCD.i3.gz" % (Season, r, PV, SId))
         GCDLinkName = "Level2pass2_%sdata_Run00%s_%s%s_%s_%s_GCD.i3.gz"%(Season, r, sM, sD, PV, SId)
 
-        if not dryrun:
+        if not dryrun and not options.out:
             os.system("ln -sf %s %s/%s"%(os.path.relpath(GCDName, GCDDirVerified), GCDDirVerified, GCDLinkName))
             os.system("ln -sf %s %s/%s"%(os.path.relpath(GCDName, GCDDirAll), GCDDirAll, GCDLinkName))
 
@@ -200,7 +215,7 @@ if __name__ == '__main__':
         SUBMITFILE.close()
         ##
         if not dryrun:
-            if REPRODUCE:
+            if REPRODUCE and not options.out:
                 logger.debug("Update grl_snapshot_info_pass2: GCDCheck = 0, BadDOMsCheck = 0, PoleGCDCheck = NULL, TemplateGCDCheck = NULL")
                 dbs4_.execute("""UPDATE grl_snapshot_info_pass2
                                  SET GCDCheck = 0, BadDOMsCheck = 0, PoleGCDCheck = NULL, TemplateGCDCheck = NULL

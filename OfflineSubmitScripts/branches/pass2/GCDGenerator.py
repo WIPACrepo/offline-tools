@@ -103,7 +103,7 @@ def MakeGCD(RunNum,FName,GCDName,ProductionVersion,SnapshotId,effectiveStartTime
 
     try:
         from icecube.BadDomList.BadDomListTraySegment import BadDomList
-        #from icecube.phys_services.spe_fit_injector import I3SPEFitInjector
+        from icecube.phys_services.spe_fit_injector import I3SPEFitInjector
           
         tray = I3Tray()
            
@@ -120,9 +120,11 @@ def MakeGCD(RunNum,FName,GCDName,ProductionVersion,SnapshotId,effectiveStartTime
                         #Database = 'I3OmDb'
                         )
         
-        #spe_correction_file = config.get('GCDGeneration', 'SpeCorrectionFile')
+        spe_correction_file = config.get('GCDGeneration', 'SpeCorrectionFile')
 
-        #tray.AddModule(I3SPEFitInjector, "fixspe", Filename = spe_correction_file)
+        print "SPE Correction File = %s" % spe_correction_file
+
+        tray.AddModule(I3SPEFitInjector, "fixspe", Filename = spe_correction_file)
 
         tray.AddModule(SetGRLInfo,"SetGRLInfo",
                         StartTime = effectiveStartTime,
@@ -374,9 +376,9 @@ def main(RunNum, ProductionVersion, SnapshotId, outdir):
                     print "GCD Audit for %s OK"%GCDName
         
                     #dbs4_.execute("""insert into i3filter.pre_processing_checks (run_id,GCDCheck) values(%s,1) on duplicate key update GCDCheck=1 """%(RunNum))
-                    
-                    dbs4_.execute("""update i3filter.grl_snapshot_info_pass2 set GCDCheck=1
-                                  where run_id=%s and snapshot_id=%s """%(RunNum,SnapshotId))
+                    if not outdir:
+                        dbs4_.execute("""update i3filter.grl_snapshot_info_pass2 set GCDCheck=1
+                                      where run_id=%s and snapshot_id=%s """%(RunNum,SnapshotId))
                     
                     #print "Updating pre_processing table in DB"
         
@@ -495,3 +497,5 @@ if __name__ == '__main__':
     print "Processing run %s with ProcessingVersion:%s SnapshotId:%s"%(args.run, args.production_version, args.snapshot)
  
     main(args.run, args.production_version, args.snapshot, args.OUTDIR)
+
+    print "Done Run %s" % args.run

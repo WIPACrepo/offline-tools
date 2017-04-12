@@ -69,7 +69,7 @@ def runs_already_submitted(dbs4_, StartRun, EndRun, logger, dryrun):
 
     return not Abort
 
-def CheckFiles(r, logger, dataset_id, season, dryrun = False):
+def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file = False):
     """
     Check if there are as many L2 files as there are PFFilt files. 
     Check for GCD files and database consistency;
@@ -112,6 +112,9 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False):
     GCDName = GCDName[0]
     GCDName = os.path.join(ICECUBE_GCDDIR(r['tStart'].year),os.path.basename(GCDName))
 
+    if no_pass2_gcd_file:
+        GCDName = GCDName.replace('/level2pass2/', '/level2/')
+
     if not os.path.isfile(GCDName):
         logger.warning("No Verified GCD file for run=%s, production_version%s"%\
                (str(r['run_id']),str(r['production_version'])))
@@ -137,8 +140,11 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False):
              (".tar",".i3").replace\
              ("Subrun00000000_","Subrun")).\
              replace('PFDST_PhysicsTrig_PhysicsFiltering', 'Level2pass2_IC86.%s_data' % season).\
+             replace('PFDST_PhysicsFiltering', 'Level2pass2_IC86.%s_data' % season).\
              replace('.gz', '.bz2')
-    
+   
+        logger.debug("looking for file %s" % l)
+ 
         if not os.path.isfile(l):
             logger.warning("At least one output file %s does not exist for input file %s"%(l,p))
             return 1

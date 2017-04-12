@@ -5,7 +5,7 @@ import os
 import glob
 from logger import DummyLogger
 
-def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, logger, use_std_gcds = False):
+def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, logger, use_std_gcds = False, gcd = None, input = None, out = None):
     """
     Submits the run. It makes all the inserts to the database.
 
@@ -39,19 +39,37 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
     sM = str(sDay.month).zfill(2)
     sD = str(sDay.day).zfill(2)
     
+    format_path = lambda p: p.format(year = sY, month = sM, day = sD, run_id = g['run_id'], production_version = g['production_version'], dataset_id = DatasetId, snapshot_id = g['snapshot_id'])
+
     R = RunTools(g['run_id'], logger, passNumber = 2)
 
     logger.debug('Get PFFilt files')
 
     InFiles = R.GetRunFiles(g['tStart'],'P')        
-   
+  
+    if input:
+        logger.debug("InFiles glob = %s" % format_path(input))
+        InFiles = sorted(glob.glob(format_path(input)))
+ 
     logger.debug("InFiles = %s" % InFiles)
  
     MainOutputDir = OutputDir = "/data/exp/IceCube/%s/filtered/level2pass2/%s%s/"%(sY,sM,sD)
+    
+    if out:
+        MainOutputDir = OutputDir = format_path(out)
+
+    logger.debug("MainOutputDir = %s" % MainOutputDir)
+
     if not os.path.exists(MainOutputDir) and not dryrun:
-        os.mkdir(MainOutputDir)
+        os.makedirs(MainOutputDir)
     
     OutputDir = "/data/exp/IceCube/%s/filtered/level2pass2/%s%s/Run00%s_%s"%(sY,sM,sD,g['run_id'],g['production_version'])
+
+    if out:
+        OutputDir = format_path(out)
+
+    logger.debug("OutputDir = %s" % OutputDir)
+
     if not os.path.exists(OutputDir) and not dryrun:
         os.mkdir(OutputDir)
     
@@ -69,7 +87,10 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
     else:
         GCDFileName = list(reversed(sorted(glob.glob("/data/exp/IceCube/%s/filtered/level2%s/VerifiedGCD/*Run00%s*_%s*"%(sY, pass2GCD, g['run_id'],str(g['snapshot_id']))))))
 
-    if not len(GCDFileName):
+    if gcd:
+        GCDFileName = list(reversed(sorted(glob.glob(format_path(gcd)))))
+
+    if not len(GCDFileName) and not gcd:
         if not use_std_gcds:
             GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2%s/AllGCD/*Run00%s*%s_%s*"%(sY, pass2GCD, g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
         else:
