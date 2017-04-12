@@ -135,7 +135,7 @@ class IceProd1(iceprodinterface.IceProdInterface):
             WHERE r.dataset_id = {dataset_id} AND
                 r.run_id = {run_id}""", dataset_id = dataset_id))
 
-        queue_ids = [q['queue_id'] for q in query]
+        queue_ids = [str(q['queue_id']) for q in query]
 
         if not len(queue_ids):
             self.logger.info('Nothing to clean')
@@ -183,7 +183,7 @@ class IceProd1(iceprodinterface.IceProdInterface):
                 SUM(IF(j.status = 'FAILED', 1, 0)) AS `failed`
             FROM i3filter.job j JOIN i3filter.run r ON j.queue_id = r.queue_id AND r.dataset_id = j.dataset_id
             WHERE j.dataset_id = {dataset_id} AND
-                r.run_id = {run_id}""".format(dataset_id = dataset_id, run_id = run.run_id))
+                r.run_id = {run_id}""".format(dataset_id = dataset_id, run_id = run.run_id)
 
         self.logger.debug('SQL: {0}'.format(sql))
 
@@ -253,7 +253,7 @@ class IceProd1(iceprodinterface.IceProdInterface):
                 raise Exception('Type {0} is unexpected'.format(job['type']))
 
             jresult[filetype].append({
-                'path': os.path.join(remove_path_prefix(job['path']), job['name'])
+                'path': os.path.join(remove_path_prefix(job['path']), job['name']),
                 'md5': job['md5sum']
             })
 
@@ -276,12 +276,12 @@ class IceProd1(iceprodinterface.IceProdInterface):
             WHERE r.dataset_id = {dataset_id} AND
                 r.run_id = {run_id} AND
                 CONCAT(path, IF(RIGHT(path, 1) = '/', '', '/'), name) LIKE '%{path}'
-        """.format(dataset_id = dataset_id, run_id = run.run_id, path = path.path))
+        """.format(dataset_id = dataset_id, run_id = run.run_id, path = path.path)
 
         self.logger.debug('SQL: {0}'.format(sql))
 
         if not self.dryrun:
-            self._dbs4.execte(sql)
+            self._dbs4.execute(sql)
 
     def update_file_in_catalog(self, dataset_id, run, path):
         """
@@ -298,7 +298,7 @@ class IceProd1(iceprodinterface.IceProdInterface):
             WHERE r.dataset_id = {dataset_id} AND
                 r.run_id = {run_id} AND
                 CONCAT(path, IF(RIGHT(path, 1) = '/', '', '/'), name) LIKE '%{path}'
-        """.format(dataset_id = dataset_id, run_id = run.run_id, path = path.path, md5 = path.md5(), size = path.size()))
+        """.format(dataset_id = dataset_id, run_id = run.run_id, path = path.path, md5 = path.md5(), size = path.size())
 
         self.logger.debug('SQL: {0}'.format(sql))
         if not self.dryrun:

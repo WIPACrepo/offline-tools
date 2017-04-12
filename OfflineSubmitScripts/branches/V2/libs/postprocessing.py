@@ -66,7 +66,7 @@ def validate_GCD(jobs, run, logger):
     for job in jobs.values():
         for f in job['input']:
             if 'gcd' in os.path.basename(f['path'].lower()):
-                gcd_file_names.add(f['path_pattern'])
+                gcd_file_names.add(f['path'])
                 gcd_file_checksums.add(_get_checksum(f)[1])
 
     if len(gcd_file_names) > 1:
@@ -89,6 +89,8 @@ def validate_GCD(jobs, run, logger):
 
     # Check if GCD file is on run folder
     if len(gcd_file_names):
+        gcd_file_names = list(gcd_file_names)
+
         if not os.path.exists(gcd_file_names[0]):
             logger.error('Input GCD file {0} does not exist'.format(gcd_file_names[0]))
             return False
@@ -125,6 +127,8 @@ def validate_GCD(jobs, run, logger):
         return False
 
     logger.info('Found exactly one checksum for GCD file')
+
+    gcd_file_checksums = list(gcd_file_checksums)
 
     # Check checksum
     gcd_checksum = File.get_checksum(gcd_name, gcd_file_checksums[0][0], logger)
@@ -166,7 +170,7 @@ def validate_files(iceprod, dataset_id, run, logger):
     config = get_config(logger)
     jobs = iceprod.get_jobs(dataset_id, run)
 
-    bad_sub_runs = [sr.sub_run_id for sr in run.get_sub_runs() if sr.is_bad()]
+    bad_sub_runs = [sr.sub_run_id for sr in run.get_sub_runs().values() if sr.is_bad()]
 
     # GCD checks
     if not validate_GCD(jobs, run, logger):
@@ -176,7 +180,7 @@ def validate_files(iceprod, dataset_id, run, logger):
     # Also check checksums
     missing_files = []
     checksum_fails = []
-    missing_l2_files []
+    missing_l2_files = []
     l2_files = []
 
     for sub_run_id, job in jobs.items():
@@ -185,7 +189,7 @@ def validate_files(iceprod, dataset_id, run, logger):
             continue
 
         found_l2_output = False
-        expected_l2_file_name = run.format(config.get('Level2', 'Level2File'), sub_run_id = sub_rub_id)
+        expected_l2_file_name = run.format(config.get('Level2', 'Level2File'), sub_run_id = sub_run_id)
 
         for f in job['output']:
             if f['path'] == expected_l2_file_name:

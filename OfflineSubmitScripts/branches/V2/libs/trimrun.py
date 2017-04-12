@@ -1,6 +1,9 @@
 
 import os
 
+from icecube import dataio, dataclasses, icetray
+from I3Tray import *
+
 class TrimFileClass(icetray.I3PacketModule):
     """
     Can be given start and end times considered to be "good"
@@ -66,6 +69,7 @@ def trim_to_good_run_time_range(iceprod, dataset_id, run, logger, dryrun):
     """
 
     from config import get_config
+    from runs import SubRun
 
     bad_sub_run_folder = run.format(get_config(logger).get('Level2', 'BadSubRunFolder'))
 
@@ -132,10 +136,8 @@ def trim_to_good_run_time_range(iceprod, dataset_id, run, logger, dryrun):
 
         trim_sub_run(iceprod, dataset_id, good_l2_files[-1], bad_sub_run_folder, logger, dryrun)
 
-def trim_sub_run(iceprod, dataset_id, sub_run, bad_sub_run_folder, logger, dryrun)
+def trim_sub_run(iceprod, dataset_id, sub_run, bad_sub_run_folder, logger, dryrun):
     from path import get_tmpdir
-    from iceube import dataio, dataclasses, icetray
-    from I3Tray import *
     from files import GapsFile
 
     # bzip2 -f of a zero-sized file results in a 

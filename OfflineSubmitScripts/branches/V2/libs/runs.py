@@ -196,8 +196,8 @@ class Run(object):
         bdl = None
         while f.more():
             frame = f.pop_frame()
-            if frame.Has(get_config().get('GCD', 'BadDomListName')):
-                bdl = frame[get_config().get('GCD', 'BadDomListName')]
+            if frame.Has(get_config(self.logger).get('GCD', 'BadDomListName')):
+                bdl = frame[get_config(self.logger).get('GCD', 'BadDomListName')]
                 break
 
         if bdl is None:
@@ -210,7 +210,7 @@ class Run(object):
 
         # Remove bad doms
         for dom in bdl:
-            detector_conf[d.string].pop(detector_conf[d.string].index(d.om))
+            detector_conf[dom.string].pop(detector_conf[dom.string].index(dom.om))
 
         # Calculate values
         # Count number of strings with at least one active non-IceTop DOM
@@ -249,7 +249,7 @@ class Run(object):
 
         self.logger.info('Write active doms and strings to DB: active_doms = {active_doms}, active_in_ice_doms = {active_in_ice_doms}, active_strings = {active_strings}'.format(active_doms = self._data['active_doms'], active_in_ice_doms = self._data['active_in_ice_doms'], active_strings = self._data['active_strings']))
 
-        if not self.dyrun:
+        if not self.dryrun:
             self._db.execute(sql)
 
     def _get_active_x(self, x, force_reload = False):
@@ -375,7 +375,7 @@ class Run(object):
             raise Exception('This run has no sub runs in the database yet. Make sure that you call this method only if this run has been processed successfully.')
 
         # get_livetime() and get_gaps() do not need a force_reload since it will be forced to reload with the call of self._load_data(force_reload).
-        return sum([sr.get_livetime() for sr in self._subruns]) - sum([g['delta_time'] for sr in self._subruns for g in sr.get_gaps()])
+        return sum([sr.get_livetime() for sr in self._subruns['common'].values()]) - sum([g['delta_time'] for sr in self._subruns['common'].values() for g in sr.get_gaps()])
 
     def _get_x_files(self, path_pattern, x, force_reload = False):
         """
