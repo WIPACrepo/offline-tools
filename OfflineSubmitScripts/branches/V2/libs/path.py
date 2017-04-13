@@ -49,6 +49,27 @@ def get_rootdir():
     rootdir = os.path.split(thisdir)[0] # go one up
     return rootdir
 
+def get_bindir():
+    """
+    Get the absolute path of the ./bin/ folder.
+
+    Return:
+        str: The path
+    """
+
+    return os.path.join(get_rootdir(), 'bin')
+
+def get_env_python_path():
+    """
+    Returns the absolite path to the ./bin/EnvPython.sh script that
+    is equivalent to `/path/to/build/./env-shell.sh python`.
+
+    Returns:
+        str: The path
+    """
+
+    return os.path.join(get_bindir(), 'EnvPython.sh')
+
 def get_sub_run_id_from_path(path, ptype, logger):
     """
     The pattern is gathered from the config file. The `ptype` matches the section. The name of the pattern must be `RegExpForSubRunId`.

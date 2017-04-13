@@ -537,6 +537,22 @@ class Run(object):
 
         return self._data['snapshot_id']
 
+    def get_sps_gcd_file(self):
+        """
+        Finds the SPS GCD file. If no file has been found, `None` is returned.
+
+        Returns:
+            files.File: The SPS GCD file or `None`
+        """
+
+        path = self.format(get_config(self.logger).get('GCD', 'SPSGCDFile'))
+        gcd_file = files.File(path, self.logger)
+
+        if gcd_file.exists():
+            return gcd_file
+        else:
+            return None
+
     def get_gcd_file(self, force_reload = False):
         """
         Look for GCD files in the following order:

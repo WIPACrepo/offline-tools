@@ -76,7 +76,9 @@ def main(inputfiletype, logger, dryrun, check):
         if seasons[current_season + 1]['first'] > -1:
             # last run of the current season is the start run of the next season minus one
             last_run = seasons[current_season + 1]['first'] - 1
-            exclude_next_testruns = seasons[current_season + 1]['test']
+
+        # The test run can be known but not the first run
+        exclude_next_testruns = seasons[current_season + 1]['test']
 
     # get the newest data from the live db      
     livesql = """
@@ -96,7 +98,7 @@ def main(inputfiletype, logger, dryrun, check):
             first_run = first_run,
             test_runs = ','.join([str(r) for r in seasons[current_season]['test']] + ['-1']),
             last_run = last_run,
-            exclude_next_testruns = ','.join(str(r) for r in exclude_next_testruns)
+            exclude_next_testruns = ','.join(str(r) for r in exclude_next_testruns + ['-1'])
     )
    
     logger.debug("SQL to get data from live: {0}".format(livesql))
