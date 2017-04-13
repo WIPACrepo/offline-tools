@@ -734,10 +734,10 @@ def tar_files(files, tar_file, logger, dryrun, mode = 'w'):
 
             try:
                 # In case it is a type of File
-                tar.add(f.path)
+                tar.add(f.path, arcname = f.get_name())
                 file_name = f.path
             except AttributeError:
-                tar.add(f)
+                tar.add(f, arcname = os.path.basename(f))
                 file_name = f
 
             logger.debug("Adding {0} to tar file".format(file_name))
