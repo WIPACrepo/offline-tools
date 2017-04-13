@@ -1,8 +1,4 @@
-import os, sys 
-import datetime
-from dateutil.relativedelta import relativedelta
-import cPickle
-import json
+
 import smtplib
 from email.utils import formatdate
 
@@ -30,7 +26,7 @@ def send_message(sender, receivers, message, logger):
 
     logger.info("Successfully sent notification email")
 
-def send_email(receivers, subject, content, logger, dryrun = False):
+def send_email(receivers, subject, content, logger, dryrun):
     from config import get_config
 
     config = get_config(logger)
