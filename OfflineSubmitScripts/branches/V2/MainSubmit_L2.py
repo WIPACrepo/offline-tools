@@ -10,9 +10,12 @@ from libs.runs import Run
 from libs.files import clean_datawarehouse, ChecksumCache, MetaXMLFile
 from libs.path import make_relative_symlink, get_logdir, get_tmpdir
 from libs.databaseconnection import DatabaseConnection
+from libs.utils import Counter
 
 def main(args, runs, logger):
     config = get_config(logger)
+
+    counter = Counter(['handled', 'submitted', 'skipped', 'error'])
 
     # Determine dataset ids:
     run_id_dataset_id_mapping = {}
@@ -28,7 +31,7 @@ def main(args, runs, logger):
 
             if len(dataset_id) == 0:
                 logger.critical('No dataset id could be determined for run {0}. Check the database.'.format(run_id))
-            exit(1)
+                exit(1)
 
             dataset_id = dataset_id[0]
 
@@ -52,68 +55,78 @@ def main(args, runs, logger):
     checksumcache = ChecksumCache(logger)
 
     for run in runs:
-        # Dataset id for this run
-        dataset_id = run_id_dataset_id_mapping[run.run_id]
+        counter.count('handled')
 
-        logger.info(run.format('Start submission for run {run_id} with dataset id {dataset_id}', dataset_id = dataset_id))
-
-        iceprod.clean_run(dataset_id, run)
-
-        if args.cleandatawarehouse:
-            clean_datawarehouse(run, logger, args.dryrun)
-
-        # Create output folder if not exists
-        output = run.format(config.get('Level2', 'RunFolder'))
-        if not os.path.exists(output):
-            logger.debug('Create output folder: {0}'.format(output))
-
-            if not args.dryrun:
-                os.makedirs(output)
-
-        # Create GCD link
-        gcd_file = run.get_gcd_file()
-
-        if gcd_file is None:
-            logger.critical('No GCD found')
-            raise Exception('No GCD file found for run {0}'.format(run.run_id))
-
-        make_relative_symlink(gcd_file.path, run.format(config.get('Level2', 'RunFolderGCD')), args.dryrun, logger)
-
-        # Put GCD symlink in run folder into cache since it is probably used in iceprod.submit_run()
-        run.get_gcd_file(force_reload = True)
-
-        # Check for input files
-        input_files = run.get_pffilt_files()
-
-        if not len(input_files):
-            logger.critical('No input files found')
-            raise Exception('No input files found for run {0}'.format(run.run_id))
-
-        if not run.get_gcd_bad_dom_list_checked() or not run.get_gcd_generated():
-            logger.critical('The GCD file has not been validated yet')
-            raise Exception('The GCD file has not been validated yet for run {0}'.format(run.run_id))
-
-        # Submit run
-        iceprod.submit_run(dataset_id, run, checksumcache)
-
-        # Write metadata
-        if not args.nometadata:
-            meta_file_dest = ''
-
-            if args.dryrun:
-                meta_file_dest = get_tmpdir()
+        try:
+            # Dataset id for this run
+            dataset_id = run_id_dataset_id_mapping[run.run_id]
+    
+            logger.info(run.format('Start submission for run {run_id} with dataset id {dataset_id}', dataset_id = dataset_id))
+    
+            iceprod.clean_run(dataset_id, run)
+    
+            if args.cleandatawarehouse:
+                clean_datawarehouse(run, logger, args.dryrun)
+    
+            # Create output folder if not exists
+            output = run.format(config.get('Level2', 'RunFolder'))
+            if not os.path.exists(output):
+                logger.debug('Create output folder: {0}'.format(output))
+    
+                if not args.dryrun:
+                    os.makedirs(output)
+    
+            # Create GCD link
+            gcd_file = run.get_gcd_file()
+    
+            if gcd_file is None:
+                logger.critical('No GCD found')
+                raise Exception('No GCD file found for run {0}'.format(run.run_id))
+    
+            make_relative_symlink(gcd_file.path, run.format(config.get('Level2', 'RunFolderGCD')), args.dryrun, logger)
+    
+            # Put GCD symlink in run folder into cache since it is probably used in iceprod.submit_run()
+            run.get_gcd_file(force_reload = True)
+    
+            # Check for input files
+            input_files = run.get_pffilt_files()
+    
+            if not len(input_files):
+                logger.critical('No input files found')
+                raise Exception('No input files found for run {0}'.format(run.run_id))
+    
+            if not run.get_gcd_bad_dom_list_checked() or not run.get_gcd_generated():
+                logger.critical('The GCD file has not been validated yet')
+                raise Exception('The GCD file has not been validated yet for run {0}'.format(run.run_id))
+    
+            # Submit run
+            iceprod.submit_run(dataset_id, run, checksumcache)
+    
+            # Write metadata
+            if not args.nometadata:
+                meta_file_dest = ''
+    
+                if args.dryrun:
+                    meta_file_dest = get_tmpdir()
+                else:
+                    meta_file_dest = run.format(config.get('Level2', 'RunFolder'))
+    
+                metafile = MetaXMLFile(meta_file_dest, run, 'L2', dataset_id, logger)
+                metafile.add_main_processing_info()
             else:
-                meta_file_dest = run.format(config.get('Level2', 'RunFolder'))
+                logger.info("No meta data files will be written")
+    
+            logger.info('Run {0} submitted'.format(run.run_id))
 
-            metafile = MetaXMLFile(meta_file_dest, run, 'L2', dataset_id, logger)
-            metafile.add_main_processing_info()
-        else:
-            logger.info("No meta data files will be written")
+            counter.count('submitted')
+        except Exception as e:
+            counter.count('error')
+            logger.exception(e)
 
-        logger.info('Run {0} submitted'.format(run.run_id))
-
-    if not args.dryrun or True:
+    if not args.dryrun:
         checksumcache.write()
+
+    logger.info('Run submission complete: {0}'.format(counter.get_summary()))
 
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__, dryrun = True)
@@ -158,4 +171,4 @@ if __name__ == '__main__':
 
     main(args, runs, logger)
 
-
+    logger.info('Done')

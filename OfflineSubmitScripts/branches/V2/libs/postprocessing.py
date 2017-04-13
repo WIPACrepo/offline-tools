@@ -191,6 +191,8 @@ def validate_files(iceprod, dataset_id, run, logger):
         found_l2_output = False
         expected_l2_file_name = run.format(config.get('Level2', 'Level2File'), sub_run_id = sub_run_id)
 
+        logger.info('Calculating checksums for sub run {0}'.format(sub_run_id))
+
         for f in job['output']:
             if f['path'] == expected_l2_file_name:
                 found_l2_output = True

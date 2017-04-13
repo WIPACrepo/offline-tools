@@ -17,20 +17,29 @@ from libs.postprocessing import validate_files
 from libs.files import tar_gaps_files, insert_gaps_file_info_into_db, tar_log_files, create_good_run_list, MetaXMLFile
 from libs.trimrun import trim_to_good_run_time_range
 from libs.path import make_relative_symlink, get_logdir
+from libs.utils import Counter
 
-def validate_run(dataset_id, run, args, iceprod, logger):
+def validate_run(dataset_id, run, args, iceprod, logger, counter):
     config = get_config(logger)
 
     logger.info(run.format("======= Checking run {run_id}, production_version {production_version}, dataset_id = {dataset_id} ===========", dataset_id = dataset_id))
+
+    # Is already validated?
+    if run.is_validated(dataset_id):
+        counter.count('skipped')
+        logger.info('Run has already been validated. Skip this run.')
+        return
 
     # Check run status
     run_status = iceprod.get_run_status(dataset_id, run)
     if run_status != 'OK':
         logger.warning('The run has not been successfully processed yet (status: {0}). Skip this run.'.format(run_status))
+        counter.count('skipped')
         return
 
     if not validate_files(iceprod, dataset_id, run, logger):
         logger.error(run.format('Files validation failed for run {run_id}, production_version = {production_version}'))
+        counter.count('error')
         return
 
     logger.info("Files validated")
@@ -80,11 +89,15 @@ def validate_run(dataset_id, run, args, iceprod, logger):
     logger.info('Mark as validated')
     run.set_post_processing_state(dataset_id, True)
 
+    counter.count('validated')
+
     logger.info("Checks passed")
 
 def main(args, runs, config, logger):
     db = DatabaseConnection.get_connection('filter-db', logger)
     iceprod = IceProd1(logger, args.dryrun)
+
+    counter = Counter(['handled', 'validated', 'skipped', 'error'])
 
     # If no runs have been specified, find all runs of current season_info
     # Current season is specified in config file at DEFAULT:Season
@@ -128,6 +141,8 @@ def main(args, runs, config, logger):
     datasets = set()
 
     for run in runs:
+        counter.count('handled')
+
         try:
             # Get the dataset id and season for this run
             dataset_id = args.dataset_id
@@ -142,8 +157,9 @@ def main(args, runs, config, logger):
 
             datasets.add(dataset_id)
 
-            validate_run(dataset_id, run, args, iceprod, logger) 
+            validate_run(dataset_id, run, args, iceprod, logger, counter)
         except Exception as e:
+            counter.count('error')
             logger.exception(run.format("Exception {e} thrown for run = {run_id}, production_version = {production_version}", e = e))
    
     if len(datasets) > 1:
@@ -152,6 +168,8 @@ def main(args, runs, config, logger):
     # Create run info files for all dataset ids thta are affected
     for dataset_id in datasets:
         create_good_run_list(dataset_id, db, logger, args.dryrun)
+
+    logger.info('Post processing complete: {0}'.format(counter.get_summary()))
 
 def create_grl_only(config, args):
     dataset_id = args.dataset_id
@@ -234,5 +252,5 @@ if __name__ == '__main__':
     if args.cron:
         lock.unlock()
 
-    logger.info('Post processing completed')
+    logger.info('Done')
 

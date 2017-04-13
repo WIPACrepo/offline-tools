@@ -134,3 +134,24 @@ class ChecksumCache(object):
 
         self.set_checksum(path, 'sha512', checksum)
 
+class Counter(object):
+    def __init__(self, names):
+        """
+        Args:
+            names (list): List of counter names, e.g. ['validated', 'skipped', 'error']
+        """
+
+        self.counter = {n: 0 for n in names}
+
+    def count(self, name):
+        self.counter[name] += 1
+
+    def get(self, name):
+        return self.counter[name]
+
+    def get_summary(self):
+        return ' | '.join(['{name}: {value}'.format(name = name, value = value) for name, value in self.counter.items()])
+
+    def print_summary(self, prefix = ''):
+        print prefix + self.get_summary()
+
