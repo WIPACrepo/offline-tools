@@ -114,9 +114,9 @@ class Lock:
 
     def __del__(self):
         """
-        Checks if the lock file has been removed. It calls remove_lock() and logs a warning if the files has been removed.
+        Checks if the lock file has been removed. It calls unlock() and logs a warning if the files has been removed.
         """
         self._logger.debug("Execute destructor")
         if self.unlock():
-            self._logger.warning("Lock file has been removed in destructor. Please call remove_lock() at the end of your script to do so.")
+            self._logger.warning("Lock file has been removed in destructor. Please call unlock() at the end of your script to do so.")
 
