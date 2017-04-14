@@ -7,61 +7,61 @@ import os
 from datetime import datetime
 import sys
 from svn import SVN
-
-# add logtime
-LOGFORMAT = '[%(asctime)s] %(levelname)s: %(module)s(%(lineno)d):   %(message)s'
+from config import get_config
 
 class DummyLogger(object):
     """
     Emulate logging.Logger
     """
 
-    def __init__(self,*args,**kwargs):
-        #self = logging.getLogger("dummy")
+    def __init__(self, *args, **kwargs):
         self.silence = False
+        self.level = 20
 
-    def debug(self,text):
-        if not self.silence:
+    def debug(self, text):
+        if not self.silence and self.level <= 10:
             print text
 
-    def error(self,text):
-        if not self.silence:
-            print text
-    
-    def info(self,text):
-        if not self.silence:
-            print text
-
-    def warning(self,text):
-        if not self.silence:
+    def error(self, text):
+        if not self.silence and self.level <= 40:
             print text
     
-    def log(self,text):
-        if not self.silence:
+    def info(self, text):
+        if not self.silence and self.level <= 20:
             print text
 
-    def exception(self,text):
-        if not self.silence:
+    def warning(self, text):
+        if not self.silence and self.level <= 30:
+            print text
+    
+    def log(self, level, text):
+        if not self.silence and self.level <= level:
             print text
 
-    def critical(self,text):
-        if not self.silence:
+    def exception(self, text):
+        self.error(text)
+
+    def critical(self, text):
+        if not self.silence and self.level <= 50:
             print text
 
+    def set_level(self, level):
+        self.level = level
 
-
-def get_logger(loglevel,logfile):
+def get_logger(loglevel, logfile):
     """
     A root logger with a formatted output logging to stdout and a file
 
     Args:
         loglevel (int): 10,20,30,... the higher the less logging
         logfile (str): write logging to this file as well as stdout
+    """
 
-    """   
+    from path import get_rootdir
 
-    from files import get_rootdir
-    
+    # logformat = get_config(DummyLogger()).get('Logger', 'Format')
+    logformat = '[%(asctime)s] %(levelname)s: %(module)s(%(lineno)d):   %(message)s'
+
     def exception_handler(exctype, value, tb):
         logger.critical("Uncaught exception", exc_info=(exctype, value, tb))
 
@@ -69,22 +69,26 @@ def get_logger(loglevel,logfile):
     logger.setLevel(loglevel)
     ch = logging.StreamHandler()
     ch.setLevel(loglevel)
-    formatter = logging.Formatter(LOGFORMAT)
+    formatter = logging.Formatter(logformat)
     ch.setFormatter(formatter)
     today = datetime.now()
     today = today.strftime("%Y_%m_%d_%H_%M")
     logend = ".log"
+
     if "--dryrun" in sys.argv[1:]:
         logend = ".DRYRUN.log"
+
     if logfile.endswith(".log"):
-        logfile.replace(".log",today+logend)
+        logfile.replace(".log", today + logend)
     else:
         logfile += (today + logend)
+
     logfilecount = 1
     while os.path.exists(logfile):
-        logfile = logfile.replace("." + str(logfilecount -1),"")
-        logfile = logfile +"." + str(logfilecount)
+        logfile = logfile.replace("." + str(logfilecount - 1), "")
+        logfile = logfile + "." + str(logfilecount)
         logfilecount += 1
+
         if logfilecount >= 60:
             raise SystemError("More than 1 logfile per second, this is insane.. aborting")
    
@@ -96,11 +100,11 @@ def get_logger(loglevel,logfile):
     sys.excepthook = exception_handler
     firstlog = " ".join(sys.argv)
     logger.info("Starting " + firstlog)
-    logger.info("Using Python %s" % sys.version.replace('\n', ' '))
+    logger.info("Using Python {0}".format(sys.version.replace('\n', ' ')))
 
     svn = SVN(get_rootdir(), logger)
 
-    logger.info("SVN Revision %s" % svn.get('Revision'))
+    logger.info("SVN Revision {0}".format(svn.get('Revision')))
     return logger
 
 def delete_log_file(logger):
@@ -116,16 +120,16 @@ def delete_log_file(logger):
 
     filehandlers = [handler for handler in logger.handlers if isinstance(handler, logging.FileHandler)]
 
-    logger.debug("Found %s file handlers" % len(filehandlers))
+    logger.debug("Found {0} file handlers".format(len(filehandlers)))
 
     for h in filehandlers:
         logger.removeHandler(h)
     
-    logger.warning("Removed %s file handlers from logger" % len(filehandlers))
+    logger.warning("Removed {0} file handlers from logger".format(len(filehandlers)))
 
     for h in filehandlers:
         os.remove(h.baseFilename)
-        logger.warning("Deleted %s" % h.baseFilename)
+        logger.warning("Deleted {0}".format(h.baseFilename))
 
     return filehandlers
 

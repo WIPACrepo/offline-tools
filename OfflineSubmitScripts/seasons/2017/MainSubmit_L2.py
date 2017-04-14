@@ -1,171 +1,174 @@
 #!/usr/bin/env python
 
-"""
-Creates PFFilt entries in 'url_path', 'jobs', and 'run' tables in dbs4
-to be used by IceProd in creating/submitting L2 jobs.
-"""
+import os
 
-import sys, os
-from os.path import expandvars, join, exists
-import glob
-from optparse import OptionParser
-import time
-import datetime
-import pymysql as MySQLdb
-import datetime
-from dateutil.relativedelta import *
-
-from RunTools import *
-from FileTools import *
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
-from libs.files import get_logdir, get_tmpdir, get_existing_check_sums, write_meta_xml_main_processing
-from libs.checks import runs_already_submitted
-from libs.runs import get_run_status, clean_run, submit_run
-from libs.dbtools import max_queue_id 
-from libs.config import get_dataset_id_by_run
+from libs.iceprod1 import IceProd1
+from libs.config import get_config
+from libs.runs import Run
+from libs.files import clean_datawarehouse, ChecksumCache, MetaXMLFile
+from libs.path import make_relative_symlink, get_logdir, get_tmpdir
+from libs.databaseconnection import DatabaseConnection
+from libs.utils import Counter
 
-##-----------------------------------------------------------------
-## setup DB
-##-----------------------------------------------------------------
+def main(args, runs, logger):
+    config = get_config(logger)
 
-import SQLClient_dbs4 as dbs4
+    counter = Counter(['handled', 'submitted', 'skipped', 'error'])
 
-def main(params, logger, DryRun):
-    END_RUN = params.ENDRUN
-    START_RUN = params.STARTRUN
-    Resubmission = params.RESUBMISSION
+    # Determine dataset ids:
+    run_id_dataset_id_mapping = {}
+    for run_id in runs:
+        dataset_id = args.dataset_id
 
-    dbs4_ = dbs4.MySQL()
+        if dataset_id is None:
+            dataset_id = config.get_dataset_id_by_run(run_id, 'L2')
 
-    AllRuns = []
+            if len(dataset_id) > 1:
+                logger.critical('Run {0} has more than one L2 dataset ids: {1}. Specify the dataset id when running the script to solve this problem.'.format(run_id, dataset_id))
+                exit(1)
 
-    MARKED_RUNS = []
-    if (END_RUN) and (START_RUN) and END_RUN >= START_RUN:
-        MARKED_RUNS = range(START_RUN,END_RUN+1)
+            if len(dataset_id) == 0:
+                logger.critical('No dataset id could be determined for run {0}. Check the database.'.format(run_id))
+                exit(1)
 
-    AllRuns.extend(MARKED_RUNS)
+            dataset_id = dataset_id[0]
 
-    if not len(AllRuns):
-        logger.warning("No new runs to submit or old to update, check start:%s and end:%s run arguments"%(START_RUN,END_RUN))
-        exit(0)
+        run_id_dataset_id_mapping[run_id] = dataset_id
 
-    if Resubmission:
-        if not runs_already_submitted(dbs4_, START_RUN, END_RUN, logger, DryRun):
-            logger.critical('At least one run has not been submitted before. Do not use the resubmission flag to submit runs for the first time.')
-            logger.critical('Exit')
-            exit(1)
-        elif not DryRun:
-            dbs4_.execute("""UPDATE i3filter.grl_snapshot_info\
-                                 SET submitted=0, \
-                                     validated=0 \
-                                 WHERE run_id BETWEEN %s AND %s AND (good_i3=1 OR good_it=1)"""%(START_RUN, END_RUN))
+    logger.debug('Dataset id mapping: {0}'.format(run_id_dataset_id_mapping))
 
-    ExistingChkSums = get_existing_check_sums(logger)
+    # Create Run objects and filter bad runs
+    runs = [Run(run_id, logger) for run_id in runs]
+    runs = [run for run in runs if run.is_good_run() or run.is_test_run()]
 
-    for Run in AllRuns:
-        dataset_id = params.DATASETID
+    iceprod = IceProd1(logger, args.dryrun)
 
-        if params.DATASETID is None:
-            dataset_id = get_dataset_id_by_run(Run)
-            if dataset_id < 0:
-                logger.error("Could not get dataset id for run %s from config file. %s was returned. Skip this run." % (Run, dataset_id))
-                continue
-            else:
-                logger.info("Dataset id of run %s was determined to %s" % (Run, dataset_id))
+    # Check if the resubmission flag has been set and if all runs are due for a resubmission
+    if args.resubmission:
+        for run in runs:
+            if not iceprod.is_run_submitted(run_id_dataset_id_mapping[run.run_id], run):
+                logger.critical('Run {0} has not been submitted before. Do not use the resubmission flag to submit runs for the first time.'.format(run.run_id))
+                exit(1)
 
-        logger.info("************** Attempting to (Re)submit %s"%(Run))
+    checksumcache = ChecksumCache(logger)
 
-        GRLInfo = dbs4_.fetchall("""select g.*,r.tStart, r.tStop, r.FilesComplete from i3filter.grl_snapshot_info g
-                                join i3filter.run_info_summary r on r.run_id=g.run_id
-                                where g.run_id=%s and not submitted"""%(Run),UseDict=True)
-        
-        if not len(GRLInfo):
-            logger.info("Run %s already submitted or no information for new submission "%Run)
-            continue
-        
-        for g in GRLInfo:
-            status = get_run_status(g)
-           
-            clean_run(dbs4_, dataset_id, Run,params.CLEANDW, g, logger, DryRun)
-        
-            QId = max_queue_id(dbs4_, dataset_id)
-            
-            submit_run(dbs4_, g, status, dataset_id, QId, ExistingChkSums, DryRun, logger)
-        
-            if not args.NOMETADATA and (g['good_i3'] or g['good_it']):
+    for run in runs:
+        counter.count('handled')
+
+        try:
+            # Dataset id for this run
+            dataset_id = run_id_dataset_id_mapping[run.run_id]
+    
+            logger.info(run.format('Start submission for run {run_id} with dataset id {dataset_id}', dataset_id = dataset_id))
+    
+            iceprod.clean_run(dataset_id, run)
+    
+            if args.cleandatawarehouse:
+                clean_datawarehouse(run, logger, args.dryrun)
+    
+            # Create output folder if not exists
+            output = run.format(config.get('Level2', 'RunFolder'))
+            if not os.path.exists(output):
+                logger.debug('Create output folder: {0}'.format(output))
+    
+                if not args.dryrun:
+                    os.makedirs(output)
+    
+            # Create GCD link
+            gcd_file = run.get_gcd_file()
+    
+            if gcd_file is None:
+                logger.critical('No GCD found')
+                raise Exception('No GCD file found for run {0}'.format(run.run_id))
+    
+            make_relative_symlink(gcd_file.path, run.format(config.get('Level2', 'RunFolderGCD')), args.dryrun, logger)
+    
+            # Put GCD symlink in run folder into cache since it is probably used in iceprod.submit_run()
+            run.get_gcd_file(force_reload = True)
+    
+            # Check for input files
+            input_files = run.get_pffilt_files()
+    
+            if not len(input_files):
+                logger.critical('No input files found')
+                raise Exception('No input files found for run {0}'.format(run.run_id))
+    
+            if not run.get_gcd_bad_dom_list_checked() or not run.get_gcd_generated():
+                logger.critical('The GCD file has not been validated yet')
+                raise Exception('The GCD file has not been validated yet for run {0}'.format(run.run_id))
+    
+            # Submit run
+            iceprod.submit_run(dataset_id, run, checksumcache)
+    
+            # Write metadata
+            if not args.nometadata:
                 meta_file_dest = ''
-                if DryRun:
+    
+                if args.dryrun:
                     meta_file_dest = get_tmpdir()
                 else:
-                    sDay = g['tStart']      # run start date
-                    sY = sDay.year
-                    sM = str(sDay.month).zfill(2)
-                    sD = str(sDay.day).zfill(2)
+                    meta_file_dest = run.format(config.get('Level2', 'RunFolder'))
     
-                    meta_file_dest = "/data/exp/IceCube/%s/filtered/level2/%s%s/Run00%s_%s" % (sY, sM, sD, g['run_id'], g['production_version'])
-
-                write_meta_xml_main_processing(dest_folder = meta_file_dest,
-                                               dataset_id = dataset_id,
-                                               run_id = g['run_id'],
-                                               level = 'L2',
-                                               run_start_time = g['tStart'],
-                                               run_end_time = g['tStop'],
-                                               logger = logger)
+                metafile = MetaXMLFile(meta_file_dest, run, 'L2', dataset_id, logger)
+                metafile.add_main_processing_info()
             else:
                 logger.info("No meta data files will be written")
-   
-            if not DryRun: 
-                dbs4_.execute("""update i3filter.grl_snapshot_info\
-                                 set submitted=1 \
-                                 where run_id=%s and production_version=%s"""%\
-                                 (g['run_id'],g['production_version']))
+    
+            logger.info('Run {0} submitted'.format(run.run_id))
 
-                
+            counter.count('submitted')
+        except Exception as e:
+            counter.count('error')
+            logger.exception(e)
 
-                logger.info("**************")
+    if not args.dryrun:
+        checksumcache.write()
+
+    logger.info('Run submission complete: {0}'.format(counter.get_summary()))
 
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__, dryrun = True)
-
-    parser.add_argument("--datasetid", type=int, default=None,
-                                      dest="DATASETID", help="The dataset id. The default value is `None`. In this case it gets the dataset id from the config file.")
-
-
-    parser.add_argument("-s", "--startrun", type=int, required = True,
-                                      dest="STARTRUN", help="start submission from this run")
-
-
-    parser.add_argument("-e", "--endrun", type=int, required = False,
-                                      dest="ENDRUN", help="end submission at this run")
-
-
-    parser.add_argument("-c", "--cleandatawarehouse", action="store_true", default=False,
-              dest="CLEANDW", help="Clean output files in datawarehouse as part of (re)submission process.")
-
-
-    parser.add_argument("-r", "--resubmission", action="store_true", default=False,
-              dest="RESUBMISSION", help="Resubmit the runs. Note that all runs are resubmitted. If a run would be submitted for the very first time, an error is thrown.")
-
-    parser.add_argument("-o", "--outputlog", default='',
-                                      dest="OUTPUTLOG", help="Submission log file, default is time-stamped file name with log folder as location.")
-
-    parser.add_argument("--nometadata", action="store_true", default=False,
-              dest="NOMETADATA", help="Don't write meta data files")
-
+    parser.add_argument("--dataset-id", type = int, required = False, default = None, help="The dataset id. The default value is `None`. In this case it gets the dataset id from the database.")
+    parser.add_argument("-s", "--startrun", type = int, required = False, default = None, help = "Start submitting from this run")
+    parser.add_argument("-e", "--endrun", type = int, required = False, default= None, help = "End submitting at this run")
+    parser.add_argument("--runs", type = int, nargs = '*', required = False, help = "Submitting specific runs. Can be mixed with -s and -e")
+    parser.add_argument("--cleandatawarehouse", action = "store_true", default = False, help = "Clean output files in datawarehouse as part of (re)submission process.")
+    parser.add_argument("--resubmission", action = "store_true", default = False, help = "Resubmit the runs. Note that all runs are resubmitted. If a run would be submitted for the very first time, an error is thrown.")
+    parser.add_argument("--nometadata", action = "store_true", default = False, help="Do not write meta data files")
     args = parser.parse_args()
 
-    LOGFILE=os.path.join(get_logdir(sublogpath = 'MainProcessing'), 'RunSubmission_')
+    logfile = os.path.join(get_logdir(sublogpath = 'MainProcessing'), 'RunSubmission_')
 
-    if args.ENDRUN is None:
-        args.ENDRUN = args.STARTRUN
+    if args.logfile is not None:
+        logfile = args.logfile
 
-    if len(args.OUTPUTLOG):
-        LOGFILE = args.OUTPUTLOG
+    logger = get_logger(args.loglevel, logfile)
 
-    logger = get_logger(args.loglevel, LOGFILE)
+    # Check arguments
+    runs = args.runs
 
-    if args.DATASETID is None:
-        logger.info("No dataset id is specified. The config file will be checked for each run to which dataset it belongs.")
+    if runs is None:
+        runs = []
 
-    main(args, logger, args.dryrun)
+    if args.startrun is not None:
+        if args.endrun is None:
+            logger.critical('If --startrun, -s has been set, also the --endrun, -e needs to be set.')
+            exit(1)
+
+        runs.extend(range(args.startrun, args.endrun + 1))
+    elif args.endrun is not None:
+        logger.critical('If --endrun, -e has been set, also the --startrun, -s needs to be set.')
+        exit(1)
+
+    if not len(runs):
+        logger.critical("No runs given.")
+        exit(1)
+
+    if args.dataset_id is None:
+        logger.info("No dataset id is specified. For each run the database will be checked to determine the L2 dataset id. If there are more than one dataset id for a specific run, the script will fail.")
+
+    main(args, runs, logger)
+
+    logger.info('Done')

@@ -1,0 +1,118 @@
+#!/usr/bin/env python
+
+"""
+Calculates checksums of L2 input files in order to make the submission process faster.
+"""
+
+import os
+import datetime
+import time
+
+from datetime import date, datetime, timedelta
+from glob import glob
+
+from libs.argparser import get_defaultparser
+from libs.logger import get_logger
+from libs.path import get_logdir
+from libs.config import get_config
+from libs.files import ChecksumCache
+from libs.process import Lock
+from libs.stringmanipulation import replace_var
+
+def main(logger, dryrun):
+    config = get_config(logger)
+
+    look_back_in_days = config.getint('CacheCheckSums', 'LookBack')
+    dump_interval = config.getint('CacheCheckSums', 'DumpInterval')
+    hold_off_interval = config.getint('CacheCheckSums', 'HoldOffInterval')
+    path_pattern = config.get_var_list('CacheCheckSums', 'Path')
+
+    # Replace some vars
+    path_pattern = [replace_var(p, 'run_id', '*') for p in path_pattern]
+    path_pattern = [replace_var(p, 'sub_run_id', '*') for p in path_pattern]
+    path_pattern = [replace_var(p, 'production_version', '*') for p in path_pattern]
+    path_pattern = [replace_var(p, 'snapshot_id', '*') for p in path_pattern]
+
+    # Debug...
+    logger.debug("LookBack in days: {0}".format(look_back_in_days))
+    logger.debug("DumpInterval: {0}".format(dump_interval))
+    logger.debug("Hold-Off Interval: {0} seconds".format(hold_off_interval))
+    logger.debug("Path pattern: {0}".format(path_pattern))
+
+    if look_back_in_days < 0:
+        logger.critical("Invalid value for LookBack: {0}".format(look_back_in_days))
+        exit(1)
+
+    if dump_interval < 1:
+        logger.critical("Invalid value for DumpInterval: {0}".format(dump_interval))
+        exit(1)
+
+    logger.info("Attempting Update @ {0}".format(datetime.now().isoformat().replace("T"," ")))
+
+    # Stop process if running
+    lock = Lock(os.path.basename(__file__), logger)
+    lock.lock()
+
+    cache = ChecksumCache(logger)
+
+    current_day = date.today()
+    look_back = current_day + timedelta(days=-look_back_in_days)
+    dump_count = 0
+    
+    while look_back <= current_day:
+        path = [p.format(year = look_back.year, month = look_back.month, day = look_back.day) for p in path_pattern]
+        
+        logger.debug('look_back = {0}'.format(look_back))
+        logger.debug('path = {0}'.format(path))
+
+        files = []
+        for p in path_pattern:
+            files.extend(glob(p))
+
+        for path in files:
+            logger.debug("Current file: {0}".format(path))
+
+            if not cache.has_md5(path):
+                logger.debug("File has no MD5 sum in cache")
+
+                # Check if file is old enought to avoid MD5 sums of incompleted files
+                last_mod = os.stat(path).st_mtime
+                current_time = time.time()
+                if current_time - last_mod < hold_off_interval:
+                    # File is not old enough
+                    logger.debug("File's last modification was at {0}. Its age is {1} seconds. Min age is {2} seconds.".format(last_mod, current_time - last_mod, hold_off_interval))
+                    logger.debug('File is not old enough. Skip it.')
+                    continue
+
+                checksum = cache.set_md5(path)
+                logger.info("md5('{0}'): {1}".format(path, checksum))
+
+                if not dryrun and dump_count>=dump_interval:
+                    logger.debug("Write cache")
+
+                    cache.write()
+                    dump_count = 0
+
+                dump_count += 1
+
+        look_back += timedelta(days=1)
+
+    if not dryrun:
+        logger.debug("Write last MD5 sums")
+        cache.write()
+
+    lock.unlock()
+
+if __name__ == "__main__":
+    argparser = get_defaultparser(__doc__, dryrun = True)
+    args = argparser.parse_args()
+
+    logfile=os.path.join(get_logdir(sublogpath = 'PreProcessing'), 'CacheChksums_')
+
+    if args.logfile is not None:
+        logfile = args.logfile
+
+    logger = get_logger(args.loglevel, logfile)
+
+    main(logger, args.dryrun)
+

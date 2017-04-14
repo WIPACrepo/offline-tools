@@ -37,7 +37,7 @@ class DatabaseConnection:
 
         return ret
 
-    def fetchall(self, sql, UseDict = False, reconnect = True):
+    def fetchall(self, sql, UseDict = True, reconnect = True):
         cursor_type = None
 
         if UseDict:

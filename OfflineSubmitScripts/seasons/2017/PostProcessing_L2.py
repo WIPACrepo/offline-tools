@@ -1,190 +1,256 @@
 #!/usr/bin/env python
 """
 Combines several checks wich have to be done after the
-files are generated and updates the databases accordingly
+files are generated and updates the databases accordingly.
 """
 
+import os
 
-import os, sys
-import subprocess as sub
-import time
-import datetime
-import argparse
-
-import libs.files
-from libs.config import get_season_info, get_config, get_dataset_id_by_run, get_season_by_run
-sys.path.append(get_config().get('DEFAULT', 'SQLClientPath'))
-sys.path.append(get_config().get('DEFAULT', 'ProductionToolsPath'))
-from RunTools import RunTools
-from FileTools import *
-from DbTools import *
-
-from libs.files import get_tmpdir, get_logdir, MakeTarGapsTxtFile, MakeRunInfoFile, write_meta_xml_post_processing, tar_log_files, insert_gap_file_info_and_delete_files
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
-from libs.checks import CheckFiles
-import libs.process
-from GoodRuntimeAdjust import main as GoodRuntimeAdjust
+from libs.config import get_config
+from libs.process import Lock
+from libs.databaseconnection import DatabaseConnection
+from libs.runs import Run
+from libs.iceprod1 import IceProd1
+from libs.postprocessing import validate_files
+from libs.files import tar_gaps_files, insert_gaps_file_info_into_db, tar_log_files, create_good_run_list, MetaXMLFile
+from libs.trimrun import trim_to_good_run_time_range
+from libs.path import make_relative_symlink, get_logdir
+from libs.utils import Counter
 
-import SQLClient_i3live as live
-import SQLClient_dbs4 as dbs4
-import SQLClient_dbs2 as dbs2
+def validate_run(dataset_id, run, args, iceprod, logger, counter):
+    config = get_config(logger)
 
-m_live = live.MySQL()    
-dbs4_ = dbs4.MySQL()   
-dbs2_ = dbs2.MySQL()    
+    logger.info(run.format("======= Checking run {run_id}, production_version {production_version}, dataset_id = {dataset_id} ===========", dataset_id = dataset_id))
 
-def main_run(r, logger, dataset_id, season, nometadata, dryrun = False):
-    logger.info("======= Checking %s %s ==========="  %(str(r['run_id']),str(r['production_version'])))
-
-    if dataset_id < 0:
-        logger.error("Cannot determine the dataset id. Skipping.")
-        return
-    else:
-        logger.info("Dataset id was determined to %s" % dataset_id)
-
-    if DbTools(r['run_id'], dataset_id).AllOk():
-        logger.warning( """Processing of Run=%s, production_version=%s
-                 may not be complete ... skipping"""\
-                %(r['run_id'],str(r['production_version'])))
-        return    
-     
-    # check i/o files in data warehouse and Db
-    logger.info("Checking Files in Data warehouse and database records ...")
-    if CheckFiles(r, logger, dataset_id = dataset_id, season = season, dryrun = dryrun):
-        logger.error("FilesCheck failed: for Run=%s, production_version=%s"\
-        %(r['run_id'],str(r['production_version'])))
-        return
-    logger.info("File checks  .... passed")
-
-    ## delete/trim files when Good start/stop differ from Run start/stop
-    logger.info( "--Attempting to make adjustments to output Files to ensure all events fall within GoodRun start/stop time ...")
-    GoodRuntimeAdjust(r['run_id'], r['production_version'], dataset_id = dataset_id, logger = logger, dryrun = dryrun)
-    logger.debug( "GoodRunTimeAdjust   .... passed")
-
-    logger.debug("--Attempting to tar _gaps.txt files ...")
-    MakeTarGapsTxtFile(dbs4_, r['tStart'], r['run_id'], datasetid = dataset_id, dryrun = dryrun, logger = logger)
-    logger.debug("MakeTarGapsFile              .... passed")
-    logger.info( "--Attempting to collect Active Strings/DOMs information from verified GCD file ...")
-
-    R = RunTools(r['run_id'])
-    if 1 == R.GetActiveStringsAndDoms(season, UpdateDB = not dryrun):
-        logger.error("GetActiveStringsAndDoms failed")
+    # Is already validated?
+    if run.is_validated(dataset_id):
+        counter.count('skipped')
+        logger.info('Run has already been validated. Skip this run.')
         return
 
-    if not dryrun: dbs4_.execute("""update i3filter.grl_snapshot_info 
-                         set validated=1
-                         where run_id=%s and production_version=%s"""%\
-                     (r['run_id'],str(r['production_version'])))
+    # Check run status
+    run_status = iceprod.get_run_status(dataset_id, run)
+    if run_status != 'OK':
+        logger.warning('The run has not been successfully processed yet (status: {0}). Skip this run.'.format(run_status))
+        counter.count('skipped')
+        return
 
-    sDay = r['tStart']
-    sY = sDay.year
-    sM = str(sDay.month).zfill(2)
-    sD = str(sDay.day).zfill(2)
+    if not validate_files(iceprod, dataset_id, run, logger):
+        logger.error(run.format('Files validation failed for run {run_id}, production_version = {production_version}'))
+        counter.count('error')
+        return
 
-    run_folder = "/data/exp/IceCube/%s/filtered/level2/%s%s/Run00%s_%s" % (sY, sM, sD, r['run_id'], r['production_version'])
+    logger.info("Files validated")
 
-    if not nometadata:
+    logger.info('Tar gaps files and add to file catalog')
+    tar_gaps_files(iceprod, dataset_id, run, logger, args.dryrun)
+
+    # Write gap file info into filter-db
+    logger.info('Insert gaps file info into DB')
+    gaps_files = insert_gaps_file_info_into_db(run, args.dryrun, logger)
+
+    # Update run data
+    run.get_start_time(force_reload = True)
+
+    # Delete the gaps files
+    logger.info('Remove {0} gaps files'.format(len(gaps_files)))
+    for f in gaps_files:
+        logger.debug('Remove {0}'.format(f.path))
+        if not args.dryrun:
+            os.remove(f.path)
+
+    ## delete/trim files when food start/stop differ from run start/stop
+    logger.info('Check if run is in good start/stop time range')
+    trim_to_good_run_time_range(iceprod, dataset_id, run, logger, args.dryrun)
+
+    logger.debug('Get active DOMs/string information from GCD file and store it in DB')
+    run.write_active_x_to_db()
+
+    if not args.nometadata:
         dest_folder = ''
-        if dryrun:
-            dest_folder = get_tmpdir()
+        if args.dryrun:
+            meta_file_dest = get_tmpdir()
         else:
-            dest_folder = run_folder
+            meta_file_dest = run.format(config.get('Level2', 'RunFolder'))
 
-        write_meta_xml_post_processing(dest_folder = dest_folder,
-                                       level = 'L2',
-                                       script_file = __file__,
-                                       logger = logger)
+        metafile = MetaXMLFile(meta_file_dest, run, 'L2', dataset_id, logger)
+        metafile.add_post_processing_info(__file__)
     else:
         logger.info("No meta data files will be written")
 
     logger.debug('tar log files')
+    tar_log_files(run, logger, args.dryrun)
 
-    tar_log_files(run_path = run_folder, dryrun = dryrun, logger = logger)
+    logger.info('Create run sym link')
+    make_relative_symlink(run.format(config.get('Level2', 'RunFolder')), run.format(config.get('Level2', 'RunLinkName')), args.dryrun, logger)
 
-    # Write gap file info into filter-db and get rid of the gaps files
-    insert_gap_file_info_and_delete_files(run_path = run_folder, dryrun = dryrun, logger = logger)
+    logger.info('Mark as validated')
+    run.set_post_processing_state(dataset_id, True)
+
+    counter.count('validated')
 
     logger.info("Checks passed")
-    logger.info("======= End Checking %i %i ======== " %(r['run_id'],r['production_version'])) 
-    return
 
-def main(runinfo, logger, nometadata, dryrun = False):
+def main(args, runs, config, logger):
+    db = DatabaseConnection.get_connection('filter-db', logger)
+    iceprod = IceProd1(logger, args.dryrun)
+
+    counter = Counter(['handled', 'validated', 'skipped', 'error'])
+
+    # If no runs have been specified, find all runs of current season_info
+    # Current season is specified in config file at DEFAULT:Season
+    if not len(runs):
+        season = config.getint('DEFAULT', 'Season')
+        info = config.get_season_info()
+
+        if season not in info:
+            logger.critical('Did not find information about season {0}'.format(season))
+            exit(1)
+
+        excluded_runs = [-1]
+        upper_limit = 99999999
+
+        next_season = season + 1
+        if next_season not in info:
+            logger.info('Next season has not been configured yet. No information about test runs.')
+        else:
+            excluded_runs.extend(info[next_season]['test'])
+            upper_limit = info[next_season]['first'] - 1
+
+        sql = '''
+            SELECT run_id
+            FROM i3filter.run
+            WHERE (run_id BETWEEN {first} AND {last} OR
+                run_id IN ({test_runs})) AND
+                run_id NOT IN ({excluded_runs})'''.format(
+                first = info[season]['first'],
+                last = upper_limit,
+                test_runs = info[season]['test'],
+                excluded_runs = excluded_runs
+            )
+
+        logger.debug('SQL: {0}'.format(sql))
+
+        query = db.fetchall(sql)
+
+        runs = [r['run_id'] for r in query]
+
+    runs = [Run(run_id, logger, dryrun = args.dryrun) for run_id in runs]
     datasets = set()
 
-    for run in runinfo:
+    for run in runs:
+        counter.count('handled')
+
         try:
             # Get the dataset id and season for this run
-            dataset_id = get_dataset_id_by_run(int(run['run_id']))
-            season = get_season_by_run(run['run_id']);
+            dataset_id = args.dataset_id
+            if dataset_id is None:
+                dataset_id = config.get_dataset_id_by_run(run.run_id)
 
-            # If the dataset id is good, add it to the list of processed dataset ids
-            if dataset_id > 0:
-                datasets.add(dataset_id)
-            
-            main_run(run, logger, dataset_id = dataset_id, season = season, nometadata = nometadata, dryrun = dryrun) 
+                if len(dataset_id) != 1:
+                    logger.critical('Did not find exactly one dataset id for run {0}: {1}'.format(run.run_id, dataset_id))
+                    raise Exception('Did not find exactly one dataset id for run {0}: {1}'.format(run.run_id, dataset_id))
+
+                    dataset_id = dataset_id[0]
+
+            datasets.add(dataset_id)
+
+            validate_run(dataset_id, run, args, iceprod, logger, counter)
         except Exception as e:
-            logger.exception("Exception %s thrown for: Run=%s, production_version=%s" %(e.__repr__(),run['run_id'],str(run['production_version'])))
+            counter.count('error')
+            logger.exception(run.format("Exception {e} thrown for run = {run_id}, production_version = {production_version}", e = e))
    
     if len(datasets) > 1:
-        logger.warning("We have runs from more than one dataset: %s" % datasets)
+        logger.warning("We have runs from more than one dataset: {0}".format(datasets))
 
-    if runinfo:
-        # Create run info files for all dataset ids thta are affected
-        for dataset in datasets:
-            MakeRunInfoFile(dbs4_, dataset_id = dataset, logger = logger, dryrun = dryrun) 
+    # Create run info files for all dataset ids thta are affected
+    for dataset_id in datasets:
+        create_good_run_list(dataset_id, db, logger, args.dryrun)
 
+    logger.info('Post processing complete: {0}'.format(counter.get_summary()))
+
+def create_grl_only(config, args):
+    dataset_id = args.dataset_id
+
+    if dataset_id is None:
+        season = confog.get('DEFAULT', 'Season')
+        datasets = config.get_datasets_info()
+    
+        dataset_ids = [d['dataset_id'] for d in datasets if d['type'] == 'L2' and d['season'] == season]
+    
+        if len(dataset_ids) > 1:
+            logger.critical('There are more than one dataset id for the current season. Please specify the dataset id.')
+            exit(1)
+    
+        if not len(dataset_ids):
+            logger.critical('Did not find any dataset id for the current season')
+            exit(1)
+
+        dataset_id = dataset_ids[0]
+
+    db = DatabaseConnection.get_connection('filter-db', logger)
+    create_good_run_list(dataset_id, db, logger, args.dryrun)
 
 if __name__ == '__main__':
-    parser = get_defaultparser(__doc__,dryrun=True)
-    parser.add_argument('-r',nargs="?", help="run to postprocess",dest="run",type=int)
-    parser.add_argument("--nometadata", action="store_true", default=False, dest="NOMETADATA", help="Don't write meta data files")
-    parser.add_argument("--cron", action="store_true", default=False, dest="CRON", help="Use this option if you call this script via a cron")
+    parser = get_defaultparser(__doc__, dryrun = True)
+    parser.add_argument("--dataset-id", type = int, required = False, default = None, help="The dataset id. The default value is `None`. In this case it gets the dataset id from the database.")
+    parser.add_argument("-s", "--startrun", type = int, required = False, default = None, help = "Start submitting from this run")
+    parser.add_argument("-e", "--endrun", type = int, required = False, default= None, help = "End submitting at this run")
+    parser.add_argument("--runs", type = int, nargs = '*', required = False, help = "Submitting specific runs. Can be mixed with -s and -e")
+    parser.add_argument("--nometadata", action = "store_true", default = False, help="Do not write meta data files")
+    parser.add_argument("--cron", action = "store_true", default = False, help = "Use this option if you call this script via a cron")
+    parser.add_argument("--create-grl-only", action = "store_true", default = False, help = "Do not validate runs. Just create the GRL for the current season")
     args = parser.parse_args()
-    LOGFILE=os.path.join(get_logdir(sublogpath = 'PostProcessing'), 'PostProcessing_')
 
-    if args.CRON:
-        LOGFILE = LOGFILE + 'CRON_'
+    logfile = os.path.join(get_logdir(sublogpath = 'PostProcessing'), 'PostProcessing_')
 
-    logger = get_logger(args.loglevel, LOGFILE)
+    if args.logfile is not None:
+        logfile = args.logfile
+
+    logger = get_logger(args.loglevel, logfile)
+
+    config = get_config(logger)
+
+    if args.create_grl_only:
+        create_grl_only(config, args)
+        exit()
+
+    # Check arguments
+    runs = args.runs
+
+    if runs is None:
+        runs = []
+
+    if args.startrun is not None:
+        if args.endrun is None:
+            logger.critical('If --startrun, -s has been set, also the --endrun, -e needs to be set.')
+            exit(1)
+
+        runs.extend(range(args.startrun, args.endrun + 1))
+    elif args.endrun is not None:
+        logger.critical('If --endrun, -e has been set, also the --startrun, -s needs to be set.')
+        exit(1)
+
+    if not len(runs):
+        logger.info('No specific runs have been set. Going to validate all runs of current season (check config file DEFAULT:Season).')
 
     # Check if --cron option is enabled. If so, check if cron usage allowed by config
     lock = None
-    if args.CRON:
-        if not get_config().getboolean('L2', 'CronPostProcessing'):
+    if args.cron:
+        if not config.getboolean('Level2', 'CronPostProcessing'):
             logger.critical('It is currently not allowed to execute this script as cron. Check config file.')
             exit(1)
 
         # Check if cron is already running
-        lock = libs.process.Lock(os.path.basename(__file__), logger)
+        lock = Lock(os.path.basename(__file__), logger)
         lock.lock()
 
-    season = get_config().getint('DEFAULT', 'Season')
-    test_runs = get_season_info(season)['test']
+    main(args, runs, config, logger)
 
-    # Workaround for empty lists (the query needs to have at least one element)
-    if len(test_runs) == 0:
-        test_runs = [-1]
-
-    RunInfo = None
-
-    if args.run is not None:
-        RunInfo = dbs4_.fetchall("""SELECT r.tStart,g.* FROM i3filter.grl_snapshot_info g
-                                  JOIN i3filter.run_info_summary r ON r.run_id=g.run_id
-                                  WHERE g.submitted AND (g.good_i3 OR g.good_it or g.run_id IN (%s)) AND NOT validated AND g.run_id = %i
-                                  ORDER BY g.run_id""" % (','.join([str(r) for r in test_runs]), args.run), UseDict=True)
-    else: 
-        RunInfo = dbs4_.fetchall("""SELECT r.tStart,g.* FROM i3filter.grl_snapshot_info g
-                                 JOIN i3filter.run_info_summary r ON r.run_id=g.run_id
-                                 WHERE g.submitted AND (g.good_i3 OR g.good_it OR g.run_id IN (%s)) AND NOT validated
-                                 ORDER BY g.run_id""" % ','.join([str(r) for r in test_runs]), UseDict=True)
-
-    logger.debug("RunInfo = %s" % str(RunInfo))
-
-    main(RunInfo, logger, args.NOMETADATA, dryrun = args.dryrun)
-
-    if args.CRON:
+    if args.cron:
         lock.unlock()
 
-    logger.info('Post processing completed')
+    logger.info('Done')
 
