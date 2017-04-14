@@ -109,7 +109,7 @@ def grl_to_runs(dbs4, filter_db):
             **e
         )
  
-#        print sql
+        #print sql
    
         print "[{0:>4} / {1}] run_id = {2}".format(counter, len(s), e['run_id'])
 
@@ -149,9 +149,54 @@ def post_processing(dbs4, filter_db):
 
         filter_db.execute(sql)
 
+def bad_runs(dbs4, filter_db):
+    s = dbs4.fetchall("""
+SELECT 
+    r.run_id, sub_run, status
+FROM
+    i3filter.job j
+        JOIN
+    i3filter.run r ON r.dataset_id = j.dataset_id
+        AND r.queue_id = j.queue_id
+        JOIN
+    i3filter.grl_snapshot_info g ON r.run_id = g.run_id
+WHERE
+    status IN ('BadRun' , 'FailedRun')
+        AND r.dataset_id IN (1888, 1883, 1874, 1871)
+        AND (good_it OR good_i3);
+        """, UseDict = True)
+
+    filter_db_sql = """
+            INSERT INTO i3filter.sub_runs 
+                (run_id, sub_run, bad)
+             VALUES ({run_id}, {sub_run_id}, {bad})
+             ON DUPLICATE KEY UPDATE bad = {bad}
+    """
+
+    counter = 0
+    for e in s:
+        counter += 1
+
+        sql = filter_db_sql.format(run_id = e['run_id'], sub_run_id = e['sub_run'], bad = 1)
+
+        #print sql
+
+        print "[{0:>4} / {1}] run_id = {2}/{3}".format(counter, len(s), e['run_id'], e['sub_run'])
+
+        filter_db.execute(sql)
+
 dbs4 = DatabaseConnection.get_connection('dbs4', DummyLogger())
 filter_db = DatabaseConnection.get_connection('filter-db', DummyLogger())
 
+print 'Copy run data'
 grl_to_runs(dbs4 = dbs4, filter_db = filter_db)
+print ''
+
+print 'Copy post processing data'
 post_processing(dbs4 = dbs4, filter_db = filter_db)
+print ''
+
+print 'Copy bad sub run data'
+bad_runs(dbs4 = dbs4, filter_db = filter_db)
+
 
