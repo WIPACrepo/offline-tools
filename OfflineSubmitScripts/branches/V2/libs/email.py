@@ -1,4 +1,5 @@
 
+from __future__ import absolute_import
 import smtplib
 from email.utils import formatdate
 
@@ -8,10 +9,10 @@ def create_message(logger, domain, sender, receivers, subject, message_body, mim
     message = "From: " + sender + "<" + sender + domain + ">\n"
     message += "To: " + ",".join([r[0: r.find('@')] + "<{0}>".format(r) for r in receivers]) + "\n"
 
-    if len(mimeVersion):
+    if len(mime_version):
         message += "MIME-Version: " + mime_version + "\n"
 
-    if len(contentType):
+    if len(content_type):
         message += "Content-type: " + content_type + "\n"
 
     message += "Date: {0}\n".format(formatdate())
@@ -27,7 +28,7 @@ def send_message(sender, receivers, message, logger):
     logger.info("Successfully sent notification email")
 
 def send_email(receivers, subject, content, logger, dryrun):
-    from config import get_config
+    from libs.config import get_config
 
     config = get_config(logger)
 

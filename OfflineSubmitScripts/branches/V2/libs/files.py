@@ -60,6 +60,9 @@ class File(object):
     def get_dirname(self):
         return os.path.dirname(self.path)
 
+    def __str__(self):
+        return self.path
+
     @classmethod
     def get_md5(cls, path, logger):
         f = cls(path, logger)
@@ -74,6 +77,14 @@ class File(object):
     def get_checksum(cls, path, ctype, logger):
         f = cls(path, logger)
         return f.checksum(ctype)
+
+    @classmethod
+    def get_content(cls, path):
+        content = None
+        with open(path, 'r') as f:
+            content = f.read()
+
+        return content
 
 class GoodRunList(File):
     def __init__(self, path, logger, columns = ['RunNum', 'Good_i3', 'Good_it', 'LiveTime', 'ActiveStrings', 'ActiveDoms', 'ActiveInIce', 'OutDir', 'Comment(s)'], run_id_column = 0, empty_cell_value = 'N/A', mode = 'r', num_decimals = 2):
