@@ -66,7 +66,7 @@ def main(logger, dryrun):
         logger.debug('path = {0}'.format(path))
 
         files = []
-        for p in path_pattern:
+        for p in path:
             files.extend(glob(p))
 
         for path in files:
@@ -94,6 +94,8 @@ def main(logger, dryrun):
                     dump_count = 0
 
                 dump_count += 1
+            else:
+                logger.info('Already cached, skip file {0}'.format(path))
 
         look_back += timedelta(days=1)
 

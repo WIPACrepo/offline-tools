@@ -118,7 +118,7 @@ class ChecksumCache(object):
             str: The checksum
         """
 
-        self.set_checksum(path, 'md5', checksum)
+        return self.set_checksum(path, 'md5', checksum)
 
     def set_sha512(self, path, checksum = None):
         """
@@ -132,7 +132,7 @@ class ChecksumCache(object):
             str: The checksum
         """
 
-        self.set_checksum(path, 'sha512', checksum)
+        return self.set_checksum(path, 'sha512', checksum)
 
 class Counter(object):
     def __init__(self, names):
