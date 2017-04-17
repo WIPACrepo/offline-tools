@@ -114,7 +114,7 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
     
                 dbs4_.execute("""insert into i3filter.run (run_id,dataset_id,queue_id,sub_run,date) values (%s,%s,%s,%s,"%s")"""%(g['run_id'],DatasetId,QueueId,CountSubRun,str(sDay.date())))
 
-def clean_run(dbs4_,DatasetId,Run,CLEAN_DW,g, logger, dryrun):
+def clean_run(dbs4_,DatasetId,Run,CLEAN_DW,g, logger, dryrun, ignore_production_version = False):
     """
     Deletes all data in the database and, if requested, also in the datawarehouse.
 
@@ -129,13 +129,22 @@ def clean_run(dbs4_,DatasetId,Run,CLEAN_DW,g, logger, dryrun):
         logger (logging.logger): The logger
         dryrun (bool): If it is `True`, no changes in the file system and the database are made.
     """
-    tmp  = dbs4_.fetchall(""" select j.queue_id from i3filter.job j
-                          join i3filter.run r on j.queue_id=r.queue_id
-                          join i3filter.grl_snapshot_info g on r.run_id=g.run_id
-                          where r.dataset_id=%s and j.dataset_id=%s
-                          and r.run_id=%s and g.production_version=%s"""\
-                          %(DatasetId,DatasetId,Run,g['production_version']) )
-    
+
+    if not ignore_production_version:
+        tmp  = dbs4_.fetchall(""" select j.queue_id from i3filter.job j
+                              join i3filter.run r on j.queue_id=r.queue_id
+                              join i3filter.grl_snapshot_info g on r.run_id=g.run_id
+                              where r.dataset_id=%s and j.dataset_id=%s
+                              and r.run_id=%s and g.production_version=%s"""\
+                              %(DatasetId,DatasetId,Run,g['production_version']) )
+    else:
+        tmp  = dbs4_.fetchall(""" select j.queue_id from i3filter.job j
+                              join i3filter.run r on j.queue_id=r.queue_id
+                              join i3filter.grl_snapshot_info g on r.run_id=g.run_id
+                              where r.dataset_id=%s and j.dataset_id=%s
+                              and r.run_id=%s"""\
+                              %(DatasetId,DatasetId,Run) )
+
     if len(tmp):
         CleanListStr=""
         for t in tmp:
@@ -155,7 +164,7 @@ def clean_run(dbs4_,DatasetId,Run,CLEAN_DW,g, logger, dryrun):
                 for t in tmp:
                     filename = t[0][5:]+"/"+t[1]
                     if os.path.isfile(filename):
-                        logger.info("deleting ", filename)
+                        logger.info("deleting " % filename)
                         if not dryrun: os.system("rm -f %s"%filename)
     
     

@@ -172,7 +172,8 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
             sRunInfo_sorted = sorted(sRunInfo, key=lambda k:['name'])
            
             for sr in sRunInfo:
-                if int(sr['sub_run']) % aggregate:
+                # Subtract first sub run number because it could be that the first sub runs were not in good time range
+                if (int(sr['sub_run']) - int(sRunInfo[0]['sub_run'])) % aggregate:
                     continue
 
                 nName = sr['name'].replace("Level2_","Level3_").replace("Test_","")
@@ -199,8 +200,21 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
                         logger.info("Skipped sub run %s since it is declared as bad in L2" % sr['sub_run'])
                         continue
 
-                    verified = 0
-                    logger.error("no DB record (or more than 1) for in/output %s/%s dir. for run %s" % (sr['name'], nName, RunId))
+                    found = False
+                    if sr == sRunInfo[-1] and aggregate > 1:
+                        # Check if last sub run has been processed with previous batch. Only important if aggregate is > 1
+                        for row in dRunInfo:
+                            logger.debug('sr = %s' % sr)
+                            logger.debug('row = %s' % row)
+                            if row['run_id'] == sr['run_id'] and row['sub_run'] == sr['sub_run'] - aggregate and row['type'] == 'INPUT' and row['name'] == sr['name']:
+                                found = True
+                                break
+
+                    if not found:
+                        verified = 0
+                        logger.error("no DB record (or more than 1) for in/output %s/%s dir. for run %s" % (sr['name'], nName, RunId))
+
+                    # The following checks are not required
                     continue
 
                 nRecord = nRecord[0]

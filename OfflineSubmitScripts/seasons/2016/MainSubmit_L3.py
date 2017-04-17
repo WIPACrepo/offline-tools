@@ -133,11 +133,16 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
     firstSubRun = runInfo[0]['sub_run']
     lastSubRun = runInfo[-1]['sub_run']
     
+    logger.debug("firstSubRun = %s" % firstSubRun)
+    logger.debug("lastSubRun = %s" % lastSubRun)
+
     if AGGREGATE > 1:
         groups_ = range(firstSubRun,lastSubRun,AGGREGATE)
     else:
         groups_ = range(firstSubRun,lastSubRun+1)
-   
+  
+    logger.debug("groups_ = %s" % groups_)
+ 
     # Using grid or NPX?
     grid = dbs4_.fetchall("SELECT * FROM i3filter.grid_statistics WHERE dataset_id = %s;" % DDatasetId, UseDict = True)
 
@@ -263,6 +268,12 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
             dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","INPUT","%s","%s")"""% \
            (DDatasetId,QId, MCGCD['name'],MCGCD['path'],MCGCD['md5sum'],MCGCD['size']))
     
+    # In the case that aggregate is > 1 and the last sub run is <= aggregate, g is never set
+    # Therefore, check if groups_ has len(groups_) == 1:
+    if len(groups_) == 1:
+        # since the script assumes that g has the index -1 of groups_, we need to set it to -1. It will use g + 1...
+        g = -1
+
     p = None
     if not cosmicray:
         p = [r for r in runInfo if r['sub_run'] in range(groups_[g+1],lastSubRun+1) and str(r['sub_run']).zfill(8)+"_" not in r['name'] and r['type']=="PERMANENT"]
@@ -407,8 +418,9 @@ if __name__ == '__main__':
         args.END_RUN = args.START_RUN
         
     outdir_mapping = libs.config.get_var_dict('L3', 'DatasetOutputDirMapping', keytype = int)
-   
-    logger.warning("****** You have activated the Cosmic Ray WG option! *******")
+  
+    if args.cosmicray: 
+        logger.warning("****** You have activated the Cosmic Ray WG option! *******")
 
     logger.debug("Output mapping: %s" % outdir_mapping);
 
