@@ -7,10 +7,6 @@ class ProcessingJobs {
     private $dataset_id;
     private $dataset_ids;
     private $default_dataset_id;
-    private $l2_dataset_ids;
-
-    private $is_l2_dataset;
-
     private $pass2;
 
     private $dataset_list_only;
@@ -22,13 +18,13 @@ class ProcessingJobs {
      */
     private static $RUN_STATUS = array('NONE', 'OK', 'IDLE', 'PROCESSING', 'PROCESSING/ERRORS', 'FAILED');
 
-    public function __construct($host, $user, $password, $db, $default_dataset_id, array $l2_dataset_ids, $api_version, $live_host, $live_user, $live_password, $live_db) {
+    public function __construct($host, $user, $password, $db, $default_dataset_id, $api_version, $live_host, $live_user, $live_password, $live_db, $filter_db_host, $filter_db_user, $filter_db_password, $filter_db_db) {
         $this->mysql = @new mysqli($host, $user, $password, $db);
         $this->live = @new mysqli($live_host, $live_user, $live_password, $live_db);
+        $this->filter_db = @new mysqli($filter_db_host, $filter_db_user, $filter_db_password, $filter_db_db);
         $this->result = array('api_version' => $api_version,'error' => 0, 'error_msg' => '', 'error_trace' => '', 'data' => array('runs' => array(), 'datasets' => array(), 'seasons' => array()));
         $this->dataset_id = $default_dataset_id;
         $this->default_dataset_id = $default_dataset_id;
-        $this->l2_dataset_ids = $l2_dataset_ids;
         $this->dataset_ids = null;
         $this->dataset_list_only = false;
         $this->pass2 = false;
@@ -66,11 +62,8 @@ class ProcessingJobs {
                              'submitted' => false, 'last_status_change' => '', 'error_message' => array(),
                              'snapshot_id' => null, 'production_version' => null, 'path' => null, 'gcd' => null);
 
-        $this->is_l2_dataset = in_array($this->dataset_id, $this->l2_dataset_ids);
-
         $this->add_dataset_list();   
         $this->add_season_list();
-        $this->validate_datasets();
 
         if(!$this->dataset_list_only && !$this->result['error']) {
             $this->add_submitted_runs($run_pattern);
@@ -181,10 +174,10 @@ class ProcessingJobs {
         $seasons = array();
 
         $sql = "SELECT *
-                FROM offline_season
+                FROM i3filter.seasons
                 ORDER BY season";
 
-        $query = $this->mysql->query($sql);
+        $query = $this->filter_db->query($sql);
         while($season = $query->fetch_assoc()) {
             $season['test_runs'] = strlen($season['test_runs']) === 0 ? array() : explode(',', $season['test_runs']);
             $seasons[$season['season']] = $season;
@@ -234,14 +227,17 @@ class ProcessingJobs {
     }
 
     private function validate_runs() {
-        // Don't use this method for L2 datasets
-        if($this->is_l2_dataset) {
+        $dataset_info = $this->result['data']['datasets'][$this->dataset_id];
+        $season = $dataset_info['season'];
+
+        // Don't use this method for L2 datasets < 2013
+        if($dataset_info['type'] == 'L2' && $season < 2013) {
             return;
         }
 
         // If it is a L3 dataset and earlier than 1885, there is no validation tag
         // So, mark all runs as validated
-        if($this->dataset_id < 1885) {
+        if($dataset_info['type'] == 'L3' && $this->dataset_id < 1885) {
             foreach($this->result['data']['runs'] as &$run) {
                 $run['validated'] = true;
                 $run['validation_date'] = null;
@@ -250,11 +246,19 @@ class ProcessingJobs {
             return;
         }
 
-        $sql = "SELECT run_id, validated, date_of_validation
-                FROM offline_postprocessing
-                WHERE dataset_id = {$this->dataset_id}";
+        // L2 runs before season 2017 (dataset_id 1915) were actually store on dbs4 in grl_snapshot_info along with the validation information
+        // This data has been migrated but w/o dataset_id information. The dataset_id for those runs in post_processing is '0'
+        $pp_dataset_id = $this->dataset_id;
 
-        $query = $this->mysql->query($sql);
+        if($dataset_info['type'] == 'L2' && $this->dataset_id < 1915) {
+            $pp_dataset_id = 0;
+        }
+
+        $sql = "SELECT run_id, validated, date_of_validation
+                FROM i3filter.post_processing
+                WHERE dataset_id = {$pp_dataset_id}";
+
+        $query = $this->filter_db->query($sql);
         while($row = $query->fetch_assoc()) {
             if(isset($this->result['data']['runs'][$row['run_id']])) {
                 $this->result['data']['runs'][$row['run_id']]['validated'] = $row['validated'] == 1;
@@ -336,32 +340,52 @@ class ProcessingJobs {
         if($season >= 2013 || $this->pass2) {
             // Data source is just grl_snapshot_info
 
-            // If it is pass2, we have a different table
-            $pass2hack = '';
-            if($this->pass2) {
-                $pass2hack = '_pass2';
-            }
+            // If it is pass2, we have a different table and DB
+            $db = $this->filter_db;
+            $table = 'i3filter.runs';
 
             $sql = "SELECT  run_id,
-                            validated,
                             DATE(good_tstart) AS `date`,
-                            submitted,
                             snapshot_id AS `snapshot_id`,
                             production_version AS `production_version`,
                             good_i3,
                             good_it
-                    FROM grl_snapshot_info{$pass2hack}
+                    FROM {$table}
                     WHERE   (
                                 run_id BETWEEN $first_run_id AND $last_run_id OR
                                 run_id IN ($season_test_runs -1) /* Have at least -1 to avoid bad SQL */
                             ) AND
-                            run_id NOT IN ($next_season_test_runs -1) /* Have at least -1 to avoid bad SQL *//* AND
-                            (good_it = 1 OR good_i3 = 1)*/
+                            run_id NOT IN ($next_season_test_runs -1) /* Have at least -1 to avoid bad SQL */
                     GROUP BY run_id, production_version
                     ORDER BY run_id, production_version ASC";
 
-            $query = $this->mysql->query($sql);
+            if($this->pass2) {
+                $table = 'i3filter.grl_snapshot_info_pass2';
+                $db = $this->mysql;
+                $sql = "SELECT  run_id,
+                                validated,
+                                DATE(good_tstart) AS `date`,
+                                submitted,
+                                snapshot_id AS `snapshot_id`,
+                                production_version AS `production_version`,
+                                good_i3,
+                                good_it
+                        FROM {$table}
+                        WHERE   (
+                                    run_id BETWEEN $first_run_id AND $last_run_id OR
+                                    run_id IN ($season_test_runs -1) /* Have at least -1 to avoid bad SQL */
+                                ) AND
+                                run_id NOT IN ($next_season_test_runs -1) /* Have at least -1 to avoid bad SQL */
+                        GROUP BY run_id, production_version
+                        ORDER BY run_id, production_version ASC";
+            }
+
+            $query = $db->query($sql);
             while($row = $query->fetch_assoc()) {
+                if(!isset($row['validated'])) {
+                    $row['validated'] = false;
+                }
+
                 $runs[] = $row;
             }
         } else if($season >= 2010) {
@@ -422,11 +446,13 @@ class ProcessingJobs {
 
         // Putting all together
         foreach($runs as $run) {
-            $this->process_good_run_information($run_pattern, $run['run_id'], $run['validated'], $run['production_version'], $run['snapshot_id'], $run['date']);
+            $test_run24h = in_array($run['run_id'], $season_info['test_runs']);
+
+            $this->process_good_run_information($run_pattern, $test_run24h, $run['good_i3'], $run['good_it'], $run['run_id'], $run['validated'], $run['production_version'], $run['snapshot_id'], $run['date']);
 
             // Store run of GRL
             // If it is a bad run (make sure that the SQL query has an order of production_version ASC and snapshot_id ASC), remove it
-            if(!intval($run['good_it']) && !intval($run['good_i3'])) {
+            if(!intval($run['good_it']) && !intval($run['good_i3']) && !in_array($run['run_id'], $season_info['test_runs'])) {
                 $key = array_search($run['run_id'], $grl_run_ids);
                 if($key !== false) {
                     unset($grl_run_ids[$key]);
@@ -444,7 +470,9 @@ class ProcessingJobs {
         }
     }
 
-    private function process_good_run_information($run_pattern, $run_id, $validated, $production_version, $snapshot_id, $date) {
+    private function process_good_run_information($run_pattern, $test_run24h, $good_i3, $good_it, $run_id, $validated, $production_version, $snapshot_id, $date) {
+        $dataset_info = $this->result['data']['datasets'][$this->dataset_id];
+
         if(isset($this->result['data']['runs'][$run_id])) {
             // A run can appear several times (each for one production or snapshot number that includes this run).
             // Therefore, if the run already exists, check if the production/snaphot number is newer (higher)...
@@ -456,23 +484,29 @@ class ProcessingJobs {
                 return;
             }
 
-            // L2 validation flag is currently stored in grl_snapshot_info
-            if($this->is_l2_dataset) {
+            // L2 validation flag for seasons < 2013 are stored separately. Therefore, use this validation value
+            if($dataset_info['season'] < 2013 && $dataset_info['type'] == 'L2') {
                 $this->result['data']['runs'][$run_id]['validated'] = $validated == 1;
             }
         
             // Add production version and snapshot id
             $this->result['data']['runs'][$run_id]['production_version'] = $production_version;
             $this->result['data']['runs'][$run_id]['snapshot_id'] = $snapshot_id;
+            $this->result['data']['runs'][$run_id]['good_i3'] = (bool)$good_i3;
+            $this->result['data']['runs'][$run_id]['good_it'] = (bool)$good_it;
+            $this->result['data']['runs'][$run_id]['24h_test_run'] = $test_run24h;
         } else {
             $current_run = $run_pattern;
         
             $current_run['run_id'] = $run_id;
             $current_run['date'] = $date;
-            $current_run['submitted'] = $this->is_l2_dataset_id && $row['submitted'] == 1;
+            $current_run['submitted'] = false;
             $current_run['status'] = self::get_status('NONE');
             $current_run['production_version'] = intval($production_version);
             $current_run['snapshot_id'] = intval($snapshot_id);
+            $current_run['24h_test_run'] = $test_run24h;
+            $current_run['good_i3'] = (bool)$good_i3;
+            $current_run['good_it'] = (bool)$good_it;
         
             $this->result['data']['runs'][$run_id] = $current_run;
         }
@@ -538,19 +572,32 @@ class ProcessingJobs {
     public function get_dataset_ids() {
         if(is_null($this->dataset_ids)) {
             $list = array();
-            $sql = 'SELECT  dataset_id,
-                            description
-                    FROM dataset
-                    ORDER BY dataset_id DESC';
-            $query = $this->mysql->query($sql);
-            while($row = $query->fetch_assoc()) {
-                $row['selected'] = $row['dataset_id'] == $this->dataset_id;
-                $row['supported'] = false;
-                $row['season'] = null;
-                $row['type'] = null;
-                $row['comment'] = '';
 
-                $list[$row['dataset_id']] = $row;
+            $sql = 'SELECT * FROM i3filter.datasets d JOIN i3filter.working_groups wg ON d.working_group = wg.working_group_id';
+
+            $query = $this->filter_db->query($sql);
+            while($row = $query->fetch_assoc()) {
+                $set = array();
+
+                $set['dataset_id'] = $row['dataset_id'];
+                $set['description'] = $row['description'];
+                $set['selected'] = $row['dataset_id'] == $this->dataset_id;
+                $set['supported'] = (bool)($row['enabled']);
+                $set['season'] = intval($row['season']);
+                $set['type'] = $row['type'];
+                $set['comment'] = $row['comment'];
+                $set['pass'] = intval($row['pass']);
+                $set['status'] = array(
+                    'name' => $row['status'],
+                    'date' => $row['status_date'],
+                    'comment' => $row['status_comment']
+                );
+
+                if(intval($row['working_group']) > 0) {
+                    $set['working_group'] = $row['name'];
+                }
+
+                $list[$row['dataset_id']] = $set;
             }
             
             $this->dataset_ids = $list;
@@ -564,7 +611,6 @@ class ProcessingJobs {
 
         $this->add_dataset_list();   
         $this->add_season_list();
-        $this->validate_datasets();
 
         if(isset($this->result['data']['datasets'][(string)$dataset_id]) && $this->result['data']['datasets'][(string)$dataset_id]['supported']) {
             // Set current selection to false
@@ -575,7 +621,7 @@ class ProcessingJobs {
             $this->dataset_id = $dataset_id;
 
             // Check if pass2
-            $this->pass2 = stripos($this->result['data']['datasets'][(string)$this->dataset_id]['comment'], 'pass2') !== false;
+            $this->pass2 = $this->result['data']['datasets'][(string)$this->dataset_id]['pass'] == 2;
 
             // Set new selection
             $this->result['data']['datasets'][(string)$dataset_id]['selected'] = true;

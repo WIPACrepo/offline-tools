@@ -70,32 +70,6 @@ JobMonitorDatasets.prototype.update = function(data) {
 
     datasetTypes.sort();
 
-    var makeNiceL2DatasetList = function(list) {
-        var html = '';
-
-        var first = true;
-
-        list.forEach(function(dataset) {
-            if(first) {
-                first = false;
-            } else {
-                html += ', ';
-            }
-
-            html += '<a href="#">';
-
-            html += dataset['dataset_id'];
-
-            if(dataset['comment'] !== '') {
-                html += ' (' + dataset['comment'] + ')';
-            }
-
-            html += '</a>';
-        });
-
-        return html;
-    };
-
     seasonSorted.forEach(function(season) {
         var numOfLines = 1;
 
@@ -121,8 +95,10 @@ JobMonitorDatasets.prototype.update = function(data) {
             if(typeof orderedDatasets[season][type] !== 'undefined') {
                 if(first) {
                     first = false;
+                    dropDownHtml += '<td></td>';
                 } else {
                     dropDownHtml += '<tr>';
+                    dropDownHtml += '<td class="jm-dataset-status"></td>';
                 }
 
                 dropDownHtml += '<td class="jm-dataset-type">';
@@ -132,6 +108,7 @@ JobMonitorDatasets.prototype.update = function(data) {
 
                 orderedDatasets[season][type].forEach(function(dataset) {
                     dropDownHtml += '<tr>';
+                    dropDownHtml += '<td class="jm-dataset-status">' + iam.main.createLabelDatasetStatus(dataset['status'], false) + '</td>';
                     dropDownHtml += '<td class="jm-dataset">';
                     dropDownHtml += '<a data-jm-dataset-id="' + dataset['dataset_id'] + '" href="#">';
                     dropDownHtml += dataset['dataset_id'];
@@ -279,9 +256,12 @@ JobMonitorDatasets.prototype.update = function(data) {
             title += ' ' + this.main.createLabelComment(datasets[datasetId]['comment']);
         }
 
+        title += ' ' + this.main.createLabelDatasetStatus(datasets[datasetId]['status'], true);
+
         title += '</p>';
 
         this.title.html(title);
+        $('[data-toggle="tooltip"]', this.title).tooltip();
     }
 
     // Check if a dataset is selected

@@ -60,6 +60,11 @@
     font-weight: bold;
 }
 
+#jm-content-view-current-jobs tr.bad-run td:first-child,
+#jm-content-view-current-jobs tr td.bad-run {
+    color: red !important;
+}
+
 #jm-content-view-current-jobs #example_length {
     float: left;
 }

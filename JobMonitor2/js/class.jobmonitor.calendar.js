@@ -37,7 +37,8 @@ function JobMonitorCalendar(url, isTouchDevice) {
                                 'Jobs Idling': 'day-idle',
                                 'In Preparation': 'day-none',
                                 'Not All Runs Submitted Yet': 'day-not-all-submitted',
-                                'Not All Runs Validated Yet': 'day-not-validated'};
+                                'Not All Runs Validated Yet': 'day-not-validated',
+                                'Has 24h Test Runs': 'day-has-24h-test-run'};
 
     this.isTouchDevice = isTouchDevice;
 
@@ -233,6 +234,9 @@ JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day,
     html += '</thead>';
     html += '<tbody>';
 
+    var testRun = false;
+    var badRun = false;
+
     dayData['runs'].forEach(function(run) {
         // We need to process all sub runs except for them with...
         var subRunsToProcess = run['sub_runs'] -
@@ -246,9 +250,30 @@ JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day,
         var runStatusCSS = iam.runStatusCSSMapping[run['status']['name']];
         var progressIndicator = Math.floor(run['jobs_states']['OK'] / subRunsToProcess * 100);
 
+        var classes = [];
+
+        if(run['24h_test_run']) {
+            classes.push('test-run');
+            testRun = true;
+        }
+
+        if(!run['good_i3'] && !run['good_it']) {
+            classes.push('bad-run');
+            badRun = true;
+        }
+
+        var classesStr = '';
+        if(classes.length > 0) {
+            classesStr = ' class="' + classes.join(' ') + '"';
+        }
+
         html += '<tr>';
-        html += '<td>';
+        html += '<td' + classesStr + '>';
         html += run['run_id'];
+
+        if(testRun) {
+            html += '<sup>T</sup>';
+        }
 
         if(!isNaN(progressIndicator)) {
             html += '<span class="run-status-indicator ' + runStatusCSS + '">' + progressIndicator + '%</span>';
@@ -322,6 +347,19 @@ JobMonitorCalendar.prototype._createDaySummaryTable = function(year, month, day,
         html += '<small class="text-muted">Click on day for more information</small>';
     }
 
+    if(testRun) {
+        html += '<hr/>';
+        html += '<small class="text-muted"><sup>T</sup>: 24h Test Run</small><br/>';
+    }
+
+    if(badRun) {
+        if(!testRun) {
+            html += '<hr/>';
+        }
+
+        html += '<small class="text-muted"><span style="color: red;">123456</span>: Run marked as bad</small>';
+    }
+
     return html;
 }
 
@@ -365,6 +403,7 @@ JobMonitorCalendar.prototype._computeCalendarData = function(data) {
                     'datestr': value['date'],
                     'all_validated': true,
                     'all_submitted': true,
+                    'has_24h_test_run': false,
                     'status': 0,
                     'status_name': 'NONE'
                 },
@@ -382,6 +421,10 @@ JobMonitorCalendar.prototype._computeCalendarData = function(data) {
             calendar[d['year']][d['month']][d['day']]['summary']['all_submitted'] = false;
         } else if(!value['validated']) {
             calendar[d['year']][d['month']][d['day']]['summary']['all_validated'] = false;
+        }
+
+        if(value['24h_test_run']) {
+            calendar[d['year']][d['month']][d['day']]['summary']['has_24h_test_run'] = true;
         }
     });
 
@@ -440,6 +483,10 @@ JobMonitorCalendar.prototype._createMonth = function(year, month, data) {
 
                     if(!dayData['summary']['all_submitted']) {
                         classes.push('day-not-all-submitted');
+                    }
+
+                    if(dayData['summary']['has_24h_test_run']) {
+                        classes.push('day-has-24h-test-run');
                     }
 
                     // Handle day states

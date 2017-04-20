@@ -67,6 +67,37 @@ JobMonitor.prototype.getPersonnelData = function(key) {
     return this.personnel[key];
 }
 
+JobMonitor.prototype.createLabelDatasetStatus = function(s, verbose) {
+    verbose = typeof verbose !== 'undefined' ? verbose : false;
+
+    var states = {
+        'PREPARATION': '<span class="glyphicon glyphicon-asterisk" aria-hidden="true" data-toggle="tooltip" title="{TOOLTIP}" data-placement="bottom"></span>',
+        'PROCESSING': '<span class="glyphicon glyphicon-cog" aria-hidden="true" data-toggle="tooltip" title="{TOOLTIP}" data-placement="bottom"></span>',
+        'COMPLETE': '<span class="glyphicon glyphicon-ok-circle" aria-hidden="true" data-toggle="tooltip" title="{TOOLTIP}" data-placement="bottom"></span>',
+        'FAILED': '<span class="glyphicon glyphicon-remove-circle" aria-hidden="true" data-toggle="tooltip" title="{TOOLTIP}" data-placement="bottom"></span>',
+        'TEST': '<span class="glyphicon glyphicon-ban-circle" aria-hidden="true" data-toggle="tooltip" title="{TOOLTIP}" data-placement="bottom"></span>',
+        'SUSPENDED': '<span class="glyphicon glyphicon-hourglass" aria-hidden="true" data-toggle="tooltip" title="{TOOLTIP}" data-placement="bottom"></span>'
+    };
+
+    var text = s['name'];
+ 
+    if(typeof s['comment'] !== undefined) {
+        if(s['comment'] !== null && s['comment'].length > 0) {
+            text += ': ' + s['comment'];
+        }
+    }
+
+    if(verbose) {
+        return '<span class="label label-default" data-toggle="tooltip" title="Last status update: ' + s['date'] + '" data-placement="bottom">' + text + '</span>';
+    } else {
+        if(s['name'] in states) {
+            return states[s['name']].replace('{TOOLTIP}', text);
+        } else {
+            return '<span class="glyphicon glyphicon-question-sign" aria-hidden="true" data-toggle="tooltip" title="{TOOLTIP}" data-placement="bottom"></span>'.replace('{TOOLTIP}', text);
+        }
+    }
+}
+
 JobMonitor.prototype.createLabelSeason = function(season, verbose) {
     verbose = typeof verbose !== 'undefined' ? verbose : false;
 

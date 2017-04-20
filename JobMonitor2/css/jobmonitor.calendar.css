@@ -89,6 +89,7 @@
     color: white;
 }
 
+/* Day hints */
 #jm-content-view-calendar .jm-view-content .day-not-all-submitted {
     background-image: url("../images/triangle_top-left.png");
     background-position: left top;
@@ -105,14 +106,41 @@
     background-repeat: no-repeat;
 }
 
+#jm-content-view-calendar .jm-view-content #key .day-not-validated {
+    background-color: #B8B8B8;
+}
+
+#jm-content-view-calendar .jm-view-content .day-has-24h-test-run {
+    background-image: url('../images/24h_test_run.png');
+    background-position: right top;
+    background-repeat: no-repeat;
+}
+
+#jm-content-view-calendar .jm-view-content #key .day-has-24h-test-run {
+    background-color: #B8B8B8;
+}
+
+/* Combinations */
 #jm-content-view-calendar .jm-view-content .day-not-all-submitted.day-not-validated {
     background-image: url("../images/triangle_top-left.png"), url('../images/not_validated.png');
     background-position: left top, left bottom;
 }
 
-#jm-content-view-calendar .jm-view-content #key .day-not-validated {
-    background-color: #B8B8B8;
+#jm-content-view-calendar .jm-view-content .day-not-all-submitted.day-has-24h-test-run {
+    background-image: url("../images/triangle_top-left.png"), url('../images/24h_test_run.png');
+    background-position: left top, right top;
 }
+
+#jm-content-view-calendar .jm-view-content .day-not-validated.day-has-24h-test-run {
+    background-image: url("../images/not_validated.png"), url('../images/24h_test_run.png');
+    background-position: left bottom, right top;
+}
+
+#jm-content-view-calendar .jm-view-content .day-not-all-submitted.day-not-validated.day-has-24h-test-run {
+    background-image: url("../images/triangle_top-left.png"), url('../images/not_validated.png'), url('../images/24h_test_run.png');
+    background-position: left top, left bottom, right top;
+}
+/* Day hints end */
 
 #jm-content-view-calendar .jm-view-content table tbody tr td.day-error:hover {
     border-color: #870000;
@@ -166,6 +194,21 @@ table.jm-day-summary tbody tr td:first-child {
 
 table.jm-day-summary tbody tr td {
     text-align: center;
+}
+
+table.jm-day-summary tbody tr td.test-run {
+    /* No special style */
+}
+
+table.jm-day-summary tbody tr td.bad-run {
+    /*text-decoration: line-through;*/
+    color: red;
+}
+
+table.jm-day-summary tbody tr td.test-run.bad-run {
+    /*text-decoration: line-through;*/
+    color: red;
+    /* No special style for test run */
 }
 
 table.jm-day-summary .run-ok {

@@ -32,6 +32,11 @@
     border: none;
 }
 
+#jm-dataset-dropdown .dropdown-menu table.table.jm-dataset-list tr td.jm-dataset-status {
+    border: none;
+    width: 16px;
+}
+
 #jm-dataset-dropdown .dropdown-menu {
 
 }

@@ -263,8 +263,14 @@ JobMonitorJobs.prototype._createRunEntry = function(runId, value) {
 
     var progressIndicator = Math.floor(value['jobs_states']['OK'] / value['sub_runs'] * 100);
 
+    var badRun = !value['good_i3'] && !value['good_it'];
+
+    if(badRun) {
+        classes.push('bad-run');
+    }
+
     var html = '<tr class="' + classes.join(' ') + '">'
-        + '<td class="hidden-xs hidden-sm">' + runId + '</td>'
+        + '<td class="hidden-xs hidden-sm">' + runId + (value['24h_test_run'] ? '<sup>T</sup>' : '') + '</td>'
         + '<td class="hidden-xs hidden-sm">' + value['jobs_states']['OK'] + '</td>'
         + '<td class="hidden-xs hidden-sm">' + value['jobs_states']['FAILED'] + '</td>'
         + '<td class="hidden-xs hidden-sm">' + value['jobs_states']['PROCESSING'] + '</td>'
@@ -274,7 +280,7 @@ JobMonitorJobs.prototype._createRunEntry = function(runId, value) {
         + '<td class="hidden-xs hidden-sm">' + this._createFailureList(value['failures']) + '</td>'
         + '<td class="hidden-xs hidden-sm">' + value['date'] + '</td>'
         + '<td class="hidden-xs hidden-sm">' + lastStatusChange + '</td>'
-        + '<td class="hidden-md hidden-lg ' + jobState + '">' + runId + (isNaN(progressIndicator) ? '' : ' (' + progressIndicator + '%)') + '</td>'
+        + '<td class="hidden-md hidden-lg ' + jobState + (badRun ? ' bad-run' : '') + '">' + runId + (value['24h_test_run'] ? '<sup>T</sup>' : '') + (isNaN(progressIndicator) ? '' : ' (' + progressIndicator + '%)') + '</td>'
         + '</tr>';
 
     return html;
@@ -313,6 +319,9 @@ JobMonitorJobs.prototype._createTableFooter = function() {
         + '</tfoot>';
 
     html += '</table>';
+
+    html += '<small class="text-muted"><sup>T</sup>: 24h Test Run</small><br/>';
+    html += '<small class="text-muted"><span style="color: red;">123456</span>: Run marked as bad</small>';
 
     return html;
 }

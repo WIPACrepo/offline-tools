@@ -319,9 +319,6 @@ JobMonitorDatasetInformation.prototype._generateChartJobsPerDay = function(data)
         var first_date = jobsperdaychartdata['dates'][0].split('-');
         var last_date = jobsperdaychartdata['dates'][jobsperdaychartdata['dates'].length - 1].split('-');
 
-        console.log(first_date);
-        console.log(last_date);
-
         jobsperdaychartdata['labels'] = getDates(new Date(first_date[0], first_date[1] - 1, first_date[2], 0, 0, 0, 0), new Date(last_date[0], last_date[1] - 1, last_date[2], 0, 0, 0, 0));
     }
 
@@ -338,9 +335,6 @@ JobMonitorDatasetInformation.prototype._generateChartJobsPerDay = function(data)
         for(var i = 0; i < grids.length; ++i) {
             var value = grids[i];
 
-            console.log(index);
-            console.log(jobsperdaychartdata['date_index_mapping'][index]);
-
             jobsperdaychartdata['datasets'][jobsperdaychartdata['grid_dataset_mapping'][value['grid']]]['data'][jobsperdaychartdata['date_index_mapping'][index]] = value['jobs'];
         }
     });
@@ -348,8 +342,6 @@ JobMonitorDatasetInformation.prototype._generateChartJobsPerDay = function(data)
     for(var i = 0; i < jobsperdaychartdata['datasets'].length; ++i) {
         jobsperdaychartdata['datasets'][i]['backgroundColor'] = this._chartGetColorList(jobsperdaychartdata['datasets'].length)[i];
     }
-
-    console.log(jobsperdaychartdata);
 
     var jobs_per_day_chart_ctx = $('#jobs-par-day-chart');
     var jobs_per_day_chart = new Chart(jobs_per_day_chart_ctx, {

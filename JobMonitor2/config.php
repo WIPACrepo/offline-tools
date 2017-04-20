@@ -22,13 +22,12 @@ $CONFIG = array(
     'filter_db_database' => 'i3filter',
     'default_dataset_id' => -1,
     'default_completed_job_length' => 10,
-    'L2_datasets' => array(1863, 1866, 1870, 1871, 1874, 1883, 1888),
-    'api_version' => '1.1',
+    'api_version' => '1.2',
     'svn' => '$Id$',
-    'svn_url' => 'http://code.icecube.wisc.edu/projects/icecube/browser/IceCube/sandbox/jan/JobMonitor2',
+    'svn_url' => 'http://code.icecube.wisc.edu/svn/sandbox/jan/JobMonitor2',
     'data_warehouse' => 'http://icecube:skua@128.104.255.226',
     'path_prefixes' => array('file:', 'gsiftp://gridftp.icecube.wisc.edu'),
-    '_version' => 4
+    '_version' => 5
 );
 
 // Change svn value
