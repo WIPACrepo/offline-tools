@@ -147,9 +147,13 @@ class Run(object):
             force_reload (boolean): If `True`, no cached data will be used. The default is `False` and usally the value does not change within a script.
         """
 
+        self.logger.debug('load data: force reload = {0}, run id = {1}'.format(force_reload, self.run_id))
+
         # Load only data if forced or not loaded yet
         if not force_reload and self._data is not None and self._subruns['common'] is not None:
             return
+
+        self.logger.debug('load data')
 
         # Run information
         sql = 'SELECT * FROM i3filter.runs WHERE run_id = {run_id} ORDER BY production_version DESC LIMIT 1'.format(run_id = self.run_id)
@@ -170,6 +174,8 @@ class Run(object):
         sql = 'SELECT * FROM i3filter.gaps WHERE run_id = {run_id}'.format(run_id = self.run_id)
         gaps_data = self._db.fetchall(sql)
 
+        # Reset all caches
+        self._subruns = {'common': None, 'PFDST': None, 'PFFilt': None, 'Level2': None, 'Level2pass2': None}
         self._subruns['common'] = {}
         for subrun in subrun_data:
             sr = SubRun(None, self.logger)

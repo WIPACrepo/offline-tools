@@ -26,7 +26,7 @@ class DatabaseConnection:
                 ret = cursor
         except pymysql.Error as e:
             if e.args[0] == 2006 and reconnect:
-                self._logger.warn('MySQL connection has been reset. Try to re-connect and do it again')
+                self._logger.warning('MySQL connection has been reset. Try to re-connect and do it again')
 
                 self._connect()
 
@@ -51,7 +51,7 @@ class DatabaseConnection:
                 ret = cursor.fetchall()
         except pymysql.Error as e:
             if e.args[0] == 2006 and reconnect:
-                self._logger.warn('MySQL connection has been reset. Try to re-connect and do it again')
+                self._logger.warning('MySQL connection has been reset. Try to re-connect and do it again')
 
                 self._connect()
 

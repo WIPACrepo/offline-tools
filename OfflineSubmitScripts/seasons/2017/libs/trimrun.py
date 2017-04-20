@@ -1,5 +1,6 @@
 
 import os
+import shutil
 
 from icecube import dataio, dataclasses, icetray
 from I3Tray import *
@@ -94,7 +95,7 @@ def trim_to_good_run_time_range(iceprod, dataset_id, run, logger, dryrun):
 
             logger.info('Move {0} to bad {1} since this sub run is not in good time range'.format(f.path, dest))
             if not dryrun:
-                os.rename(f.path, dest)
+                shutil.move(f.path, dest)
 
             logger.debug('Remove file from catalog')
             iceprod.remove_file_from_catalog(dataset_id, run, f)
@@ -172,8 +173,8 @@ def trim_sub_run(iceprod, dataset_id, sub_run, bad_sub_run_folder, logger, dryru
     logger.info("Moving {0} to {1}".format(sub_run.path, new_subrun_name))
     logger.info("Moving {0} to {1}".format(tmp_file, sub_run.path))
     if not dryrun:
-        os.rename(sub_run.path, new_subrun_name)
-        os.rename(tmp_file, sub_run.path)
+        shutil.move(sub_run.path, new_subrun_name)
+        shutil.move(tmp_file, sub_run.path)
 
     iceprod.update_file_in_catalog(dataset_id, sub_run.run, sub_run)
 
@@ -184,7 +185,7 @@ def trim_sub_run(iceprod, dataset_id, sub_run, bad_sub_run_folder, logger, dryru
 
     if not dryrun:
         # OK, it's not a dryrun. Let's move the tmp gaps file to the correct place
-        os.rename(tmp_gaps_file, sub_run.get_gaps_file().path)
+        shutil.move(tmp_gaps_file, sub_run.get_gaps_file().path)
 
         iceprod.update_file_in_catalog(dataset_id, sub_run.run, sub_run.get_gaps_file())
 

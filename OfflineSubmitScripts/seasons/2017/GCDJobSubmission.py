@@ -6,7 +6,7 @@ import subprocess
 from libs.config import get_config
 from libs.argparser import get_defaultparser
 from libs.logger import get_logger
-from libs.path import get_logdir, get_tmpdir, get_rootdir
+from libs.path import get_logdir, get_tmpdir, get_rootdir, get_env_python_path
 from libs.runs import Run
 
 if __name__ == '__main__':
@@ -90,19 +90,18 @@ if __name__ == '__main__':
 
         with open(condor_file_path,"w") as condor_file:
             condor_file.write("Universe = vanilla ")
-            condor_file.write('\nExecutable = {0}/./env-shell.sh'.format(i3build))
-            condor_file.write(run.format("\narguments =  python -u {script} --run-id {run_id} --production-version {production_version} --snapshot-id {snapshot_id}", script = os.path.join(get_rootdir(), 'GCDGenerator.py')))
+            condor_file.write('\nExecutable = {0}'.format(get_env_python_path()))
+            condor_file.write(run.format("\narguments =  {script} --run-id {run_id} --production-version {production_version} --snapshot-id {snapshot_id}", script = os.path.join(get_rootdir(), 'GCDGenerator.py')))
             condor_file.write("\nLog = {0}".format(condor_log))
             condor_file.write("\nError = {0}".format(condor_err))
             condor_file.write("\nOutput = {0}".format(out_log))
             condor_file.write("\nNotification = Never")
             condor_file.write("\npriority = 15")
-            condor_file.write('\ngetenv = True')
             condor_file.write("\nQueue")
 
         if not args.dryrun:
             if args.resubmission:
-                logger.debug("Update i3filter.runs: GCDCheck = 0, BadDOMsCheck = 0, PoleGCDCheck = NULL, TemplateGCDCheck = NULL")
+                logger.debug("Update i3filter.runs: gcd_generated = 0, gcd_bad_doms_validated = 0, gcd_pole_validation = NULL, gcd_template_validation = NULL")
                 dbs4_.execute(run.format("""UPDATE i3filter.runs
                                  SET gcd_generated = 0, gcd_bad_doms_validated = 0, gcd_pole_validation = NULL, gcd_template_validation = NULL
                                  WHERE run_id = {run_id}
