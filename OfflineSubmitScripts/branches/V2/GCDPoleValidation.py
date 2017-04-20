@@ -176,6 +176,7 @@ if __name__ == '__main__':
         first_run = info[season]['first']
         test_runs = info[season]['test']
         last_run = 99999999
+        exclude_next_testruns = []
 
         if season + 1 in info:
             if info[season + 1]['first'] > -1:

@@ -219,7 +219,7 @@ def validate_files(iceprod, dataset_id, run, logger):
     if len(checksum_fails):
         logger.error('{0} checksum mismatches:'.format(len(checksum_fails)))
         for e in checksum_fails:
-            logger.error('Path {path}: current = {current_checksum}, iceprod = {iceprod_checksum}'.format(e))
+            logger.error('Path {path}: current = {current_checksum}, iceprod = {iceprod_checksum}'.format(**e))
 
     if len(missing_l2_files):
         logger.error('{0} missing L2 files:'.format(len(missing_l2_files)))

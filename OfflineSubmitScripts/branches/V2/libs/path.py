@@ -88,13 +88,17 @@ def get_sub_run_id_from_path(path, ptype, logger):
     c = re.compile(get_config(logger).get(ptype, 'RegExpForSubRunId'))
     return int(c.search(path).groups()[0])
 
-def make_relative_symlink(source, link_name, dryrun, logger):
+def make_relative_symlink(source, link_name, dryrun, logger, replace = False):
     rel_source = os.path.relpath(source, os.path.dirname(link_name))
 
     logger.debug('rel_source = {0}'.format(rel_source))
     logger.debug('link_name = {0}'.format(link_name))
 
     if not dryrun:
+        if replace and os.path.exists(link_name):
+            logger.warning('Link name {0} already exists. Will replace it.'.format(link_name))
+            os.remove(link_name)
+
         os.symlink(rel_source, link_name)
 
 def get_condor_scratch_folder(default = None):

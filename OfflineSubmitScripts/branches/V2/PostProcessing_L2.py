@@ -11,7 +11,7 @@ from libs.argparser import get_defaultparser
 from libs.config import get_config
 from libs.process import Lock
 from libs.databaseconnection import DatabaseConnection
-from libs.runs import Run
+from libs.runs import Run, LoadRunDataException
 from libs.iceprod1 import IceProd1
 from libs.postprocessing import validate_files
 from libs.files import tar_gaps_files, insert_gaps_file_info_into_db, tar_log_files, create_good_run_list, MetaXMLFile
@@ -44,15 +44,25 @@ def validate_run(dataset_id, run, args, iceprod, logger, counter):
 
     logger.info("Files validated")
 
-    logger.info('Tar gaps files and add to file catalog')
-    tar_gaps_files(iceprod, dataset_id, run, logger, args.dryrun)
-
     # Write gap file info into filter-db
+    # This is important at this step to have al subrun information in orde rto trim the run
     logger.info('Insert gaps file info into DB')
-    gaps_files = insert_gaps_file_info_into_db(run, args.dryrun, logger)
+    insert_gaps_file_info_into_db(run, args.dryrun, logger)
 
     # Update run data
     run.get_start_time(force_reload = True)
+
+    ## delete/trim files when food start/stop differ from run start/stop
+    logger.info('Check if run is in good start/stop time range')
+    trim_to_good_run_time_range(iceprod, dataset_id, run, logger, args.dryrun)
+
+    # Now, we do this a second time: the trim function may have recreated a gaps file
+    logger.info('Insert additional gaps file info into DB')
+    gaps_files = insert_gaps_file_info_into_db(run, args.dryrun, logger)
+
+    # Tar gaps files
+    logger.info('Tar gaps files and add to file catalog')
+    tar_gaps_files(iceprod, dataset_id, run, logger, args.dryrun)
 
     # Delete the gaps files
     logger.info('Remove {0} gaps files'.format(len(gaps_files)))
@@ -60,10 +70,6 @@ def validate_run(dataset_id, run, args, iceprod, logger, counter):
         logger.debug('Remove {0}'.format(f.path))
         if not args.dryrun:
             os.remove(f.path)
-
-    ## delete/trim files when food start/stop differ from run start/stop
-    logger.info('Check if run is in good start/stop time range')
-    trim_to_good_run_time_range(iceprod, dataset_id, run, logger, args.dryrun)
 
     logger.debug('Get active DOMs/string information from GCD file and store it in DB')
     run.write_active_x_to_db()
@@ -83,8 +89,9 @@ def validate_run(dataset_id, run, args, iceprod, logger, counter):
     logger.debug('tar log files')
     tar_log_files(run, logger, args.dryrun)
 
-    logger.info('Create run sym link')
-    make_relative_symlink(run.format(config.get('Level2', 'RunFolder')), run.format(config.get('Level2', 'RunLinkName')), args.dryrun, logger)
+    if not run.is_test_run():
+        logger.info('Create run sym link')
+        make_relative_symlink(run.format(config.get('Level2', 'RunFolder')), run.format(config.get('Level2', 'RunLinkName')), args.dryrun, logger, replace = True)
 
     logger.info('Mark as validated')
     run.set_post_processing_state(dataset_id, True)
@@ -93,7 +100,7 @@ def validate_run(dataset_id, run, args, iceprod, logger, counter):
 
     logger.info("Checks passed")
 
-def main(args, runs, config, logger):
+def main(args, run_ids, config, logger):
     db = DatabaseConnection.get_connection('filter-db', logger)
     iceprod = IceProd1(logger, args.dryrun)
 
@@ -101,7 +108,7 @@ def main(args, runs, config, logger):
 
     # If no runs have been specified, find all runs of current season_info
     # Current season is specified in config file at DEFAULT:Season
-    if not len(runs):
+    if not len(run_ids):
         season = config.getint('DEFAULT', 'Season')
         info = config.get_season_info()
 
@@ -135,9 +142,23 @@ def main(args, runs, config, logger):
 
         query = db.fetchall(sql)
 
-        runs = [r['run_id'] for r in query]
+        run_ids = [r['run_id'] for r in query]
 
-    runs = [Run(run_id, logger, dryrun = args.dryrun) for run_id in runs]
+    logger.debug('Run IDs: {0}'.format(run_ids))
+
+    runs = []
+    for run_id in run_ids:
+        try:
+            r = Run(run_id, logger, dryrun = args.dryrun)
+            r.get_production_version()
+
+            runs.append(r)
+        except LoadRunDataException:
+            logger.warning('Skipping run {0} since there are no DB entries'.format(run_id))
+            counter.count('skipped')
+
+    logger.debug('Runs: {0}'.format(runs))
+
     datasets = set()
 
     for run in runs:

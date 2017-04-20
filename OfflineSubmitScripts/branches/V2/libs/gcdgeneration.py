@@ -134,7 +134,7 @@ def parse_gcd_audit_output(path, logger):
         else:
             logger.error("GCD audit failed")
             logger.info("====== GCD output after filtering ====")
-            for line in h.split('\n'):
+            for line in h:
                 logger.info(line)
             logger.info("====== End GCD output after filtering ====")
             return False
@@ -159,7 +159,7 @@ def parse_bad_dom_audit(path, logger):
         else:
             logger.error("BadDOMs audit failed")
             logger.info("====== Bad dom audit output after filtering ====")
-            for line in b.split('\n'):
+            for line in b:
                 logger.info(line)
             logger.info("====== End bad dom audit output after filtering ====")
             return False

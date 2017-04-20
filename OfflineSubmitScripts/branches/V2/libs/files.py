@@ -319,7 +319,7 @@ class GapsFile(File):
             raise Exception('Gaps file already exist')
 
         from icecube import dataio, icetray, dataclasses
-        from iceube.filterscripts.offlineL2 import SpecialWriter
+        from icecube.filterscripts.offlineL2 import SpecialWriter
 
         tray = I3Tray()
         tray.Add("I3Reader","readL2File", filename = f)
@@ -607,6 +607,9 @@ def create_good_run_list(dataset_id, db, logger, dryrun):
         if grl.has_run(run['run_id']):
             continue
 
+        if not run['good_i3'] and not run['good_it']:
+            continue
+
         format_run_path = lambda p: p.format(
             run_id = run['run_id'],
             season = dataset_info['season'],
@@ -703,7 +706,7 @@ def clean_datawarehouse(run, logger, dryrun):
 
     run_folder = run.format(get_config(logger).get('Level2', 'RunFolder'))
 
-    files = glob(os.path.join(path, '*'))
+    files = glob(os.path.join(run_folder, '*'))
 
     logger.debug('Found {0} files/folders in {1}'.format(len(files), run_folder))
 
@@ -815,8 +818,6 @@ def tar_gaps_files(iceprod, dataset_id, run, logger, dryrun):
 def insert_gaps_file_info_into_db(run, dryrun, logger):
     from databaseconnection import DatabaseConnection
     from config import get_config
-
-    gaps_path_pattern = get_config(logger).get('Level2', 'GapsFile')
 
     l2files = run.get_level2_files()
     gaps_files = [f.get_gaps_file() for f in l2files]

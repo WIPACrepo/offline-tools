@@ -54,7 +54,7 @@ def main(run_id, production_version, snapshot_id, outdir, logger):
 
     if os.path.isfile(gcd_data_path) and os.path.getsize(gcd_data_path) > 0:
         if not outdir:
-            make_relative_symlink(gcd_data_path, gcd_all_path, dryrun = False, logger = logger)
+            make_relative_symlink(gcd_data_path, gcd_all_path, dryrun = False, logger = logger, replace = True)
 
         logger.info(run.format("Auditing GCD file for run {run_id}"))
 
@@ -104,7 +104,7 @@ def main(run_id, production_version, snapshot_id, outdir, logger):
 
             if last_bad_dom_audit_result:
                 if not outdir:
-                    make_relative_symlink(gcd_data_path, gcd_verified_path, dryrun = False, logger = logger)
+                    make_relative_symlink(gcd_data_path, gcd_verified_path, dryrun = False, logger = logger, replace = True)
                     db.execute(run.format("UPDATE i3filter.runs SET gcd_bad_doms_validated = 1 WHERE run_id = {run_id} and snapshot_id = {snapshot_id}"))
 
                 logger.info("Bad doms audit for {0} OK".format(gcd_data_path))

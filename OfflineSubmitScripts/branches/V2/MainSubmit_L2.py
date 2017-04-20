@@ -6,20 +6,20 @@ from libs.logger import get_logger
 from libs.argparser import get_defaultparser
 from libs.iceprod1 import IceProd1
 from libs.config import get_config
-from libs.runs import Run
+from libs.runs import Run, LoadRunDataException
 from libs.files import clean_datawarehouse, ChecksumCache, MetaXMLFile
 from libs.path import make_relative_symlink, get_logdir, get_tmpdir
 from libs.databaseconnection import DatabaseConnection
 from libs.utils import Counter
 
-def main(args, runs, logger):
+def main(args, run_ids, logger):
     config = get_config(logger)
 
     counter = Counter(['handled', 'submitted', 'skipped', 'error'])
 
     # Determine dataset ids:
     run_id_dataset_id_mapping = {}
-    for run_id in runs:
+    for run_id in run_ids:
         dataset_id = args.dataset_id
 
         if dataset_id is None:
@@ -40,7 +40,16 @@ def main(args, runs, logger):
     logger.debug('Dataset id mapping: {0}'.format(run_id_dataset_id_mapping))
 
     # Create Run objects and filter bad runs
-    runs = [Run(run_id, logger) for run_id in runs]
+    runs = []
+    for run_id in run_ids:
+        try:
+            r = Run(run_id, logger)
+            r.get_production_version()
+            runs.append(r)
+        except LoadRunDataException:
+            logger.warning('Skipping run {0} since there are no DB entries'.format(run_id))
+            counter.count('skipped')
+
     runs = [run for run in runs if run.is_good_run() or run.is_test_run()]
 
     iceprod = IceProd1(logger, args.dryrun)
@@ -81,8 +90,14 @@ def main(args, runs, logger):
     
             if gcd_file is None:
                 logger.critical('No GCD found')
-                raise Exception('No GCD file found for run {0}'.format(run.run_id))
+                counter.count('error')
+                continue
     
+            if not run.get_gcd_bad_dom_list_checked() or not run.get_gcd_generated():
+                logger.critical('The GCD file has not been validated yet')
+                counter.count('error')
+                continue   
+ 
             make_relative_symlink(gcd_file.path, run.format(config.get('Level2', 'RunFolderGCD')), args.dryrun, logger)
     
             # Put GCD symlink in run folder into cache since it is probably used in iceprod.submit_run()
@@ -93,11 +108,8 @@ def main(args, runs, logger):
     
             if not len(input_files):
                 logger.critical('No input files found')
-                raise Exception('No input files found for run {0}'.format(run.run_id))
-    
-            if not run.get_gcd_bad_dom_list_checked() or not run.get_gcd_generated():
-                logger.critical('The GCD file has not been validated yet')
-                raise Exception('The GCD file has not been validated yet for run {0}'.format(run.run_id))
+                counter.count('error')
+                continue
     
             # Submit run
             iceprod.submit_run(dataset_id, run, checksumcache)
