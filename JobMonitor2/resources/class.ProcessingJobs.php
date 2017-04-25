@@ -391,7 +391,7 @@ class ProcessingJobs {
         } else if($season >= 2010) {
             // Data source is live and validateData
             // validateData has only data for season 2011
-            // 2010 and 2013 are getting only data from i3live and any other is default.
+            // 2010 and 2012 are getting only data from i3live and any other is default.
 
             $tmpRuns = array();
 

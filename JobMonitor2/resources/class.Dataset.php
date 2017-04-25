@@ -96,6 +96,8 @@ WHERE
             return 'eri.u-tokyo.ac.jp';
         } elseif(preg_match("/^cl[1-2]{1}n[0-9]{3}$/", $name)) {
             return 'westgrid.ca, ualberta.ca';
+        } elseif(preg_match("/^[ajeigh][0-9]{4}$/", $name)) {
+            return 'uni-mainz.de';
         } elseif(preg_match("/^compute\-[0-9]{1,2}[n]{0,1}\-[0-9]{1,2}\.tier2$/", $name) || preg_match("/^blade\-[0-9]+\.tier2$/", $name)) {
             return 'ultralight.org';
         } elseif(count($splitname) > 3) {
