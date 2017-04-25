@@ -20,16 +20,7 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
         logger (logging.Logger): The logger
     """
 
-    # Using grid or NPX?
-    grid = dbs4_.fetchall("SELECT * FROM i3filter.grid_statistics WHERE dataset_id = %s;" % DatasetId, UseDict = True)
-
-    logger.debug("DB result = %s" % grid)
-
-    path_prefix = 'file:'
-    for row in grid:
-        if row['grid_id'] == 14:
-            path_prefix = 'gsiftp://gridftp.icecube.wisc.edu'
-            break
+    path_prefix = 'gsiftp://gridftp.icecube.wisc.edu'
 
     logger.info("""Submitting Run = %s , Current Status = %s"""%(g['run_id'],status))
     InFiles = []

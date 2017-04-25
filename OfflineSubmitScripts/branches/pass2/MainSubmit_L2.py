@@ -95,7 +95,10 @@ def main(params, logger, DryRun):
             clean_run(dbs4_, dataset_id, Run,params.CLEANDW, g, logger, DryRun)
         
             QId = max_queue_id(dbs4_, dataset_id)
-            
+           
+            if QId is None:
+                QId = 0
+ 
             submit_run(dbs4_, g, status, dataset_id, QId, ExistingChkSums, DryRun, logger, use_std_gcds = args.USE_STD_GCDS, gcd = args.gcd, input = args.input, out = args.out)
         
             if not args.NOMETADATA and (g['good_i3'] or g['good_it']):

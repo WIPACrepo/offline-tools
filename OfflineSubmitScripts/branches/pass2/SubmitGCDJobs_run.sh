@@ -1,6 +1,6 @@
 
 for var in "$@"
 do
-    python SubmitGCDJobs.py -s "$var" -e "$var"
+    python SubmitGCDJobs.py -s "$var" -e "$var" -r
 done
 
