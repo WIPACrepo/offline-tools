@@ -91,6 +91,11 @@ def grl_to_runs(dbs4, filter_db):
                 e[k] = 'NULL'
     
         counter += 1
+
+        # Skip 2017 runs:
+        if e['run_id'] in [129393, 129394, 129395, 129396, 129397]:
+            print 'Skip 2017 run: {0}'.format(e['run_id'])
+            continue
     
         sql = filter_db_sql.format(
             tstart = e['tStart'],
@@ -116,7 +121,14 @@ def grl_to_runs(dbs4, filter_db):
         filter_db.execute(sql)
 
 def post_processing(dbs4, filter_db):
-    s = dbs4.fetchall('SELECT * FROM i3filter.offline_postprocessing', UseDict = True)
+    s1 = dbs4.fetchall('SELECT * FROM i3filter.offline_postprocessing', UseDict = True)
+    s2 = dbs4.fetchall('SELECT run_id, production_version, validated FROM i3filter.grl_snapshot_info GROUP BY run_id, production_version ORDER BY run_id ASC, production_version ASC', UseDict = True)
+
+    for i in range(len(s2)):
+        s2[i]['dataset_id'] = 0
+        s2[i]['date_of_validation'] = '2000-01-01 00:00:00'
+
+    s = s1 + s2
 
     filter_db_sql = '''INSERT INTO `i3filter`.`post_processing`
         (`run_id`,
@@ -141,18 +153,23 @@ def post_processing(dbs4, filter_db):
     
         counter += 1
 
+        # Skip 2017 runs and datasets after 1914:
+        if e['run_id'] in [129393, 129394, 129395, 129396, 129397] or e['dataset_id'] > 1914:
+            print 'Skip run because too new: {0}'.format(e['run_id'])
+            continue
+    
         sql = filter_db_sql.format(**e)
 
         #print sql
 
         print "[{0:>4} / {1}] run_id = {2}, dataset_id = {3}".format(counter, len(s), e['run_id'], e['dataset_id'])
-
+        
         filter_db.execute(sql)
 
 def bad_runs(dbs4, filter_db):
     s = dbs4.fetchall("""
 SELECT 
-    r.run_id, sub_run, status
+    r.run_id, sub_run, status, j.dataset_id
 FROM
     i3filter.job j
         JOIN
@@ -176,6 +193,11 @@ WHERE
     counter = 0
     for e in s:
         counter += 1
+
+        # Skip 2017 runs and datasets after 1914:
+        if e['run_id'] in [129393, 129394, 129395, 129396, 129397] or e['dataset_id'] > 1914:
+            print 'Skip run because too new: {0}'.format(e['run_id'])
+            continue
 
         sql = filter_db_sql.format(run_id = e['run_id'], sub_run_id = e['sub_run'], bad = 1)
 
