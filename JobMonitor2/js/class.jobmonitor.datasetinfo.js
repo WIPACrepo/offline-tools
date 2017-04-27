@@ -343,6 +343,34 @@ JobMonitorDatasetInformation.prototype._generateChartJobsPerDay = function(data)
         jobsperdaychartdata['datasets'][i]['backgroundColor'] = this._chartGetColorList(jobsperdaychartdata['datasets'].length)[i];
     }
 
+    // If there are more than one grid, add a line chart with the total number of jobs
+    if(data['data']['grid'].length > 1) {
+        var total_data = []
+        jobsperdaychartdata['datasets'].forEach(function(value) {
+            value['data'].forEach(function(entry, i) {
+                if(typeof total_data[i] === 'undefined') {
+                    total_data.push(entry);
+                } else {
+                    total_data[i] += entry;
+                }
+            });
+        });
+
+        var lineColor = this._chartGetColor();
+
+        jobsperdaychartdata['datasets'].push({
+            'label': 'Total Number of Jobs',
+            'type': 'line',
+            'lineTension': 0,
+            'fill': false,
+            'data': total_data,
+            'backgroundColor': 'rgb(255, 255, 255)',
+            'pointBackgroundColor': 'rgb(255, 255, 255)',
+            'pointBorderColor': lineColor,
+            'borderColor': lineColor
+        });
+    }
+
     var jobs_per_day_chart_ctx = $('#jobs-par-day-chart');
     var jobs_per_day_chart = new Chart(jobs_per_day_chart_ctx, {
         type: 'bar',
@@ -353,7 +381,7 @@ JobMonitorDatasetInformation.prototype._generateChartJobsPerDay = function(data)
         options: {
             scales: {
                 yAxes: [{
-                    type: 'logarithmic',
+                    /*type: 'logarithmic',*/
                     scaleLabel: {
                         display: true,
                         labelString: 'Number of Jobs'
