@@ -5,7 +5,7 @@ import os
 import glob
 from logger import DummyLogger
 
-def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, logger, use_std_gcds = False, gcd = None, input = None, out = None):
+def submit_run(dbs4_, g, status, DatasetId, QueueId, checksumcache, dryrun, logger, use_std_gcds = False, gcd = None, input = None, out = None):
     """
     Submits the run. It makes all the inserts to the database.
 
@@ -15,7 +15,6 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
         status (str): Status of the run (see runs.get_run_status())
         DatasetId (int): The dataset id
         QueueId (int): The queue id
-        ExistingChkSums (dict): Dictionary of existing check sums (see files.get_existing_check_sums())
         dryrun (bool): Is it a dry run?
         logger (logging.Logger): The logger
     """
@@ -129,13 +128,8 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, ExistingChkSums, dryrun, lo
             if os.path.isfile(GCDFileName) and not dryrun:
                 dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","INPUT","%s","%s")"""% \
                              (DatasetId,QueueId,os.path.basename(GCDFileName),path_prefix+os.path.dirname(GCDFileName)+"/",GCDFileChkSum,str(os.path.getsize(GCDFileName))))
-    
-            if InFile in ExistingChkSums:
-                logger.debug("Use cached check sum for %s" % InFile)
-                InFileChkSum = str(ExistingChkSums[InFile])
-            else:
-                logger.warning("No cached check sum for %s" % InFile)
-                InFileChkSum = str(FileTools(InFile, logger).md5sum())
+   
+            InFileChkSum = checksumcache.get_md5(InFile)
     
             if not dryrun:
                 dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","INPUT","%s","%s")"""% \

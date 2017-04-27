@@ -24,6 +24,7 @@ from libs.checks import runs_already_submitted
 from libs.runs import get_run_status, clean_run, submit_run
 from libs.dbtools import max_queue_id 
 from libs.config import get_dataset_id_by_run
+from libs.utils import DBChecksumCache
 
 ##-----------------------------------------------------------------
 ## setup DB
@@ -61,7 +62,7 @@ def main(params, logger, DryRun):
                                      validated=0 \
                                  WHERE run_id BETWEEN %s AND %s AND (good_i3=1 OR good_it=1)"""%(START_RUN, END_RUN))
 
-    ExistingChkSums = get_existing_check_sums(logger)
+    checksumcache = DBChecksumCache(logger, DryRun)
 
     for Run in AllRuns:
         dataset_id = params.DATASETID
@@ -99,7 +100,7 @@ def main(params, logger, DryRun):
             if QId is None:
                 QId = 0
  
-            submit_run(dbs4_, g, status, dataset_id, QId, ExistingChkSums, DryRun, logger, use_std_gcds = args.USE_STD_GCDS, gcd = args.gcd, input = args.input, out = args.out)
+            submit_run(dbs4_, g, status, dataset_id, QId, checksumcache, DryRun, logger, use_std_gcds = args.USE_STD_GCDS, gcd = args.gcd, input = args.input, out = args.out)
         
             if not args.NOMETADATA and (g['good_i3'] or g['good_it']):
                 meta_file_dest = ''
