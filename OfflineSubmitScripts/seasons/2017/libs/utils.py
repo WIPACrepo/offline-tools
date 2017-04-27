@@ -146,7 +146,7 @@ class DBChecksumCache(ChecksumCache):
 
     def has_checksum(self, path, ctype):
         if ctype != 'md5':
-            aise Exception('Only MD5 checksum are supported yet')
+            raise Exception('Only MD5 checksum are supported yet')
 
         if not ChecksumCache.has_checksum(path, ctype):
             sql = """
