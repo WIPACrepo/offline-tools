@@ -7,10 +7,10 @@ from libs.argparser import get_defaultparser
 from libs.iceprod1 import IceProd1
 from libs.config import get_config
 from libs.runs import Run, LoadRunDataException
-from libs.files import clean_datawarehouse, ChecksumCache, MetaXMLFile
+from libs.files import clean_datawarehouse, MetaXMLFile
 from libs.path import make_relative_symlink, get_logdir, get_tmpdir
 from libs.databaseconnection import DatabaseConnection
-from libs.utils import Counter
+from libs.utils import Counter, DBChecksumCache
 
 def main(args, run_ids, logger):
     config = get_config(logger)
@@ -61,7 +61,7 @@ def main(args, run_ids, logger):
                 logger.critical('Run {0} has not been submitted before. Do not use the resubmission flag to submit runs for the first time.'.format(run.run_id))
                 exit(1)
 
-    checksumcache = ChecksumCache(logger)
+    checksumcache = DBChecksumCache(logger, dryrun = args.dryrun)
 
     for run in runs:
         counter.count('handled')

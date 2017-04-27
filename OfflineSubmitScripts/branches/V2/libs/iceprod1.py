@@ -5,6 +5,7 @@ import iceprodinterface
 from files import File
 from libs.databaseconnection import DatabaseConnection
 from path import remove_path_prefix
+from runs import SubRun
 
 class IceProd1(iceprodinterface.IceProdInterface):
     def __init__(self, logger, dryrun):
@@ -31,6 +32,48 @@ class IceProd1(iceprodinterface.IceProdInterface):
             query = self._dbs4.fetchall("SELECT MAX(queue_id) AS `max_queue_id` FROM i3filter.run WHERE dataset_id = {dataset_id} AND run_id = {run_id}".format(dataset_id = dataset_id, run_id = run.run_id))
 
         return query[0]['max_queue_id']
+
+    def _submit_job(self, queue_id, dataset_id, run, sub_run_id, checksumcache, input_files):
+        sql = """
+                INSERT INTO i3filter.job (dataset_id, queue_id, status)
+                VALUES ({dataset_id}, {queue_id},"{status}")
+            """.format(dataset_id = dataset_id, queue_id = queue_id, status = 'WAITING')
+
+        self.logger.debug('SQL: {0}'.format(sql))
+
+        if not self.dryrun:
+            self._dbs4.execute(sql)
+
+        for f in input_files:
+            sql = """
+                    INSERT INTO i3filter.urlpath (dataset_id, queue_id, name, path, type, md5sum, size)
+                    VALUES ({dataset_id}, {queue_id}, "{file_name}", "{file_path}", "INPUT", "{checksum}", {file_size})""".format(
+                        dataset_id = dataset_id,
+                        queue_id = queue_id,
+                        file_name = f.get_name(),
+                        file_path = self.path_prefix + f.get_dirname() + "/",
+                        checksum = checksumcache.get_md5(f.path),
+                        file_size = f.size())
+
+            self.logger.debug('SQL: {0}'.format(sql))
+
+            if not self.dryrun:
+                self._dbs4.execute(sql)
+
+        sql = """
+            INSERT INTO i3filter.run (run_id, dataset_id, queue_id, sub_run, date)
+            VALUES ({run_id}, {dataset_id}, {queue_id}, {sub_run}, "{date}")""".format(
+                run_id = run.run_id,
+                dataset_id = dataset_id,
+                queue_id = queue_id,
+                sub_run = sub_run_id,
+                date = run.get_start_time().date_time.date())
+
+        self.logger.debug('SQL: {0}'.format(sql))
+
+        if not self.dryrun:
+            self._dbs4.execute(sql)
+
 
     def submit_run(self, dataset_id, run, checksumcache, source_file_type, gcd_file = None, special_files = [], aggregate = 1):
         """
@@ -63,6 +106,9 @@ class IceProd1(iceprodinterface.IceProdInterface):
             self.logger.critical('Unknown data source')
             raise Exception('Unknown data source')
 
+        # Sort files by sub run id
+        input_files = SubRun.sort_sub_runs(input_files)
+
         if special_files is not None:
             special_files = [File(f, self.logger) for f in special_files]
 
@@ -77,17 +123,12 @@ class IceProd1(iceprodinterface.IceProdInterface):
             if not isinstance(gcd_file, File):
                 gcd_file = File(gcd_file, self.logger)
 
-        gcd_checksum = None
-
         self.logger.debug("GCD file: {0}".format(gcd_file.path))
 
-        if gcd_file is not None:
-            self.logger.debug('Calculate MD5 sum for gcd file')
-            gcd_checksum = gcd_file.md5()
-        else:
+        if gcd_file is None:
             self.logger.critical("No GCD file found.")
             raise Exception('No GCD file found')
-        
+
         if not len(input_files):
             self.logger.critical('No {0} files have been found'.format(source_file_type))
             raise Exception('No input files found')
@@ -97,81 +138,29 @@ class IceProd1(iceprodinterface.IceProdInterface):
             self.logger.debug('Last queue_id = {0}'.format(queue_id))
 
             self.logger.info("Attempting to submit {0} {2} files for run {1}".format(len(input_files), run.run_id, source_file_type))
-        
-            for f in input_files:
+
+            # Calculate number of jobs. Files/jobs is `aggregate`
+            # If input_files % aggregate > 0, we need an additional job that processes the leftover files
+            number_of_jobs = int(input_files / aggregate) + int(bool(input_files % aggregate))
+
+            file_counter = 0
+            for job_id in range(number_of_jobs):
                 queue_id += 1
 
-                sql = """
-                        INSERT INTO i3filter.job (dataset_id, queue_id, status)
-                        VALUES ({dataset_id}, {queue_id},"{status}")
-                    """.format(dataset_id = dataset_id, queue_id = queue_id, status = 'WAITING')
+                job_input_files = [gcd_file]
+                job_input_files.extend(special_files)
 
-                self.logger.debug('SQL: {0}'.format(sql))
+                for _ in range(aggregate):
+                    job_input_files.append(input_files[file_counter])
+                    file_counter += 1
 
-                if not self.dryrun:
-                    self._dbs4.execute(sql)
+                    if len(input_files) >= file_counter:
+                        self.logger.debug('Reached last input file')
+                        break
 
-                sql = """
-                        INSERT INTO i3filter.urlpath (dataset_id, queue_id, name, path, type, md5sum, size)
-                        VALUES ({dataset_id}, {queue_id}, "{file_name}", "{file_path}", "INPUT", "{checksum}", {file_size})""".format(
-                            dataset_id = dataset_id,
-                            queue_id = queue_id,
-                            file_name = gcd_file.get_name(),
-                            file_path = self.path_prefix + gcd_file.get_dirname() + "/",
-                            checksum = gcd_checksum,
-                            file_size = gcd_file.size())
+                self.logger.debug('Submit job with the following input files: {0}'.format(input_files))
 
-                self.logger.debug('SQL: {0}'.format(sql))
-
-                if not self.dryrun:
-                    self._dbs4.execute(sql)
-
-                for sf in special_files:
-                    self.logger.info('Submit special file {0}'.format(f))
-
-                    sql = """
-                            INSERT INTO i3filter.urlpath (dataset_id, queue_id, name, path, type, md5sum, size)
-                            VALUES ({dataset_id}, {queue_id}, "{file_name}", "{file_path}", "INPUT", "{checksum}", {file_size})""".format(
-                                dataset_id = dataset_id,
-                                queue_id = queue_id,
-                                file_name = sf.get_name(),
-                                file_path = self.path_prefix + sf.get_dirname() + "/",
-                                checksum = checksumcache.get_md5(sf.path),
-                                file_size = sf.size())
-
-                    self.logger.debug('SQL: {0}'.format(sql))
-
-                    if not self.dryrun:
-                        self._dbs4.execute(sql)
-
-                sql = """
-                        INSERT INTO i3filter.urlpath (dataset_id, queue_id, name, path, type, md5sum, size)
-                        VALUES ({dataset_id}, {queue_id}, "{file_name}", "{file_path}", "INPUT", "{checksum}", {file_size})""".format(
-                            dataset_id = dataset_id,
-                            queue_id = queue_id,
-                            file_name = f.get_name(),
-                            file_path = self.path_prefix + f.get_dirname() + "/",
-                            checksum = checksumcache.get_md5(f.path),
-                            file_size = f.size())
-
-                self.logger.debug('SQL: {0}'.format(sql))
-
-                if not self.dryrun:
-                    self._dbs4.execute(sql)
-
-                sql = """
-                    INSERT INTO i3filter.run (run_id, dataset_id, queue_id, sub_run, date)
-                    VALUES ({run_id}, {dataset_id}, {queue_id}, {sub_run}, "{date}")""".format(
-                        run_id = run.run_id,
-                        dataset_id = dataset_id,
-                        queue_id = queue_id,
-                        sub_run = f.sub_run_id,
-                        date = run.get_start_time().date_time.date())
-
-                self.logger.debug('SQL: {0}'.format(sql))
-
-                if not self.dryrun:
-                    self._dbs4.execute(sql)
+                self._submit_job(queue_id, dataset_id, run, f.sub_run_id, checksumcache, job_input_files)
 
     def clean_run(self, dataset_id, run):
         query  = self._dbs4.fetchall(run.format("""
