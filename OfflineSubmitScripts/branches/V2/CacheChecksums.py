@@ -5,7 +5,6 @@ Calculates checksums of L2 input files in order to make the submission process f
 """
 
 import os
-import datetime
 import time
 
 from datetime import date, datetime, timedelta
@@ -24,7 +23,14 @@ def main(logger, args):
 
     look_back_in_days = config.getint('CacheCheckSums', 'LookBack')
     hold_off_interval = config.getint('CacheCheckSums', 'HoldOffInterval')
-    path_pattern = config.get_var_list('CacheCheckSums', 'Path')
+
+    if args.type == 'config':
+        path_pattern = config.get_var_list('CacheCheckSums', 'Path')
+    else:
+        path_pattern = [config.get(args.type, args.type + 'File')]
+
+    if args.path_pattern is not None:
+        path_pattern = [args.path_pattern]
 
     # Replace some vars
     path_pattern = [replace_var(p, 'run_id', '*') for p in path_pattern]
@@ -36,9 +42,8 @@ def main(logger, args):
     if args.start_date is not None and args.end_date is not None:
         logger.info('** Cache checksums between start and end date **')
 
-        from datetime import datetime
         start_date = datetime.strptime(args.start_date, '%Y-%m-%d')
-        end_date = datetime.strptime(args.start_date, '%Y-%m-%d')
+        end_date = datetime.strptime(args.end_date, '%Y-%m-%d')
 
         logger.info('Start date: {0}'.format(start_date))
         logger.info('End date: {0}'.format(end_date))
@@ -69,6 +74,8 @@ def main(logger, args):
     if start_date is not None and end_date is not None:
         current_day = end_date.date()
         look_back = start_date.date()
+
+    logger.debug('Current Day: {0}'.format(current_day))
 
     while look_back <= current_day:
         path = [p.format(year = look_back.year, month = look_back.month, day = look_back.day) for p in path_pattern]
@@ -107,8 +114,10 @@ def main(logger, args):
 
 if __name__ == "__main__":
     argparser = get_defaultparser(__doc__, dryrun = True)
-    parser.add_argument('--start-date', type = str, required = False, default= None, help = "Do cache files between two dates. Start here. Format: YYYY-MM-DD")
-    parser.add_argument('--end-date', type = str, required = False, default= None, help = "Do cache files between two dates. Stop here. Format: YYYY-MM-DD")
+    argparser.add_argument('--start-date', type = str, required = False, default= None, help = "Do cache files between two dates. Start here. Format: YYYY-MM-DD")
+    argparser.add_argument('--end-date', type = str, required = False, default= None, help = "Do cache files between two dates. Stop here. Format: YYYY-MM-DD")
+    argparser.add_argument('--type', type = str, required = False, default= 'config', help = "Type of file that should be chached: config, Level2, PFFilt, PFDST. Default is config. Config means that the paths will be read from the config file.")
+    argparser.add_argument('--path-pattern', type = str, required = False, default= None, help = "Use this path pattern and not the ones from the config file. You can use {year}, {month}, {day}, {run_id}, {sub_run_id}, etc. as placeholder.")
     args = argparser.parse_args()
 
     logfile=os.path.join(get_logdir(sublogpath = 'PreProcessing'), 'CacheChksums_')
@@ -117,6 +126,10 @@ if __name__ == "__main__":
         logfile = args.logfile
 
     logger = get_logger(args.loglevel, logfile)
+
+    if args.type not in ['config', 'Level2', 'PFDST', 'PFFilt']:
+        logger.critical('Unknown file type')
+        exit(1)
 
     main(logger, args)
 

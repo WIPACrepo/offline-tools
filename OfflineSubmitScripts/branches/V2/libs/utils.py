@@ -148,9 +148,9 @@ class DBChecksumCache(ChecksumCache):
 
     def has_checksum(self, path, ctype):
         if ctype != 'md5':
-            aise Exception('Only MD5 checksum are supported yet')
+            raise Exception('Only MD5 checksum are supported yet')
 
-        if not ChecksumCache.has_checksum(path, ctype):
+        if not ChecksumCache.has_checksum(self, path, ctype):
             sql = """
                 SELECT `md5`
                 FROM i3filter.checksum_cache
@@ -170,7 +170,7 @@ class DBChecksumCache(ChecksumCache):
         return True
 
     def set_checksum(self, path, ctype, checksum = None):
-        ChecksumCache.set_checksum(path, ctype, checksum)
+        ChecksumCache.set_checksum(self, path, ctype, checksum)
 
         if ctype != 'md5':
             raise Exception('Only MD5 checksum are supported yet')
