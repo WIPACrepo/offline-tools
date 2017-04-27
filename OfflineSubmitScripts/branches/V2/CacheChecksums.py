@@ -15,7 +15,6 @@ from libs.logger import get_logger
 from libs.path import get_logdir
 from libs.config import get_config
 from libs.utils import DBChecksumCache
-from libs.process import Lock
 from libs.stringmanipulation import replace_var
 
 def main(logger, args):
@@ -62,10 +61,6 @@ def main(logger, args):
 
     logger.info("Attempting Update @ {0}".format(datetime.now().isoformat().replace("T"," ")))
 
-    # Stop process if running
-    lock = Lock(os.path.basename(__file__), logger)
-    lock.lock()
-
     cache = DBChecksumCache(logger, dryrun = args.dryrun)
 
     current_day = date.today()
@@ -109,8 +104,6 @@ def main(logger, args):
                 logger.info('Already cached, skip file {0}'.format(path))
 
         look_back += timedelta(days = 1)
-
-    lock.unlock()
 
 if __name__ == "__main__":
     argparser = get_defaultparser(__doc__, dryrun = True)
