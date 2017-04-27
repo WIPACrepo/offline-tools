@@ -17,9 +17,9 @@ from libs.postprocessing import validate_files
 from libs.files import tar_gaps_files, insert_gaps_file_info_into_db, tar_log_files, create_good_run_list, MetaXMLFile
 from libs.trimrun import trim_to_good_run_time_range
 from libs.path import make_relative_symlink, get_logdir
-from libs.utils import Counter
+from libs.utils import Counter, DBChecksumCache
 
-def validate_run(dataset_id, run, args, iceprod, logger, counter):
+def validate_run(dataset_id, run, args, iceprod, logger, counter, checksumcache):
     config = get_config(logger)
 
     logger.info(run.format("======= Checking run {run_id}, production_version {production_version}, dataset_id = {dataset_id} ===========", dataset_id = dataset_id))
@@ -37,7 +37,7 @@ def validate_run(dataset_id, run, args, iceprod, logger, counter):
         counter.count('skipped')
         return
 
-    if not validate_files(iceprod, dataset_id, run, logger):
+    if not validate_files(iceprod, dataset_id, run, checksumcache, logger):
         logger.error(run.format('Files validation failed for run {run_id}, production_version = {production_version}'))
         counter.count('error')
         return
@@ -103,6 +103,7 @@ def validate_run(dataset_id, run, args, iceprod, logger, counter):
 def main(args, run_ids, config, logger):
     db = DatabaseConnection.get_connection('filter-db', logger)
     iceprod = IceProd1(logger, args.dryrun)
+    checksumcache = DBChecksumCache(logger, dryrun = args.dryrun)
 
     counter = Counter(['handled', 'validated', 'skipped', 'error'])
 
@@ -150,8 +151,7 @@ def main(args, run_ids, config, logger):
     for run_id in run_ids:
         try:
             r = Run(run_id, logger, dryrun = args.dryrun)
-            r.get_production_version()
-
+            r.load()
             runs.append(r)
         except LoadRunDataException:
             logger.warning('Skipping run {0} since there are no DB entries'.format(run_id))
@@ -178,7 +178,7 @@ def main(args, run_ids, config, logger):
 
             datasets.add(dataset_id)
 
-            validate_run(dataset_id, run, args, iceprod, logger, counter)
+            validate_run(dataset_id, run, args, iceprod, logger, counter, checksumcache)
         except Exception as e:
             counter.count('error')
             logger.exception(run.format("Exception {e} thrown for run = {run_id}, production_version = {production_version}", e = e))
@@ -226,6 +226,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     logfile = os.path.join(get_logdir(sublogpath = 'PostProcessing'), 'PostProcessing_')
+
+    if args.cron:
+        logfile += 'CRON_'
 
     if args.logfile is not None:
         logfile = args.logfile

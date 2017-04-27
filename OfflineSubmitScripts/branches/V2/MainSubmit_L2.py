@@ -43,8 +43,8 @@ def main(args, run_ids, logger):
     runs = []
     for run_id in run_ids:
         try:
-            r = Run(run_id, logger)
-            r.get_production_version()
+            r = Run(run_id, logger, dryrun = args.dryrun)
+            r.load()
             runs.append(r)
         except LoadRunDataException:
             logger.warning('Skipping run {0} since there are no DB entries'.format(run_id))
@@ -69,65 +69,65 @@ def main(args, run_ids, logger):
         try:
             # Dataset id for this run
             dataset_id = run_id_dataset_id_mapping[run.run_id]
-    
+
             logger.info(run.format('Start submission for run {run_id} with dataset id {dataset_id}', dataset_id = dataset_id))
-    
+
             iceprod.clean_run(dataset_id, run)
-    
+
             if args.cleandatawarehouse:
-                clean_datawarehouse(run, logger, args.dryrun)
-    
+                clean_datawarehouse(run, logger, args.dryrun, run_folder = run.format(config.get('Level2', 'RunFolder')))
+
             # Create output folder if not exists
             output = run.format(config.get('Level2', 'RunFolder'))
             if not os.path.exists(output):
                 logger.debug('Create output folder: {0}'.format(output))
-    
+
                 if not args.dryrun:
                     os.makedirs(output)
-    
+
             # Create GCD link
             gcd_file = run.get_gcd_file()
-    
+
             if gcd_file is None:
                 logger.critical('No GCD found')
                 counter.count('error')
                 continue
-    
+
             if not run.get_gcd_bad_dom_list_checked() or not run.get_gcd_generated():
                 logger.critical('The GCD file has not been validated yet')
                 counter.count('error')
                 continue   
- 
+
             make_relative_symlink(gcd_file.path, run.format(config.get('Level2', 'RunFolderGCD')), args.dryrun, logger)
-    
+
             # Put GCD symlink in run folder into cache since it is probably used in iceprod.submit_run()
             run.get_gcd_file(force_reload = True)
-    
+
             # Check for input files
             input_files = run.get_pffilt_files()
-    
+
             if not len(input_files):
                 logger.critical('No input files found')
                 counter.count('error')
                 continue
-    
+
             # Submit run
-            iceprod.submit_run(dataset_id, run, checksumcache)
-    
+            iceprod.submit_run(dataset_id, run, checksumcache, 'PFFilt')
+
             # Write metadata
             if not args.nometadata:
                 meta_file_dest = ''
-    
+
                 if args.dryrun:
                     meta_file_dest = get_tmpdir()
                 else:
                     meta_file_dest = run.format(config.get('Level2', 'RunFolder'))
-    
+
                 metafile = MetaXMLFile(meta_file_dest, run, 'L2', dataset_id, logger)
                 metafile.add_main_processing_info()
             else:
                 logger.info("No meta data files will be written")
-    
+
             logger.info('Run {0} submitted'.format(run.run_id))
 
             counter.count('submitted')

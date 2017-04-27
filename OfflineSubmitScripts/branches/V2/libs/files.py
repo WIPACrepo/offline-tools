@@ -689,22 +689,21 @@ def create_good_run_list(dataset_id, db, logger, dryrun):
 
         path.make_relative_symlink(grl_versioned.path, symlink.path, dryrun, logger)
 
-def clean_datawarehouse(run, logger, dryrun):
+def clean_datawarehouse(run, logger, dryrun, run_folder):
     """
-    Cleans the run folder (Level2) of the given run. Removes ALL files and ALL folders
+    Cleans the run folder (usually Level2, when you do not specify a folder) of the given run. Removes ALL files and ALL folders
     that are in the run folder.
 
     Args:
         run (runs.Run): The run
         logger (Logger): The logger
         dryrun (boolean): If `True`, this function does NOT delete files.
+        run_folder (str): This folder will be emptied.
     """
 
     from config import get_config
     from glob import glob
     import shutil
-
-    run_folder = run.format(get_config(logger).get('Level2', 'RunFolder'))
 
     files = glob(os.path.join(run_folder, '*'))
 

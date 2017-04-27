@@ -26,6 +26,7 @@ class Run(object):
         self._subruns = {'common': None, 'PFDST': None, 'PFFilt': None, 'Level2': None, 'Level2pass2': None}
         self._gcd_file = None
         self._season = None
+        self._detector_configuration = None
 
     def get_sub_runs(self, force_reload = False):
         """
@@ -138,6 +139,22 @@ class Run(object):
         # Set common sub run info to a empty dict to avoid auto-loading.
         self._subruns['common'] = {}
         self._data = locals()
+
+    def load(self):
+        """
+        Forces to load almost all data now if not already loaded.
+
+        Can be used to determine if a run is in the DB. If the run is not in the DB, `LoadRunDataException` is thrown.
+        """
+        self._load_data()
+
+    def reload(self):
+        """
+        Forces to (re-)load almost all data now.
+
+        Can be used to determine if a run is in the DB. If the run is not in the DB, `LoadRunDataException` is thrown.
+        """
+        self._load_data(force_reload = True)
 
     def _load_data(self, force_reload = False):
         """
@@ -652,12 +669,34 @@ class Run(object):
         return result[0]['validated']
 
     def get_season(self):
+        """
+        This is a shortut for `get_config().get_season_by_run(run.run_id)`. If the
+        season could not be determined, an Exception is thrown.
+
+        Returns:
+            int: The season, e.g. 2016
+        """
+
         if self._season is None:
             self._season = get_config(self.logger).get_season_by_run(self.run_id)
             if self._season == -1:
                 raise Exception('The season of run {0} has not been determined'.format(self.run_id))
 
         return self._season
+
+    def get_detector_configuration(self):
+        """
+        Shortcut for `get_config().get_season_info(run.get_season())['detector_config']`.
+        Raises an Exception if the season has not been found.
+
+        Returns:
+            str: The detector configuration, e.g. IC79, IC86.
+        """
+
+        if self._detector_configuration is None:
+            self._detector_configuration = get_config(self.logger).get_season_info(self.get_season())['detector_config']
+
+        return self._detector_configuration
 
     def format(self, path, force_reload = False, **kwargs):
         """
@@ -669,6 +708,8 @@ class Run(object):
             * season
             * production_version
             * snapshot_id
+            * ic86_season
+            * detector_configuration
             * now (the current time)
 
         Args:
@@ -683,7 +724,7 @@ class Run(object):
         if 'run_id' not in kwargs:
             kwargs['run_id'] = self.run_id
 
-        if 'ywar' not in kwargs:
+        if 'year' not in kwargs:
             kwargs['year'] = self._data['tstart'].year
 
         if 'month' not in kwargs:
@@ -701,10 +742,38 @@ class Run(object):
         if 'snapshot_id' not in kwargs:
             kwargs['snapshot_id'] = self._data['snapshot_id']
 
+        if 'ic86_season' not in kwargs:
+            ic86_season =  self.get_season()
+
+            if ic86_season < 2011:
+                throw new Exception('This run is not IC86! You cannot use `ic86_season`.')
+
+            kwargs['ic86_season'] = int(str(ic86_season)[-1])
+
+        if 'detector_configuration' not in kwargs:
+            kwargs['detector_configuration'] = self.get_detector_configuration()
+
         if 'now' not in kwargs:
             kwargs['now'] = datetime.datetime.now()
 
         return path.format(**kwargs)
+
+    def __str__(self):
+        return self.format('run_id = {run_id}, snapshot_id = {snapshot_id}, production_version = {production_version}')
+
+    @classmethod
+    def sort_runs(cls, runs):
+        """
+        Sorts a list of runs by run id.
+
+        Args:
+            runs (list): List of runs
+
+        Returns:
+            list: Sorted list of runs
+        """
+
+        return sorted(runs, key = lambda r: r.run_id)
 
 class SubRun(files.File):
     def __init__(self, path, logger):
@@ -869,7 +938,13 @@ class SubRun(files.File):
         if 'sub_run_id' not in kwargs:
             kwargs['sub_run_id'] = self.sub_run_id
 
+        if 'path' not in kwargs:
+            kwargs['path'] = self.path
+
         return self.run.format(path, force_reload = force_reload, **kwargs)
+
+    def __str__(self):
+        return self.format('run_id = {run_id}, sub_run_id = {sub_run_id}, snapshot_id = {snapshot_id}, production_version = {production_version}, path = {path}')
 
     @classmethod
     def sort_sub_runs(cls, sub_runs):
@@ -1036,5 +1111,102 @@ def validate_file_integrity(run, files, logger, run_start_time = None, run_stop_
             logger.debug('Found file with wrong permissions: {0}'.format(f.path))
 
     return (not mismatches) and len(detailed_info_element['empty_files']) == 0 and len(detailed_info_element['wrong_permission']) == 0
+
+def get_all_runs_of_season(season, logger):
+    """
+    Returns a list of good run ids of the given season that are in the `runs` table.
+
+    Args:
+        season (int): The season
+
+    Returns:
+        list: List of run ids
+    """
+
+    from databaseconnection import DatabaseConnection
+    db = DatabaseConnection.get_connection('filter-db', logger)
+
+    seasons = get_config(logger).get_seasons_info()
+    first_run = seasons[season]['first']
+    last_run = 99999999
+    exclude_next_testruns = []
+
+    if first_run <= 0:
+        raise Exception('Not sufficient information for the given season: {0}'.format(season))
+
+    if season + 1 in seasons:
+        if seasons[season + 1]['first'] > 0:
+            last_run = seasons[season + 1]['first'] - 1
+
+        exclude_next_testruns = seasons[season + 1]['test']
+
+    sql = """
+        SELECT
+            run_id
+        FROM i3filter.runs
+        WHERE (run_id BETWEEN {first_run} AND {last_run} OR run_id IN ({test_runs}))
+            AND run_id NOT IN ({exclude_next_testruns})
+            AND (good_it OR good_i3)
+    """.format(
+            first_run = first_run,
+            test_runs = ','.join([str(r) for r in seasons[season]['test']] + ['-1']),
+            last_run = last_run,
+            exclude_next_testruns = ','.join(str(r) for r in exclude_next_testruns + ['-1'])
+    )
+
+    logger.debug('SQL: {0}'.format(sql))
+
+    return [e['run_id'] for r in db.fetchall(sql)]
+
+def get_validated_runs(dataset_id, logger):
+    """
+    Returns a list of run ids of validated runs of the given dataset id.
+
+    Args:
+        dataset_id (int): The dataset_id
+
+    Returns:
+        list: Run ids.
+    """
+
+    # It's compllicated:
+    #   1) If it is a L3 dataset < 1885, we do not have any information. Therefore, ignore the validation flag.
+    #   2) If it is a L2 dataset < 1915, there is no dataset specific validation information. Therefore, we need
+    #      to check for `dataset_id = 0`.
+    #   3) For season 2010 and 2012 there are no validation information found
+
+    dataset = get_config(logger).get_dataset_info(dataset_id)
+
+    sql = """
+    SELECT run_id FROM i3filter.runs r
+    JOIN i3filter.post_processing pp
+        ON r.run_id = pp.run_id
+    WHERE pp.dataset_id = {dataset_id}
+        AND pp.validated = 1
+    """
+
+    eff_dataset_id = dataset_id
+
+    if dataset['type'] == 'L2':
+        if dataset['season'] in [2010, 2012]:
+            # No validation information found
+            return get_all_runs_of_season(dataset['season'])
+        elif dataset_id < 1915:
+            eff_dataset_id = 0
+    elif dataset['type'] == 'L3':
+        if dataset_id < 1885:
+            # Ok, only look for L2 validated runs
+            eff_dataset_id = 0
+    else:
+        raise Exception('Not supported dataset type')
+
+    sql = sql.format(dataset_id = eff_dataset_id)
+
+    logger.debug('SQL: {0}'.format(sql))
+
+    from databaseconnection import DatabaseConnection
+    db = DatabaseConnection.get_connection('filter-db', logger)
+
+    return [e['run_id'] for r in db.fetchall(sql)]
 
 

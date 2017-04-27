@@ -166,7 +166,7 @@ def validate_GCD(jobs, run, logger):
     # Yay! All checks passed
     return True
 
-def validate_files(iceprod, dataset_id, run, logger):
+def validate_files(iceprod, dataset_id, run, checksumcache, logger):
     config = get_config(logger)
     jobs = iceprod.get_jobs(dataset_id, run)
 
@@ -207,6 +207,9 @@ def validate_files(iceprod, dataset_id, run, logger):
 
                 if current_checksum != checksum:
                     checksum_fails.append({'path': f['path'], 'current_checksum': current_checksum, 'iceprod_checksum': checksum})
+                else:
+                    # OK, let's cache this checksum
+                    checksumcache.set_checksum(f['path'], ctype, current_checksum)
 
         if not found_l2_output:
             missing_l2_files.append(expected_l2_file_name)
