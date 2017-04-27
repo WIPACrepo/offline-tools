@@ -138,17 +138,19 @@ class DBChecksumCache(ChecksumCache):
     This Cache uses a MySQL DB as cache. All queried checksums are held in a dict.
     """
 
-    def __init__(self, logger):
+    def __init__(self, logger, dryrun):
         from databaseconnection import DatabaseConnection
         self.db = DatabaseConnection.get_connection('filter-db', logger)
 
         ChecksumCache.__init__(self, logger, ['md5'])
 
+        self.dryrun = dryrun
+
     def has_checksum(self, path, ctype):
         if ctype != 'md5':
             raise Exception('Only MD5 checksum are supported yet')
 
-        if not ChecksumCache.has_checksum(path, ctype):
+        if not ChecksumCache.has_checksum(self, path, ctype):
             sql = """
                 SELECT `md5`
                 FROM i3filter.checksum_cache
@@ -168,7 +170,7 @@ class DBChecksumCache(ChecksumCache):
         return True
 
     def set_checksum(self, path, ctype, checksum = None):
-        ChecksumCache.set_checksum(path, ctype, checksum)
+        ChecksumCache.set_checksum(self, path, ctype, checksum)
 
         if ctype != 'md5':
             raise Exception('Only MD5 checksum are supported yet')
@@ -181,7 +183,8 @@ class DBChecksumCache(ChecksumCache):
 
         self.logger.debug('SQL: {0}'.format(sql))
 
-        self.db.execute(sql)
+        if not self.dryrun:
+            self.db.execute(sql)
 
     def get_checksum(self, path, ctype):
         if self.has_checksum(path, ctype):
