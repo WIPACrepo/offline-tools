@@ -1,7 +1,6 @@
 
 class ChecksumCache(object):
     def __init__(self, logger, ctypes = ['md5', 'sha512']):
-        from libs.config import get_config
         self.logger = logger
         self._data = {ctype: {} for ctype in ctypes}
 
@@ -133,6 +132,63 @@ class ChecksumCache(object):
         """
 
         return self.set_checksum(path, 'sha512', checksum)
+
+class DBChecksumCache(ChecksumCache):
+    """
+    This Cache uses a MySQL DB as cache. All queried checksums are held in a dict.
+    """
+
+    def __init__(self, logger):
+        from databaseconnection import DatabaseConnection
+        self.db = DatabaseConnection.get_connection('filter-db', logger)
+
+        ChecksumCache.__init__(self, logger, ['md5'])
+
+    def has_checksum(self, path, ctype):
+        if ctype != 'md5':
+            aise Exception('Only MD5 checksum are supported yet')
+
+        if not ChecksumCache.has_checksum(path, ctype):
+            sql = """
+                SELECT `md5`
+                FROM i3filter.checksum_cache
+                WHERE path = '{path}'
+            """.format(path = path)
+
+            self.logger.debug('SQL: {0}'.format(sql))
+
+            query = self.db.fetchall(sql)
+            if len(query) == 1:
+                self._data[ctype][path] = query[0]['md5']
+            elif len(query) == 0:
+                return False
+            else:
+                raise Exception('This case should actually never happen...')
+
+        return True
+
+    def set_checksum(self, path, ctype, checksum = None):
+        ChecksumCache.set_checksum(path, ctype, checksum)
+
+        if ctype != 'md5':
+            raise Exception('Only MD5 checksum are supported yet')
+
+        sql = """
+            INSERT INTO i3filter.checksum_cache (`path`, `md5`)
+            VALUES ('{path}', '{md5}')
+            ON DUPLICATE KEY UPDATE `md5` = '{md5}'
+        """.format(path = path, md5 = self._data[ctype][path])
+
+        self.logger.debug('SQL: {0}'.format(sql))
+
+        self.db.execute(sql)
+
+    def get_checksum(self, path, ctype):
+        if self.has_checksum(path, ctype):
+            return self._data[ctype][path]
+        else:
+            self.logger.warning('Checksum for {0} not in cache. Calculating checksum...'.format(path))
+            return self.set_checksum(path, ctype)
 
 class Counter(object):
     def __init__(self, names):
