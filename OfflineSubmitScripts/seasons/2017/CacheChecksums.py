@@ -15,7 +15,7 @@ from libs.argparser import get_defaultparser
 from libs.logger import get_logger
 from libs.path import get_logdir
 from libs.config import get_config
-from libs.files import ChecksumCache
+from libs.utils import DBChecksumCache
 from libs.process import Lock
 from libs.stringmanipulation import replace_var
 
@@ -53,7 +53,7 @@ def main(logger, dryrun):
     lock = Lock(os.path.basename(__file__), logger)
     lock.lock()
 
-    cache = ChecksumCache(logger)
+    cache = DBChecksumCache(logger)
 
     current_day = date.today()
     look_back = current_day + timedelta(days=-look_back_in_days)
