@@ -2,21 +2,43 @@
 
 class Dataset {
     private $mysql;
-
     private $dataset_id;
+    private $source_dataset_id;
+    private $result;
+    private $filter_db;
+    
 
     public static $result_pattern = array('api_version' => null,'error' => 0, 'error_msg' => '', 'error_trace' => '', 'data' => array());
 
-    public function __construct($host, $user, $password, $db, $datawarehouse_prefix, $api_version) {
+    public function __construct($host, $user, $password, $db, $datawarehouse_prefix, $api_version, $filter_db_host, $filter_db_user, $filter_db_password, $filter_db_db) {
         $this->mysql = @new mysqli($host, $user, $password, $db);
+        $this->filter_db = @new mysqli($filter_db_host, $filter_db_user, $filter_db_password, $filter_db_db);
 
         $this->result = self::$result_pattern;
         $this->result['api_version'] = $api_version;
         $this->dataset_id = null;
+        $this->source_dataset_id = null;
     }
 
     public function set_dataset_id($dataset) {
         $this->dataset_id = intval($dataset);
+        $this->source_dataset_id = $this->get_parent_id($this->dataset_id);
+    }
+
+    private function add_parents() {
+        $this->result['data']['source_dataset_ids'] = $this->source_dataset_id;
+    }
+
+    private function get_parent_id($dataset_id) {
+        $sql = "SELECT * FROM i3filter.source_dataset_id WHERE dataset_id = {$dataset_id}";
+
+        $query = $this->filter_db->query($sql);
+        $parents = array();
+        while($row = $query->fetch_assoc()) {
+            $parents[] = $row['source_dataset_id'];
+        }
+
+        return $parents;
     }
 
     private function add_metaproject_information() {
@@ -182,6 +204,50 @@ GROUP BY DATE(status_changed) , j.grid_id";
         }
     }
 
+    private function get_run_completion_time($dataset_id) {
+        $sql = "SELECT 
+    run_id, MAX(UNIX_TIMESTAMP(status_changed)) AS `date`
+FROM
+    i3filter.job j
+        JOIN
+    i3filter.run r ON j.dataset_id = r.dataset_id
+        AND j.queue_id = r.queue_id
+WHERE
+    j.dataset_id = {$dataset_id}
+        AND status_changed IS NOT NULL
+GROUP BY run_id";
+
+        $query = $this->mysql->query($sql);
+        $result = array();
+
+        while($row = $query->fetch_assoc()) {
+            $result["{$row['run_id']}"] = $row;
+        }
+
+        return $result;
+    }
+
+    public function add_parent_delay() {
+        if(!is_null($this->source_dataset_id)) {
+            $parents = array();
+            foreach($this->source_dataset_id as $source_dataset_id) {
+                $parents = $parents + $this->get_run_completion_time($source_dataset_id);
+            }
+
+            $current = $this->get_run_completion_time($this->dataset_id);
+
+            $data = array();
+
+            foreach($current as $run_id => $d) {
+                if(array_key_exists($run_id, $parents)) {
+                    $data[$run_id] = $d['date'] - $parents[$run_id]['date'];
+                }
+            }
+
+             $this->result['data']['statistics']['source_dataset_completion_delay'] = $data;
+        }
+    }
+
     public function execute() {
         if(is_null($this->dataset_id)) {
             throw new Exception("No dataset given.");
@@ -193,7 +259,9 @@ GROUP BY DATE(status_changed) , j.grid_id";
         $this->add_total_number_of_jobs();
         $this->add_runntime_statistics();
         $this->add_num_of_jobs_completed_per_day();
-    
+        $this->add_parent_delay();
+        $this->add_parents();
+
         $this->result['data']['dataset_id'] = $this->dataset_id;
 
         return $this->result;

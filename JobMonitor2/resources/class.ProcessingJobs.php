@@ -179,7 +179,9 @@ class ProcessingJobs {
 
         $query = $this->filter_db->query($sql);
         while($season = $query->fetch_assoc()) {
-            $season['test_runs'] = strlen($season['test_runs']) === 0 ? array() : explode(',', $season['test_runs']);
+            $season['test_runs'] = strlen($season['test_runs']) === 0 ? array() : array_map(function($v) {return intval(trim($v));}, explode(',', $season['test_runs']));
+            $season['first_run'] = intval($season['first_run']);
+            $season['season'] = intval($season['season']);
             $seasons[$season['season']] = $season;
         }
 
@@ -569,8 +571,29 @@ class ProcessingJobs {
         }
     }
 
+    private function get_source_dataset_ids() {
+        $sql = "SELECT * FROM i3filter.source_dataset_id";
+
+        $query = $this->filter_db->query($sql);
+        $parents = array();
+        while($row = $query->fetch_assoc()) {
+            $row['dataset_id'] = intval($row['dataset_id']);
+            $row['source_dataset_id'] = intval($row['source_dataset_id']);
+
+            if(!isset($parents[$row['dataset_id']])) {
+                $parents[$row['dataset_id']] = array();
+            }
+
+            $parents[$row['dataset_id']][] = $row['source_dataset_id'];
+        }
+
+        return $parents;
+    }
+
     public function get_dataset_ids() {
         if(is_null($this->dataset_ids)) {
+            $source_dataset_ids = $this->get_source_dataset_ids();
+
             $list = array();
 
             $sql = 'SELECT * FROM i3filter.datasets d JOIN i3filter.working_groups wg ON d.working_group = wg.working_group_id';
@@ -579,7 +602,7 @@ class ProcessingJobs {
             while($row = $query->fetch_assoc()) {
                 $set = array();
 
-                $set['dataset_id'] = $row['dataset_id'];
+                $set['dataset_id'] = intval($row['dataset_id']);
                 $set['description'] = $row['description'];
                 $set['selected'] = $row['dataset_id'] == $this->dataset_id;
                 $set['supported'] = (bool)($row['enabled']);
@@ -592,6 +615,12 @@ class ProcessingJobs {
                     'date' => $row['status_date'],
                     'comment' => $row['status_comment']
                 );
+
+                if(isset($source_dataset_ids[$set['dataset_id']])) {
+                    $set['source_dataset_ids'] = $source_dataset_ids[$set['dataset_id']];
+                } else {
+                    $set['source_dataset_ids'] = array();
+                }
 
                 if(intval($row['working_group']) > 0) {
                     $set['working_group'] = $row['name'];

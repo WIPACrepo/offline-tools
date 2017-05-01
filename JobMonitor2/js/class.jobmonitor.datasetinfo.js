@@ -444,11 +444,95 @@ JobMonitorDatasetInformation.prototype._generateChartJobsPerStatus = function(da
     });
 }
 
+JobMonitorDatasetInformation.prototype._generateChartSourceDatasetDelay = function(data) {
+    if(typeof data['data']['statistics']['source_dataset_completion_delay'] === 'undefined' || data['data']['statistics']['source_dataset_completion_delay'].length == 0) {
+        return;
+    }
+
+    var o = data['data']['statistics']['source_dataset_completion_delay'];
+    var values = Object.values(o);
+    values = values.filter(function(n) {return n >= 0}).map(function(n) {return n / 3600 / 24;});
+
+    var min_val = Math.floor(Math.min(...values));
+
+    var unit = 'Days';
+
+    // Rescale if delay is large
+    if(min_val > 90) {
+        values = Object.values(o);
+        values = values.filter(function(n) {return n >= 0}).map(function(n) {return n / 3600 / 24 / 30;});
+
+        min_val = Math.floor(Math.min(...values));
+
+        unit = 'Months';
+    } else if(min_val > 30) {
+        values = Object.values(o);
+        values = values.filter(function(n) {return n >= 0}).map(function(n) {return n / 3600 / 24 / 7;});
+
+        min_val = Math.floor(Math.min(...values));
+
+        unit = 'Weeks';
+    }
+
+    var max_val = Math.floor(Math.max(...values));
+
+    var delay_chart_data = {'label': [], 'data': []};
+
+    for(var i = min_val; i <= max_val; ++i) {
+        delay_chart_data['label'].push(i);
+        delay_chart_data['data'].push(0);
+    }
+
+    values.forEach(function(v) {
+        var e = Math.floor(v);
+        var i = e - min_val;
+
+        ++delay_chart_data['data'][i];
+    });
+
+    var delay_chart_ctx = $('#source-delay-chart');
+    var delay_chart = new Chart(delay_chart_ctx, {
+        type: 'bar',
+        data: {
+            labels: delay_chart_data['label'],
+            datasets: [{
+                backgroundColor: this._chartGetColor(),
+                data: delay_chart_data['data']
+            }]
+        },
+        options: {
+            legend: {
+                display: false
+            },
+            scales: {
+                yAxes: [{
+                    scaleLabel: {
+                        display: true,
+                        labelString: 'Number of Runs'
+                    }
+                }],
+                xAxes: [{
+                    scaleLabel: {
+                        display: true,
+                        labelString: 'Delay in ' + unit
+                    }
+                }]
+            },
+            responsive: true,
+            title: {
+                display: true,
+                text: 'Run Completion After Source Dataset Run Completion'
+            }
+        }
+    });
+}
+
 JobMonitorDatasetInformation.prototype._generateCharts = function(data) {
     this._generateChartExecutionTimeAndJobsPerHost(data);
     this._generateChartJobsPerGrid(data);
     this._generateChartJobsPerDay(data);
     this._generateChartJobsPerStatus(data);
+    this._generateChartSourceDatasetDelay(data);
 }
 
 JobMonitorDatasetInformation.prototype._queryComplete = function(data) {
@@ -530,6 +614,10 @@ JobMonitorDatasetInformation.prototype._queryComplete = function(data) {
 
     content += '<div class="row">';
     content += '<div class="col-md-12"><canvas id="jobs-par-day-chart"></canvas></div>';
+    content += '</div>';
+
+    content += '<div class="row">';
+    content += '<div class="col-md-12"><canvas id="source-delay-chart"></canvas></div>';
     content += '</div>';
 
     this.getContent().html(content);
