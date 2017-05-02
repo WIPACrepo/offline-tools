@@ -38,6 +38,7 @@ require_once('config.php');
     <script src="js/class.jobmonitor.calendar.js?v=<?php print($CONFIG['_version']); ?>"></script>
     <script src="js/class.jobmonitor.jobs.js?v=<?php print($CONFIG['_version']); ?>"></script>
     <script src="js/class.jobmonitor.datasetinfo.js?v=<?php print($CONFIG['_version']); ?>"></script>
+    <script src="js/class.jobmonitor.datasetstatistics.js?v=<?php print($CONFIG['_version']); ?>"></script>
     <script src="js/class.jobmonitor.updater.js?v=<?php print($CONFIG['_version']); ?>"></script>
     <script src="js/class.jobmonitor.datasets.js?v=<?php print($CONFIG['_version']); ?>"></script>
     <script src="js/class.jobmonitor.search.js?v=<?php print($CONFIG['_version']); ?>"></script>
@@ -79,6 +80,7 @@ require_once('config.php');
                 <li><a href="#" data-target="calendarView"><span class="glyphicon glyphicon-check" aria-hidden="true"></span> Calendar</a></li>
                 <li><a href="#" data-target="jobsView"><span class="glyphicon glyphicon-check" aria-hidden="true"></span> Processing/Failed Jobs</a></li>
                 <li><a href="#" data-target="datasetInfoView"><span class="glyphicon glyphicon-check" aria-hidden="true"></span> Dataset Information</a></li>
+                <li><a href="#" data-target="datasetStatisticsView"><span class="glyphicon glyphicon-check" aria-hidden="true"></span> Dataset Statistics</a></li>
               </ul>
             </li>
             <li class="dropdown" id="jm-dataset-dropdown">
@@ -148,6 +150,14 @@ require_once('config.php');
       <div class="panel panel-default" id="jm-content-view-dataset-info" style="display: none">
         <div class="panel-heading">
           <h3 class="panel-title jm-view-header"><span>Dataset Information</span> <i class="fa fa-spinner fa-pulse fa-fw"></i></h3>
+        </div>
+        <div class="panel-body jm-view-content">
+          Not loaded yet...
+        </div>
+      </div>
+      <div class="panel panel-default" id="jm-content-view-dataset-statistics" style="display: none">
+        <div class="panel-heading">
+          <h3 class="panel-title jm-view-header"><span>Dataset Statistics</span> <i class="fa fa-spinner fa-pulse fa-fw"></i></h3>
         </div>
         <div class="panel-body jm-view-content">
           Not loaded yet...

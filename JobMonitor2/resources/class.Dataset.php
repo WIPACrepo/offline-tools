@@ -6,6 +6,8 @@ class Dataset {
     private $source_dataset_id;
     private $result;
     private $filter_db;
+    private $include_statistics;
+
     private static $node_regex = null;
 
     public static $result_pattern = array('api_version' => null,'error' => 0, 'error_msg' => '', 'error_trace' => '', 'data' => array());
@@ -18,10 +20,15 @@ class Dataset {
         $this->result['api_version'] = $api_version;
         $this->dataset_id = null;
         $this->source_dataset_id = null;
+        $this->include_statistics = false;
 
         if(is_null(self::$node_regex)) {
             self::read_node_regex();
         }
+    }
+
+    public function set_include_statistics() {
+        $this->include_statistics = true;
     }
 
     public function set_dataset_id($dataset) {
@@ -265,9 +272,13 @@ GROUP BY run_id";
         $this->add_metaproject_information();
         $this->add_grid_information();
         $this->add_total_number_of_jobs();
-        $this->add_runntime_statistics();
-        $this->add_num_of_jobs_completed_per_day();
-        $this->add_parent_delay();
+
+        if($this->include_statistics) {
+            $this->add_runntime_statistics();
+            $this->add_num_of_jobs_completed_per_day();
+            $this->add_parent_delay();
+        }
+
         $this->add_parents();
 
         $this->result['data']['dataset_id'] = $this->dataset_id;

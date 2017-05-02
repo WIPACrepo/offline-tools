@@ -21,6 +21,10 @@ try {
         $dataset->set_dataset_id(filter_input(INPUT_GET, 'dataset'));
     }
    
+    if(isset($_GET['statistics']) && trim($_GET['statistics']) == '1') {
+        $dataset->set_include_statistics();
+    }
+   
     print(json_encode($dataset->execute()));
 } catch(Exception $e) {
     $content = Dataset::$result_pattern;
