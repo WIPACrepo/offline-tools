@@ -122,6 +122,8 @@ WHERE
             return 'uni-mainz.de';
         } elseif(preg_match("/^gpc-f[0-9]{3}n[0-9]{3}-ib0$/", $name)) {
             return 'scinet.utoronto.ca';
+        } elseif(preg_match("/^osg-jetstream-worker-[0-9]+\.jetstreamlocal$/", $name)) {
+            return 'Jetstream';
         } elseif(preg_match("/^compute\-[0-9]{1,2}[n]{0,1}\-[0-9]{1,2}\.tier2$/", $name) || preg_match("/^blade\-[0-9]+\.tier2$/", $name)) {
             return 'ultralight.org';
         } elseif(strtolower($splitname[count($splitname) - 1]) == 'comet') {
