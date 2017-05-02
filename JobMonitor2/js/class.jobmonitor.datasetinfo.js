@@ -501,6 +501,18 @@ JobMonitorDatasetInformation.prototype._generateChartSourceDatasetDelay = functi
             }]
         },
         options: {
+            tooltips: {
+                callbacks: {
+                    title : function(tooltipItem, data) {
+                        console.log(tooltipItem);
+                        console.log(data);
+                        return 'Delay of ' + tooltipItem[0].xLabel + ' ' + unit;
+                    },
+                    label : function(tooltipItem, data) {
+                        return tooltipItem.yLabel + ' runs';
+                    }
+                }
+            },
             legend: {
                 display: false
             },
