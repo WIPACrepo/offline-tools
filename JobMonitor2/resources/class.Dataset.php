@@ -6,7 +6,7 @@ class Dataset {
     private $source_dataset_id;
     private $result;
     private $filter_db;
-    
+    private static $node_regex = null;
 
     public static $result_pattern = array('api_version' => null,'error' => 0, 'error_msg' => '', 'error_trace' => '', 'data' => array());
 
@@ -18,6 +18,10 @@ class Dataset {
         $this->result['api_version'] = $api_version;
         $this->dataset_id = null;
         $this->source_dataset_id = null;
+
+        if(is_null(self::$node_regex)) {
+            self::read_node_regex();
+        }
     }
 
     public function set_dataset_id($dataset) {
@@ -101,34 +105,36 @@ WHERE
         $this->result['data']['number_of_jobs'] = intval($fetch['num']);
     }
 
+    private static function read_node_regex() {
+        self::$node_regex = array();
+
+        $file = file('node-names.txt');
+
+        // Skip first line
+        for($i = 1; $i < count($file); ++$i) {
+            if(strlen(trim($file[$i])) == 0) {
+                // Skip empty line
+                continue;
+            }
+
+            $data = array_map(trim, explode(' ', $file[$i], 2));
+
+            self::$node_regex[] = array('regex' => $data[0], 'name' => $data[1]);
+        }
+    }
+
     private static function make_host($name) {
         $splitname = explode('.', $name);
 
         $host = array_slice($splitname, -2);
 
-        if(preg_match("/^cn[0-9]+\.local$/", $name)) {
-            return 'stanford.edu';
-        #} elseif(substr($host[count($host) - 1], 0, 4) == 'tier') {
-        #    return $host[count($host) - 1];
-        } elseif(preg_match("/^n[0-9]{4}$/", $host[0])) {
-            return 'hyak.washington.edu';
-        } elseif(preg_match("/^cwrc\-c[0-9]{2}$/", $name)) {
-            return 'westgrid.ca';
-        } elseif(preg_match("/^muon-[0-9]{3}$/", $name)) {
-            return 'eri.u-tokyo.ac.jp';
-        } elseif(preg_match("/^cl[1-2]{1}n[0-9]{3}$/", $name)) {
-            return 'westgrid.ca, ualberta.ca';
-        } elseif(preg_match("/^[ajeigh][0-9]{4}$/", $name)) {
-            return 'uni-mainz.de';
-        } elseif(preg_match("/^gpc-f[0-9]{3}n[0-9]{3}-ib0$/", $name)) {
-            return 'scinet.utoronto.ca';
-        } elseif(preg_match("/^osg-jetstream-worker-[0-9]+\.jetstreamlocal$/", $name)) {
-            return 'Jetstream';
-        } elseif(preg_match("/^compute\-[0-9]{1,2}[n]{0,1}\-[0-9]{1,2}\.tier2$/", $name) || preg_match("/^blade\-[0-9]+\.tier2$/", $name)) {
-            return 'ultralight.org';
-        } elseif(strtolower($splitname[count($splitname) - 1]) == 'comet') {
-            return 'COMET OSG VM';
-        } elseif(count($splitname) > 3) {
+        foreach(self::$node_regex as $data) {
+            if(preg_match($data['regex'], $name)) {
+                return $data['name'];
+            }
+        }
+
+        if(count($splitname) > 3) {
             if($splitname[count($splitname) - 3] == 'icecube') {
                 return implode('.', array_slice($splitname, -3));
             }
