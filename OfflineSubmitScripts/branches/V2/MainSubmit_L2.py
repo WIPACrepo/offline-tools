@@ -98,7 +98,7 @@ def main(args, run_ids, logger):
                 counter.count('error')
                 continue   
 
-            make_relative_symlink(gcd_file.path, run.format(config.get('Level2', 'RunFolderGCD')), args.dryrun, logger)
+            make_relative_symlink(gcd_file.path, run.format(config.get('Level2', 'RunFolderGCD')), args.dryrun, logger, replace = True)
 
             # Put GCD symlink in run folder into cache since it is probably used in iceprod.submit_run()
             run.get_gcd_file(force_reload = True)
@@ -134,9 +134,6 @@ def main(args, run_ids, logger):
         except Exception as e:
             counter.count('error')
             logger.exception(e)
-
-    if not args.dryrun:
-        checksumcache.write()
 
     logger.info('Run submission complete: {0}'.format(counter.get_summary()))
 

@@ -63,6 +63,9 @@ class File(object):
     def __str__(self):
         return self.path
 
+    def __repr__(self):
+        return 'File({0})'.format(self.__str__())
+
     @classmethod
     def get_md5(cls, path, logger):
         f = cls(path, logger)

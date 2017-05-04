@@ -167,7 +167,7 @@ class Config(ConfigParser.SafeConfigParser):
                 if row['test_runs'] is not None:
                     testruns = [int(r) for r in row['test_runs'].split(',')]
 
-                seasons[int(row['season'])] = {'first': row['first_run'], 'test': testruns}
+                seasons[int(row['season'])] = {'first': row['first_run'], 'test': testruns, 'detector_config': row['detector_config']}
 
             self.season_info = collections.OrderedDict(sorted(seasons.items()))
 

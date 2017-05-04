@@ -91,16 +91,19 @@ class IceProd1(iceprodinterface.IceProdInterface):
 
         self.logger.info(run.format('IceProd1: Submitting run {run_id}, snapshot_id = {snapshot_id}, production_version = {production_version}'))
 
-        if aggregate < 0 or aggregate > 500:
+        if aggregate <= 0 or aggregate > 500:
             self.logger.critical('Invalid value for `aggregate`: {0}'.format(aggregate))
             raise Exception('Invalid value for `aggregate`')
+
+        if aggregate > 1:
+            self.logger.info('** You aggregate several files to one job: {0} **'.format(aggregate))
 
         self.logger.debug('Get {0} files'.format(source_file_type))
         if source_file_type == 'PFFilt':
             input_files = run.get_pffilt_files()
         elif source_file_type == 'PFDST':
             input_files = run.get_pfdst_files()
-        if source_file_type == 'Level2':
+        elif source_file_type == 'Level2':
             input_files = run.get_level2_files()
         else:
             self.logger.critical('Unknown data source')
@@ -141,26 +144,32 @@ class IceProd1(iceprodinterface.IceProdInterface):
 
             # Calculate number of jobs. Files/jobs is `aggregate`
             # If input_files % aggregate > 0, we need an additional job that processes the leftover files
-            number_of_jobs = int(input_files / aggregate) + int(bool(input_files % aggregate))
+            number_of_jobs = int(len(input_files) / aggregate) + int(bool(len(input_files) % aggregate))
+
+            self.logger.debug('Number of jobs: {0}'.format(number_of_jobs))
 
             file_counter = 0
             for job_id in range(number_of_jobs):
                 queue_id += 1
 
+                self.logger.debug('Job #{0}'.format(job_id))
+
                 job_input_files = [gcd_file]
                 job_input_files.extend(special_files)
 
                 for _ in range(aggregate):
+                    self.logger.debug('Add file #{0}/{1} to job'.format(file_counter + 1, len(input_files)))
+
                     job_input_files.append(input_files[file_counter])
                     file_counter += 1
 
-                    if len(input_files) >= file_counter:
+                    if len(input_files) <= file_counter:
                         self.logger.debug('Reached last input file')
                         break
 
-                self.logger.debug('Submit job with the following input files: {0}'.format(input_files))
+                self.logger.debug('Submit job #{1}, sub run ID {2}, with the following input files: {0}'.format(job_input_files, job_id, input_files[job_id].sub_run_id))
 
-                self._submit_job(queue_id, dataset_id, run, f.sub_run_id, checksumcache, job_input_files)
+                self._submit_job(queue_id, dataset_id, run, input_files[job_id].sub_run_id, checksumcache, job_input_files)
 
     def clean_run(self, dataset_id, run):
         query  = self._dbs4.fetchall(run.format("""

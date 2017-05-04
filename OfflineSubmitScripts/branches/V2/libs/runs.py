@@ -698,7 +698,7 @@ class Run(object):
 
         return self._detector_configuration
 
-    def format(self, path, force_reload = False, **kwargs):
+    def format(self, path_, force_reload = False, **kwargs):
         """
         Formats paths or strings with the information of this run. It provides the values for the following data:
             * run_id
@@ -746,7 +746,7 @@ class Run(object):
             ic86_season =  self.get_season()
 
             if ic86_season < 2011:
-                throw new Exception('This run is not IC86! You cannot use `ic86_season`.')
+                raise Exception('This run is not IC86! You cannot use `ic86_season`.')
 
             kwargs['ic86_season'] = int(str(ic86_season)[-1])
 
@@ -756,10 +756,13 @@ class Run(object):
         if 'now' not in kwargs:
             kwargs['now'] = datetime.datetime.now()
 
-        return path.format(**kwargs)
+        return path_.format(**kwargs)
 
     def __str__(self):
-        return self.format('run_id = {run_id}, snapshot_id = {snapshot_id}, production_version = {production_version}')
+        return self.format('(run_id = {run_id}, snapshot_id = {snapshot_id}, production_version = {production_version})')
+
+    def __repr__(self):
+        return self.__str__()
 
     @classmethod
     def sort_runs(cls, runs):
@@ -930,7 +933,7 @@ class SubRun(files.File):
         if not self.run.dryrun:
             self.run._db.execute(self.format(sql, bad = 1))
 
-    def format(self, path, force_reload = False, **kwargs):
+    def format(self, path_, force_reload = False, **kwargs):
         """
         Same as Run.format() but it also knows about the sub run id.
         """
@@ -941,10 +944,13 @@ class SubRun(files.File):
         if 'path' not in kwargs:
             kwargs['path'] = self.path
 
-        return self.run.format(path, force_reload = force_reload, **kwargs)
+        return self.run.format(path_, force_reload = force_reload, **kwargs)
 
     def __str__(self):
-        return self.format('run_id = {run_id}, sub_run_id = {sub_run_id}, snapshot_id = {snapshot_id}, production_version = {production_version}, path = {path}')
+        return self.format('(run_id = {run_id}, sub_run_id = {sub_run_id}, snapshot_id = {snapshot_id}, production_version = {production_version}, path = {path})')
+
+    def __repr__(self):
+        return self.__str__()
 
     @classmethod
     def sort_sub_runs(cls, sub_runs):
