@@ -54,7 +54,6 @@ function JobMonitorDatasetStatistics(queryUrl, main, get_selected_dataset) {
     };
 
     Chart.pluginService.register(horizonalLinePlugin);
-
 }
 
 JobMonitorDatasetStatistics.prototype = new JobMonitorView('dataset-statistics');
@@ -73,7 +72,7 @@ JobMonitorDatasetStatistics.prototype.updateView = function(data) {
 JobMonitorDatasetStatistics.prototype.show = function() {
     JobMonitorView.prototype.show.call(this);
 
-    if(!this.dataLoaded && typeof this.datasetId !== 'undefined') {
+    if(this.visible && !this.dataLoaded && typeof this.datasetId !== 'undefined') {
         this._queryData();
     }
 }
@@ -487,8 +486,6 @@ JobMonitorDatasetStatistics.prototype._queryComplete = function(data) {
         console.log(data);
         return;
     }
-
-    var datasetId = data['data']['dataset_id'];
 
     var content = '';
 

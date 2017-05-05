@@ -25,7 +25,7 @@ JobMonitorDatasetInformation.prototype.updateView = function(data) {
 JobMonitorDatasetInformation.prototype.show = function() {
     JobMonitorView.prototype.show.call(this);
 
-    if(!this.dataLoaded && typeof this.datasetId !== 'undefined') {
+    if(this.visible && !this.dataLoaded && typeof this.datasetId !== 'undefined') {
         this._queryData();
     }
 }
