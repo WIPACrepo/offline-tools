@@ -253,42 +253,6 @@ JobMonitorDatasetStatistics.prototype._generateChartExecutionTimeAndJobsPerHost 
     });
 }
 
-JobMonitorDatasetStatistics.prototype._generateChartJobsPerGrid = function(data) {
-    var gridchartdata = {
-        'data': [data['data']['number_of_jobs']],
-        'labels': ['unassigned'],
-        'colors': undefined
-    };
-
-    $.each(data['data']['grid'], function(index, value) {
-        gridchartdata['data'].push(value['jobs']);
-        gridchartdata['data'][0] -= value['jobs'];
-        gridchartdata['labels'].push(value['name']);
-    });
-
-    gridchartdata['colors'] = this._chartGetColorList(gridchartdata['data'].length);
-
-    var grid_chart_ctx = $('#grid-chart');
-    var grid_chart = new Chart(grid_chart_ctx, {
-        type: 'pie',
-        data: {
-            datasets:[{
-                data: gridchartdata['data'],
-                backgroundColor: gridchartdata['colors']
-            }],
-            labels: gridchartdata['labels']
-        },
-        options: {
-            responsive: true,
-            tooltips: {
-                callbacks: {
-                    label: this._chartTooltip
-                }
-            }
-        }
-    });
-}
-
 JobMonitorDatasetStatistics.prototype._generateChartJobsPerDay = function(data) {
     var jobsperdaychartdata = {
         'labels': [],
@@ -371,7 +335,7 @@ JobMonitorDatasetStatistics.prototype._generateChartJobsPerDay = function(data) 
         });
     }
 
-    var jobs_per_day_chart_ctx = $('#jobs-par-day-chart');
+    var jobs_per_day_chart_ctx = $('#jobs-per-day-chart');
     var jobs_per_day_chart = new Chart(jobs_per_day_chart_ctx, {
         type: 'bar',
         data: {
@@ -392,53 +356,6 @@ JobMonitorDatasetStatistics.prototype._generateChartJobsPerDay = function(data) 
             title: {
                 text: 'Job Completion per Day',
                 display: true
-            }
-        }
-    });
-}
-
-JobMonitorDatasetStatistics.prototype._generateChartJobsPerStatus = function(data) {
-    var rawData = {};
-
-    $.each(this.runData['runs'], function(runId, value) {
-        $.each(value['jobs_states'], function(name, jobs) {
-            if(!(name in rawData) && jobs > 0) {
-                rawData[name] = 0;
-            }
-
-            if(jobs > 0) {
-                rawData[name] += jobs;
-            }
-        });
-    });
-    
-    var sortedKeys = Object.keys(rawData).sort();
-
-    var statuschartdata = {
-        'label': sortedKeys,
-        'data': [],
-        'colors': this._chartGetColorList(sortedKeys.length)
-    };
-
-    sortedKeys.forEach(function(key) {
-        statuschartdata['data'].push(rawData[key]);
-    });
-
-    var status_chart_ctx = $('#status-chart');
-    var status_chart = new Chart(status_chart_ctx, {
-        type: 'pie',
-        data: {
-            labels: statuschartdata['label'],
-            datasets: [{
-                backgroundColor: statuschartdata['colors'],
-                data: statuschartdata['data']
-            }]
-        },
-        options: {
-            responsive: true,
-            title: {
-                display: true,
-                text: 'Job Status'
             }
         }
     });
@@ -584,7 +501,7 @@ JobMonitorDatasetStatistics.prototype._queryComplete = function(data) {
     content += '</div>';
 
     content += '<div class="row">';
-    content += '<div class="col-md-12"><canvas id="jobs-par-day-chart"></canvas></div>';
+    content += '<div class="col-md-12"><canvas id="jobs-per-day-chart"></canvas></div>';
     content += '</div>';
 
     content += '<div class="row">';
