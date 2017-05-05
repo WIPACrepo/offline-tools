@@ -232,14 +232,10 @@ class ProcessingJobs {
         $dataset_info = $this->result['data']['datasets'][$this->dataset_id];
         $season = $dataset_info['season'];
 
-        // Don't use this method for L2 datasets < 2013
-        if($dataset_info['type'] == 'L2' && $season < 2013) {
-            return;
-        }
-
         // If it is a L3 dataset and earlier than 1885, there is no validation tag
         // So, mark all runs as validated
-        if($dataset_info['type'] == 'L3' && $this->dataset_id < 1885) {
+        // Same for L2 datasets of season 2010 and 2012
+        if(($dataset_info['type'] == 'L3' && $this->dataset_id < 1885) || ($dataset_info['type'] == 'L2' && ($season == 2010 || $season == 2012))) {
             foreach($this->result['data']['runs'] as &$run) {
                 $run['validated'] = true;
                 $run['validation_date'] = null;
@@ -252,7 +248,7 @@ class ProcessingJobs {
         // This data has been migrated but w/o dataset_id information. The dataset_id for those runs in post_processing is '0'
         $pp_dataset_id = $this->dataset_id;
 
-        if($dataset_info['type'] == 'L2' && $this->dataset_id < 1915) {
+        if($dataset_info['type'] == 'L2' && $this->dataset_id < 1914) {
             $pp_dataset_id = 0;
         }
 
@@ -314,34 +310,10 @@ class ProcessingJobs {
         // we need to remove it
         $grl_run_ids = array();
 
-        // Depending on run no. and season, the information is in different tables
-        // IceProd1 goes down to run 115975 (season 2010)
-        //
-        // Required: [run_id, start_date, submitted, snapshot_id, production_version, validated, good_i3, good_it]
-        // grl_snapshoot_info: 122205 -> now
-        // validateData: 118175 -> 120155 [run_id, live, N/A, live, N/A, validation_status, live, live]
-        // pre_processing_checks: 118175 -> 122480
-
-        /*
-        +--------+-----------+--------------------------------------------------+
-        | season | first_run | test_runs                                        |
-        +--------+-----------+--------------------------------------------------+
-        |   2010 |    115975 | 115793,115794,115795,115796,115797,115798,115799 |
-        |   2011 |    118175 | 118084,118086,118087                             |
-        |   2012 |    120156 | 120028,120029,120030                             |
-        |   2013 |    122276 | 122205,122206,122207                             |
-        |   2014 |    124702 | 124550,124551,124556,124564,124565,124566,124567 |
-        |   2015 |    126378 | 126289,126290,126291                             |
-        |   2016 |    127950 | 127891,127892,127893                             |
-        +--------+-----------+--------------------------------------------------+
-        */
-
         // Holds run information whatever the data source is
         $runs = array();
 
-        if($season >= 2013 || $this->pass2) {
-            // Data source is just grl_snapshot_info
-
+        if($season >= 2010) {
             // If it is pass2, we have a different table and DB
             $db = $this->filter_db;
             $table = 'i3filter.runs';
@@ -384,62 +356,7 @@ class ProcessingJobs {
 
             $query = $db->query($sql);
             while($row = $query->fetch_assoc()) {
-                if(!isset($row['validated'])) {
-                    $row['validated'] = false;
-                }
-
                 $runs[] = $row;
-            }
-        } else if($season >= 2010) {
-            // Data source is live and validateData
-            // validateData has only data for season 2011
-            // 2010 and 2012 are getting only data from i3live and any other is default.
-
-            $tmpRuns = array();
-
-            if($season == 2011) {
-                $sql = "SELECT  run_id,
-                                validation_status AS `validated`
-                        FROM validateData
-                        WHERE   (
-                                    run_id BETWEEN $first_run_id AND $last_run_id OR
-                                    run_id IN ($season_test_runs -1) /* Have at least -1 to avoid bad SQL */
-                                ) AND
-                                run_id NOT IN ($next_season_test_runs -1) /* Have at least -1 to avoid bad SQL */
-                        GROUP BY run_id
-                        ORDER BY run_id ASC";
-
-                $query = $this->mysql->query($sql);
-                while($row = $query->fetch_assoc()) {
-                    $tmpRuns[$row['run_id']] = $row;
-                }
-            }
-
-            // So, now the data from I3Live are still missing
-            $sql = "SELECT  runNumber AS `run_id`,
-                            DATE(tStart) AS `date`, 
-                            `snapshot_id`,
-                            `good_i3`,
-                            `good_it`
-                    FROM livedata_run r
-                    JOIN livedata_snapshotrun s 
-                        ON s.run_id = r.id 
-                    WHERE   (
-                                runNumber BETWEEN $first_run_id AND $last_run_id OR
-                                runNumber IN ($season_test_runs -1) /* Have at least -1 to avoid bad SQL */
-                            ) AND
-                            runNumber NOT IN ($next_season_test_runs -1) /* Have at least -1 to avoid bad SQL *//* AND
-                            (good_it = 1 OR good_i3 = 1)*/
-                    GROUP BY runNumber, snapshot_id
-                    ORDER BY run_id, snapshot_id ASC";
-
-            $query = $this->live->query($sql);
-            while($row = $query->fetch_assoc()) {
-                if(isset($tmpRuns[$row['run_id']]) && $season == 2011) {
-                    $runs[] = array_merge($tmpRuns[$row['run_id']], $row, array('production_version' => -1, 'submitted' => true));
-                } else if($season != 2011) {
-                    $runs[] = array_merge($row, array('validated' => 1, 'production_version' => -1, 'submitted' => true));
-                }
             }
         } else {
             // not supported
@@ -450,7 +367,7 @@ class ProcessingJobs {
         foreach($runs as $run) {
             $test_run24h = in_array($run['run_id'], $season_info['test_runs']);
 
-            $this->process_good_run_information($run_pattern, $test_run24h, $run['good_i3'], $run['good_it'], $run['run_id'], $run['validated'], $run['production_version'], $run['snapshot_id'], $run['date']);
+            $this->process_good_run_information($run_pattern, $test_run24h, $run['good_i3'], $run['good_it'], $run['run_id'], $run['production_version'], $run['snapshot_id'], $run['date']);
 
             // Store run of GRL
             // If it is a bad run (make sure that the SQL query has an order of production_version ASC and snapshot_id ASC), remove it
@@ -472,7 +389,7 @@ class ProcessingJobs {
         }
     }
 
-    private function process_good_run_information($run_pattern, $test_run24h, $good_i3, $good_it, $run_id, $validated, $production_version, $snapshot_id, $date) {
+    private function process_good_run_information($run_pattern, $test_run24h, $good_i3, $good_it, $run_id, $production_version, $snapshot_id, $date) {
         $dataset_info = $this->result['data']['datasets'][$this->dataset_id];
 
         if(isset($this->result['data']['runs'][$run_id])) {
@@ -486,11 +403,6 @@ class ProcessingJobs {
                 return;
             }
 
-            // L2 validation flag for seasons < 2013 are stored separately. Therefore, use this validation value
-            if($dataset_info['season'] < 2013 && $dataset_info['type'] == 'L2') {
-                $this->result['data']['runs'][$run_id]['validated'] = $validated == 1;
-            }
-        
             // Add production version and snapshot id
             $this->result['data']['runs'][$run_id]['production_version'] = $production_version;
             $this->result['data']['runs'][$run_id]['snapshot_id'] = $snapshot_id;
