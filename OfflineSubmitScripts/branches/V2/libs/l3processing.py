@@ -1,5 +1,5 @@
 
-frim files import File
+from files import File
 
 def get_gcd_file(run, args, config, logger):
     if not args.cosmicray:

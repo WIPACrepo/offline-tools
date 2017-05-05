@@ -265,7 +265,7 @@ class Config(ConfigParser.SafeConfigParser):
             for row in data:
                 datasets[int(row['dataset_id'])] = row
 
-            self.dataset_info = collections.OrderedDict(sorted(datasets.items()))
+            self.level3_info = collections.OrderedDict(sorted(datasets.items()))
 
         return self.level3_info
 

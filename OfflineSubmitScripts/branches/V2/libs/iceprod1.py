@@ -256,6 +256,8 @@ class IceProd1(iceprodinterface.IceProdInterface):
             WHERE r.dataset_id = {dataset_id:d}
                 AND run_id = {run_id:d}""".format(dataset_id = dataset_id, run_id = run.run_id)
 
+        self.logger.debug('SQL: {0}'.format(sql))
+
         query = self._dbs4.fetchall(sql)
         return len(query) > 0
 

@@ -8,7 +8,7 @@ from libs.files import clean_datawarehouse, ChecksumCache
 from libs.process import Lock
 from libs.config import get_config
 from libs.utils import Counter
-from libs.runs import Run, get_validated_runs, get_all_runs_of_season
+from libs.runs import Run, get_validated_runs, get_all_runs_of_season, LoadRunDataException
 from libs.iceprod1 import IceProd1
 from libs.l3processing import get_gcd_file, get_cosmicray_mc_gcd_file
 from libs.path import make_relative_symlink, get_logdir
@@ -35,24 +35,37 @@ def main(run_ids, config, args, logger):
         logger.critical('Did not find source dataset id for dataset id {0}'.format(args.destination_dataset_id))
         exit(1)
 
+    run_dataset_mapping = {}
+
     if not len(run_ids):
         # Get all validated runs of the source dataset id
         # Note: The order of the source dataset ids matters. The first dataset id has the highest priority.
         # That means, if a run appears twice, the run from the highest priority will be chosen.
-        run_ids = OrderedDict()
+        all_runs_of_season = get_all_runs_of_season(dataset_info['season'], logger)
 
         for sd_id in source_dataset_ids:
             if args.ignore_l2_validation:
-                run_ids[sd_id] = get_all_runs_of_season(dataset_info['season'], logger)
+                for r in all_runs_of_season:
+                    if r not in run_dataset_mapping and iceprod.get_run_status(sd_id, Run(r, logger)) == 'OK':
+                        run_dataset_mapping[r] = sd_id
             else:
-                run_ids[sd_id] = get_validated_runs(sd_id, logger)
+                for r in get_validated_runs(sd_id, logger):
+                    if r not in run_dataset_mapping:
+                        run_dataset_mapping[r] = sd_id
+    else:
+        # Ok, runs are specified on script start
+        for sd_id in source_dataset_ids:
+            for r in run_ids:
+                if r not in run_dataset_mapping and iceprod.get_run_status(sd_id, Run(r, logger)) == 'OK':
+                    run_dataset_mapping[r] = sd_id
 
-    def get_dataset_id(run, run_ids):
-        for dataset_id, ids in run_ids.items():
-            if run.run_id in ids:
-                return dataset_id
+        if len(run_ids) != len(run_dataset_mapping):
+            self.logger.warning('For some runs the source run has not been found: {0}'.format(list(set(run_ids) - set(run_dataset_mapping.keys()))))
 
-        raise Exception('Did not find source dataset id. That\'s odd, since this should actually not be possible...')
+    run_ids = run_dataset_mapping.keys()
+
+    logger.debug('run_dataset_mapping = {0}'.format(run_dataset_mapping))
+    logger.debug('run_ids = {0}'.format(run_ids))
 
     # Create Run objects and filter bad runs
     runs = []
@@ -62,9 +75,7 @@ def main(run_ids, config, args, logger):
             r.load()
 
             if r.is_good_run():
-                s_dataset_id = get_dataset_id(r, run_ids)
-
-                if iceprod.is_run_submitted(s_dataset_id, r):
+                if iceprod.is_run_submitted(args.destination_dataset_id, r):
                     if args.resubmission:
                         logger.info('Run {0} will be resubmitted'.format(r.run_id))
                         counter.count('resubmitted')
@@ -83,12 +94,12 @@ def main(run_ids, config, args, logger):
     for run in runs:
         counter.count('handled')
 
-        handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, args, counter, checksumcache, logger)
+        handle_run(args, dataset_info, iceprod, config, run, run_dataset_mapping[run.run_id], counter, checksumcache, logger)
 
     logger.info('Run submission complete: {0}'.format(counter.get_summary()))
     return counter
 
-def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, args, counter, checksumcache, logger):
+def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, counter, checksumcache, logger):
     logger.info(run.format('Start submission for run {run_id} with dataset id {destination_dataset_id} (source: {source_dataset_id})',
             source_dataset_id = source_dataset_id,
             destination_dataset_id = args.destination_dataset_id
@@ -207,7 +218,7 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, args
 
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__, dryrun = True)
-    parser.add_argument("--source-dataset-id", type = int, required = False default = None, help="Dataset ID to read from, usually L2 dataset. Use this option only if you want override the configuration.")
+    parser.add_argument("--source-dataset-id", type = int, required = False, default = None, help="Dataset ID to read from, usually L2 dataset. Use this option only if you want override the configuration.")
     parser.add_argument("--destination-dataset-id", type = int, required = True, default = None, help="Dataset ID to write to, usually L3 dataset")
     parser.add_argument("--aggregate", type = int, default = 1, help = "number of subruns to aggregate to form one job, needed when processing 1 subrun is really short")
     parser.add_argument("--link-only-gcd", action = "store_true", default = False, help = "No jobs will be submitted but the GCD file(s) will be linked. Useful if some links are missing")
