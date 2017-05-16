@@ -1,6 +1,14 @@
 <?php
 
 require_once('config.php');
+require_once('resources/class.TestRuns.php');
+
+$test_runs = new TestRuns($CONFIG['filter_db_host'],
+                          $CONFIG['filter_db_username'],
+                          $CONFIG['filter_db_password'],
+                          $CONFIG['filter_db_database']);
+
+$test_run_data = $test_runs->get_list();
 
 ?><!DOCTYPE html>
 <html lang="en">
@@ -73,6 +81,7 @@ require_once('config.php');
             <li><a href="#" id="force-update"><i class="fa fa-refresh fa-lg fa-fw margin-bottom"></i></a></li>
           </ul>
           <ul class="nav navbar-nav navbar-right">
+            <li><a href="#" data-toggle="modal" data-target="#jm-dialog-24h-test-runs">24h Test Runs</span></a></li>
             <li><a href="#" data-toggle="modal" data-target="#jm-dialog-search">Search <span class="glyphicon glyphicon-search" aria-hidden="true"></span></a></li>
             <li class="dropdown" id="jm-view-dropdown">
               <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">View <span class="caret"></span></a>
@@ -215,6 +224,59 @@ require_once('config.php');
             </ul>
 
             <p>Write me an <a href="mailto:<?php print($CONFIG['offline_processing_personnel']['email']); ?>">email</a> or on Slack in <a href="https://icecube-spno.slack.com/messages/<?php print(substr($CONFIG['offline_processing_personnel']['slack']['channel'], 1)); ?>/" target="_blank"><?php print($CONFIG['offline_processing_personnel']['slack']['channel']); ?></a> or <a href="https://icecube-spno.slack.com/messages/<?php print($CONFIG['offline_processing_personnel']['slack']['user']); ?>/"><?php print($CONFIG['offline_processing_personnel']['slack']['user']); ?></a>.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="jm-dialog-24h-test-runs" tabindex="-1" role="dialog" aria-labelledby="jm-dialog-label">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">List of 24h test runs</h4>
+          </div>
+          <div class="modal-body">
+            This is a list of test runs for seasons 2010 and later. Also the first run of each season is shown.
+
+            <table class="table table-striped table-bordered">
+              <thead>
+                <th>
+                  Season
+                </th>
+                <th>
+                  Detector Configuration
+                </th>
+                <th>
+                  First Run
+                </th>
+                <th>
+                  Test Runs
+                </th>
+              </thead>
+              <tbody>
+<?php
+foreach($test_run_data as $data) {
+?>
+                <tr>
+                  <td>
+                    <?php print($data['season']); ?>
+                  </td>
+                  <td>
+                    <?php print($data['detector_config']); ?>
+                  </td>
+                  <td>
+                    <?php print($data['first_run'] == -1 ? 'N/A' : $data['first_run']); ?>
+                  </td>
+                  <td>
+                    <?php print(implode(', ', $data['test_runs'])); ?>
+                  </td>
+                </tr>
+<?php
+}
+?>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

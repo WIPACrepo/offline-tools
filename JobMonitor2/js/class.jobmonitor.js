@@ -58,7 +58,8 @@ function JobMonitor(params) {
         'api': $('#jm-dialog-api'),
         'feedback': $('#jm-dialog-feedback'),
         'version': $('#jm-dialog-version'),
-        'search': $('#jm-dialog-search')
+        'search': $('#jm-dialog-search'),
+        'testruns': $('#jm-dialog-24h-test-runs')
     };
 
     this._staticContent();
