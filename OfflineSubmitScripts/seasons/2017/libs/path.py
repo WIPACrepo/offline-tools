@@ -70,12 +70,13 @@ def get_env_python_path():
 
     return os.path.join(get_bindir(), 'EnvPython.sh')
 
-def get_sub_run_id_from_path(path, ptype, logger):
+def get_sub_run_id_from_path(path, pattern, logger):
     """
-    The pattern is gathered from the config file. The `ptype` matches the section. The name of the pattern must be `RegExpForSubRunId`.
+    The pattern is generated with stringmanipulation.make_regex_for_var.
 
     Args:
-        ptype (str): Level2, Level2pass2, PFFilt, PFDST
+        path (str): The path
+        pattern (str): The path pattern
         logger (Logger): The logger
 
     Returns:
@@ -83,9 +84,13 @@ def get_sub_run_id_from_path(path, ptype, logger):
     """
 
     import re
-    from config import get_config
+    from stringmanipulation import make_regex_for_var
 
-    c = re.compile(get_config(logger).get(ptype, 'RegExpForSubRunId'))
+    regex = make_regex_for_var(pattern, 'sub_run_id', ignored_var_names = '*')
+
+    logger.debug('Path = {path}, regex = {regex}'.format(path = path, regex = regex))
+
+    c = re.compile(regex)
     return int(c.search(path).groups()[0])
 
 def make_relative_symlink(source, link_name, dryrun, logger, replace = False):

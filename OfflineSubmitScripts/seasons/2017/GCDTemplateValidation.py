@@ -1,195 +1,209 @@
 #!/usr/bin/env python
 
-import os, sys
-import subprocess as sub
-import time
-import datetime
-import glob
-import json
-import subprocess as sub
-from libs.logger import get_logger
+import os
+import tarfile
+import subprocess
+
+from glob import glob
+
 from libs.argparser import get_defaultparser
-from libs.files import get_logdir, get_rootdir
-import libs.process
-import libs.config
+from libs.logger import get_logger
+from libs.config import get_config
+from libs.databaseconnection import DatabaseConnection
+from libs.utils import Counter
+from libs.process import Lock
+from libs.runs import Run
+from libs.path import get_tmpdir, get_env_python_path, get_logdir
+from libs.email import send_email
+from libs.files import File
 
-CONFIG = libs.config.get_config()
+def main(run_ids, args, config, logger):
+    counter = Counter(['handled', 'skipped', 'error', 'validated'])
 
-sys.path.append(CONFIG.get('DEFAULT', 'SQLClientPath'))
-sys.path.append(CONFIG.get('DEFAULT', 'ProductionToolsPath'))
+    logger.info('Start checking {0} runs'.format(len(run_ids)))
 
-import SendNotification as SN
-
-from RunTools import *
-from FileTools import *
-from DbTools import *
-
-import SQLClient_dbs4 as dbs4
-dbs4_ = dbs4.MySQL()
-
-DEFAULT_START_RUN = CONFIG.get('TemplateGCDChecks', 'DefaultStartRun')
-ENVSHELL   = "%s/./env-shell.sh" % CONFIG.get('L2', 'I3_BUILD')
-OFFLINEPRODUCTIONTOOLS = CONFIG.get('DEFAULT', 'ProductionToolsPath')
-
-CMPGCD = CONFIG.get('PoleGCDChecks', 'CmpGCDScriptName')
-
-SENDER = CONFIG.get('Notifications', 'eMailSender')
-RECEIVERS = libs.config.get_var_list('TemplateGCDChecks', 'NotificationReceiver')
-DOMAIN = CONFIG.get('Notifications', 'eMailDomain')
-
-LOGFILEPATH = get_logdir(sublogpath = "TemplateGCDChecks")
-LOGFILE = os.path.join(LOGFILEPATH, "TemplateGCDChecks_")
-
-def parse_logs(logFile, logger):
-    lFile = open(logFile,"r")
-
-    lines = lFile.readlines()
-
-    aDOMS = [l.split(" ")[0] for l in lines if "OMKey" in l]
-    notIceTop = []
-    for ad in aDOMS:
-        if ad.split(",")[1] not in ('61','62','63','64'): notIceTop.append(ad)
-    
-    logger.info("None IceTop DOMs with changes are: %s"%notIceTop)
-
-    rLines = [l for l in lines if "OMKey" in l]
-
-    changedVariables = []
-    for rl in rLines:
+    # Create Run objects and filter bad runs
+    runs = []
+    for run_id in sorted(run_ids):
         try:
-            cValues = []
-            cValues = rl.split("[")[1].split("]")[0].translate(None,""" ' """).split(",")
-        except:
-            pass
-    
-    changedVariables.extend(cValues)
-    changedVariables = list(set(changedVariables))
-    changedVariables.sort()
-    logger.info("Union of all changed values: %s"%changedVariables)
-    
-    return " , ".join(notIceTop),",".join(changedVariables)
+            r = Run(run_id, logger, dryrun = args.dryrun)
+            r.load()
 
-def main_cmp(fileDict, sRuns, dryrun):
-    # First run of season
-    first_run_of_season = libs.config.get_season_info()['first']
+            if r.is_good_run() or (r.is_test_run() and not r.is_failed_run()):
+                runs.append(r)
+        except LoadRunDataException:
+            logger.warning('Skipping run {0} since there are no DB entries'.format(run_id))
+            counter.count('skipped')
 
-    if first_run_of_season < 0:
-        logger.critical("Cannot execute check since no start run of season is defined. Exit.")
-        exit(1)
+    # Check runs
+    for i, run in enumerate(runs):
+        counter.count('handled')
 
-    for sRun in sRuns:
-        if sRun <= first_run_of_season:
-            continue # first template
-        
-        if fileDict[sRun][1] is not None:
-            logger.info("Run %s is already checked"%sRun)
+        if i == 0:
+            logger.warning(run.format('Run {run_id} is the first run in the given run list (might be the first run of season). Skip this run.'))
+            counter.count('skipped')
             continue
 
-        currentFile = fileDict[sRun][0]
-        templateFile = fileDict[sRuns[sRuns.index(sRun)-1]][0]
-   
-        logger.debug("fileDict = %s" % fileDict)
+        # Find previous/template GCD file
+        template_gcd = runs[i - 1].get_gcd_file()
 
-        logger.debug("currentFile = %s" % currentFile)
-        logger.debug("templateFile = %s" % templateFile)
- 
-        logger.info("current File: %s"%currentFile)
-        logger.info("template File: %s "%templateFile)
-    
-        sub.check_call(["cp",currentFile,"."])
-        sub.check_call(["cp",templateFile,"."])
-                
-        outLog = os.path.join(LOGFILEPATH, "Run%s.logs"%sRun)
-        logger.debug("Log file for run %s: %s"%(sRun, outLog))
-        
-        with open (outLog,"w") as oL:
-            logger.info("Attempting to compare %s to template: %s"%(currentFile,templateFile))
-            
-            try:
-                RV = sub.call([ENVSHELL, "python", os.path.join(OFFLINEPRODUCTIONTOOLS, CMPGCD),
-                                        "-f", currentFile, templateFile,"-v","-t"],stdout=oL, stderr=oL)
-                
-                if not dryrun:
-                    dbs4_.execute("""update i3filter.grl_snapshot_info g
-                                    set TemplateGCDCheck=%s where run_id=%s"""%(RV,sRun))
-                
-                if RV:
-                    [notIceTop,changedVariables] = parse_logs(outLog, logger)
-                    
-                    message = ""
-                    subject = " Template change for Run%s"%sRun
-                    messageBody = ""
-                    
-                    # only necessary for html emails
-                    mimeVersion="1.0"
-                    contentType="text/html"
-                    
-                    messageBody += """
-                                *** This is an automated message generated by the *** <br>
-                                ***        GCD Template Checking System   *** <br><br>
-                  
-                                The Template Check for<br>
-                                Run:<b>%s</b><br>
-                                returned a non-zero value: <b>%s</b> <br>
-                                The files compared are: <br><br>
-                                currentFile: %s <br>
-                                templateFile: %s <br><br>
-                                <b>Non-IceTop DOMs affected</b>: [%s] <br><br>
-                                <b>Union of affected values</b>: [%s]
-                                """%(sRun,RV,currentFile,templateFile,notIceTop,changedVariables)
-    
-                    message = SN.CreateMsg(DOMAIN, SENDER, RECEIVERS, subject,messageBody,mimeVersion,contentType)
-    
-                    if len(message) and not dryrun:
-                        SN.SendMsg(SENDER, RECEIVERS, message)
-    
-                
-            except Exception, err:
-                oL.write("\ncompare error for run %s"%sRun)
-                oL.write(str(err))
-        
-        #clean up 
-        os.system("rm *%s*"%sRun)
-        os.system("rm *%s*"%sRuns[sRuns.index(sRun)-1])
+        # Find current GCD file
+        current_gcd = run.get_gcd_file()
+        logger.debug('Current GCD file path: {0}'.format(current_gcd))
+        logger.debug('Template GCD file path: {0}'.format(template_gcd))
+
+        if current_gcd is None:
+            logger.warning(run.format('Run {run_id} has no north GCD file in the datawarehouse. Skip this run.'))
+            counter.count('skipped')
+            continue
+
+        if template_gcd is None:
+            logger.warning(runs[i - 1].format('Run {run_id} (template run) has no north GCD file in the datawarehouse. Skip this run.'))
+            counter.count('skipped')
+            continue
+
+        run_log_file = run.format(config.get('TemplateGCDChecks', 'RunLogFile'))
+
+        with open (run_log_file, 'w') as run_log:
+            return_code = subprocess.call([
+                get_env_python_path(),
+                config.get('GCDGeneration', 'GCDCompareTool'),
+                template_gcd.path,
+                current_gcd.path
+                ], stdout = run_log, stderr = run_log)
+
+        logger.debug('GCD Diff return code: {0}'.format(return_code))
+
+        sql = run.format("""
+            UPDATE i3filter.runs
+            SET gcd_template_validation = {return_code}
+            WHERE run_id = {run_id} AND
+                snapshot_id = {snapshot_id} AND
+                production_version = {production_version}
+        """, return_code = return_code)
+
+        logger.debug(sql)
+
+        if not args.dryrun:
+            db.execute(sql)
+
+        if return_code:
+            email_content = """
+                *** This is an automated message generated by the *** <br>
+                ***           Template Checking System            *** <br><br>
+
+                Template Check for<br>
+                Run: <b>{run_id}</b><br>
+                returned a non-zero value: <b>{return_code}</b> <br>
+                The files compared are:<br>
+                North File: {current_gcd}<br>
+                Pole File: {template_gcd}
+                """
+
+            email_content = run.format(email_content, return_code = return_code, current_gcd = current_gcd, template_gcd = template_gcd)
+
+            send_email(
+                config.get_var_list('TemplateGCDChecks', 'NotificationReceiver'),
+                run.format('Template change for Run {run_id}'),
+                email_content,
+                logger,
+                args.dryrun
+            )
+
+            logger.info(run.format("Check failed for run {run_id}"))
+            counter.count('error')
+        else:
+            logger.info(run.format("Run {run_id} passed check"))
+            counter.count('validated')
+
+        # Clean up
+        files = glob(os.path.join(get_tmpdir(), os.path.basename(os.path.splitext(sps_gcd.path)[0]) + '*'))
+
+        for f in files:
+            logger.debug('Delete: {0}'.format(f))
+
+            if not args.dryrun:
+                os.remove(f)
+
+    logger.info('Template GCD validation complete: {0}'.format(counter.get_summary()))
 
 if __name__ == '__main__':
-    argparser = get_defaultparser(__doc__, dryrun = True)
-    argparser.add_argument('-s', '--startrun', type = int, default = DEFAULT_START_RUN,
-                        dest = "STARTRUN",
-                        help = "Start run check from this run")
+    parser = get_defaultparser(__doc__, dryrun = True)
+    parser.add_argument("-s", "--startrun", type = int, required = False, default = None, help = "Start checking from this run")
+    parser.add_argument("-e", "--endrun", type = int, required = False, default= None, help = "End checking at this run")
+    parser.add_argument("--runs", type = int, nargs = '*', required = False, help = "Checking specific runs. Can be mixed with -s and -e")
+    args = parser.parse_args()
 
-    args = argparser.parse_args()
+    logfile = os.path.join(get_logdir(sublogpath = 'TemplateGCDChecks'), 'TemplateGCDChecks_')
 
-    logger = get_logger(args.loglevel, LOGFILE)
-    
-    lock = libs.process.Lock(os.path.basename(__file__), logger)
+    if args.logfile is not None:
+        logfile = args.logfile
+
+    logger = get_logger(args.loglevel, logfile)   
+
+    config = get_config(logger)
+
+    db = DatabaseConnection.get_connection('filter-db', logger)
+
+    # Check arguments
+    runs = args.runs
+
+    if runs is None:
+        runs = []
+
+    if args.startrun is not None:
+        if args.endrun is None:
+            logger.critical('If --startrun, -s has been set, also the --endrun, -e needs to be set.')
+            exit(1)
+
+        runs.extend(range(args.startrun, args.endrun + 1))
+    elif args.endrun is not None:
+        logger.critical('If --endrun, -e has been set, also the --startrun, -s needs to be set.')
+        exit(1)
+
+    if not len(runs):
+        # Get all runs of current season:
+        season = config.getint('DEFAULT', 'Season')
+        info = config.get_seasons_info()
+
+        first_run = info[season]['first']
+        test_runs = info[season]['test']
+        last_run = 99999999
+        exclude_next_testruns = []
+
+        if season + 1 in info:
+            if info[season + 1]['first'] > -1:
+                last_run = info[season + 1]['first'] - 1
+
+            exclude_next_testruns = info[season + 1]['test']
+
+        sql = """
+            SELECT run_id FROM i3filter.runs
+            WHERE (run_id BETWEEN {first_run} AND {last_run} OR run_id IN ({test_runs})) AND
+                run_id NOT IN ({exclude_next_testruns}) AND
+                (gcd_pole_validation IS NULL OR gcd_pole_validation > 0) AND
+                gcd_generated AND gcd_bad_doms_validated
+        """.format(
+            first_run = first_run,
+            last_run = last_run,
+            test_runs = ','.join([str(r) for r in test_runs + ['-1']]),
+            exclude_next_testruns = ','.join([str(r) for r in exclude_next_testruns + ['-1']])
+        )
+
+        logger.debug('SQL: {0}'.format(sql))
+        data = db.fetchall(sql)
+
+        for row in data:
+            runs.append(int(row['run_id']))
+
+        logger.warning("No runs were explecitely specified. Will check any not-checked run of season {season}.".format(season = season))
+   
+    lock = Lock(os.path.basename(__file__), logger)
     lock.lock()
-    
-    StartRun = args.STARTRUN
 
-    notChecked = dbs4_.fetchall(""" SELECT * FROM i3filter.grl_snapshot_info g where (GCDCheck and BadDOMsCheck)
-                               and run_id>=%s order by run_id"""%StartRun,UseDict=True)
+    main(runs, args, config, logger)
 
-    fileDict = {}
-    for n in notChecked:
-        currentFile = glob.glob("/data/exp/IceCube/%s/filtered/level2/AllGCD/*%s*"%(n['good_tstart'].year,n['run_id']))
-    
-        if len(currentFile):
-            if os.path.isfile(currentFile[0]):
-                fileDict[n['run_id']] = [currentFile[0],n['TemplateGCDCheck']]
-    
-    if not len(fileDict):
-        logger.info("No GCD file meet criteria for Template testing .... exiting")
-        exit(0)
-        
-    sRuns = fileDict.keys()
-    sRuns.sort()
-
-    logger.debug("Check the following runs: %s"%sRuns)
-
-    logger.debug("Notification Receivers: %s" % RECEIVERS)
-    logger.debug("Sender: %s%s" % (SENDER, DOMAIN))
-
-    main_cmp(fileDict, sRuns, args.dryrun)
-    
     lock.unlock()
+
+    logger.info('Done')
+

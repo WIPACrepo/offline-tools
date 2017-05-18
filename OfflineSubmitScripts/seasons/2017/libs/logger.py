@@ -48,7 +48,7 @@ class DummyLogger(object):
     def set_level(self, level):
         self.level = level
 
-def get_logger(loglevel, logfile):
+def get_logger(loglevel, logfile, no_svn = False):
     """
     A root logger with a formatted output logging to stdout and a file
 
@@ -102,9 +102,10 @@ def get_logger(loglevel, logfile):
     logger.info("Starting " + firstlog)
     logger.info("Using Python {0}".format(sys.version.replace('\n', ' ')))
 
-    svn = SVN(get_rootdir(), logger)
+    if not no_svn:
+        svn = SVN(get_rootdir(), logger)
+        logger.info("SVN Revision {0}".format(svn.get('Revision')))
 
-    logger.info("SVN Revision {0}".format(svn.get('Revision')))
     return logger
 
 def delete_log_file(logger):

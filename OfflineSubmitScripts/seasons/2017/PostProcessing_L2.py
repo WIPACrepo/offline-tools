@@ -17,18 +17,21 @@ from libs.postprocessing import validate_files
 from libs.files import tar_gaps_files, insert_gaps_file_info_into_db, tar_log_files, create_good_run_list, MetaXMLFile
 from libs.trimrun import trim_to_good_run_time_range
 from libs.path import make_relative_symlink, get_logdir
-from libs.utils import Counter
+from libs.utils import Counter, DBChecksumCache
 
-def validate_run(dataset_id, run, args, iceprod, logger, counter):
+def validate_run(dataset_id, run, args, iceprod, logger, counter, checksumcache):
     config = get_config(logger)
 
     logger.info(run.format("======= Checking run {run_id}, production_version {production_version}, dataset_id = {dataset_id} ===========", dataset_id = dataset_id))
 
     # Is already validated?
     if run.is_validated(dataset_id):
-        counter.count('skipped')
-        logger.info('Run has already been validated. Skip this run.')
-        return
+        if args.re_validate:
+            logger.info('Re-validate this run.')
+        else:
+            counter.count('skipped')
+            logger.info('Run has already been validated. Skip this run.')
+            return
 
     # Check run status
     run_status = iceprod.get_run_status(dataset_id, run)
@@ -37,7 +40,7 @@ def validate_run(dataset_id, run, args, iceprod, logger, counter):
         counter.count('skipped')
         return
 
-    if not validate_files(iceprod, dataset_id, run, logger):
+    if not validate_files(iceprod, dataset_id, run, checksumcache, logger):
         logger.error(run.format('Files validation failed for run {run_id}, production_version = {production_version}'))
         counter.count('error')
         return
@@ -79,7 +82,7 @@ def validate_run(dataset_id, run, args, iceprod, logger, counter):
         if args.dryrun:
             meta_file_dest = get_tmpdir()
         else:
-            meta_file_dest = run.format(config.get('Level2', 'RunFolder'))
+            meta_file_dest = run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER'))
 
         metafile = MetaXMLFile(meta_file_dest, run, 'L2', dataset_id, logger)
         metafile.add_post_processing_info(__file__)
@@ -91,7 +94,7 @@ def validate_run(dataset_id, run, args, iceprod, logger, counter):
 
     if not run.is_test_run():
         logger.info('Create run sym link')
-        make_relative_symlink(run.format(config.get('Level2', 'RunFolder')), run.format(config.get('Level2', 'RunLinkName')), args.dryrun, logger, replace = True)
+        make_relative_symlink(run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER')), run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER_LINK')), args.dryrun, logger, replace = True)
 
     logger.info('Mark as validated')
     run.set_post_processing_state(dataset_id, True)
@@ -103,6 +106,7 @@ def validate_run(dataset_id, run, args, iceprod, logger, counter):
 def main(args, run_ids, config, logger):
     db = DatabaseConnection.get_connection('filter-db', logger)
     iceprod = IceProd1(logger, args.dryrun)
+    checksumcache = DBChecksumCache(logger, dryrun = args.dryrun)
 
     counter = Counter(['handled', 'validated', 'skipped', 'error'])
 
@@ -150,8 +154,7 @@ def main(args, run_ids, config, logger):
     for run_id in run_ids:
         try:
             r = Run(run_id, logger, dryrun = args.dryrun)
-            r.get_production_version()
-
+            r.load()
             runs.append(r)
         except LoadRunDataException:
             logger.warning('Skipping run {0} since there are no DB entries'.format(run_id))
@@ -174,11 +177,11 @@ def main(args, run_ids, config, logger):
                     logger.critical('Did not find exactly one dataset id for run {0}: {1}'.format(run.run_id, dataset_id))
                     raise Exception('Did not find exactly one dataset id for run {0}: {1}'.format(run.run_id, dataset_id))
 
-                    dataset_id = dataset_id[0]
+                dataset_id = dataset_id[0]
 
             datasets.add(dataset_id)
 
-            validate_run(dataset_id, run, args, iceprod, logger, counter)
+            validate_run(dataset_id, run, args, iceprod, logger, counter, checksumcache)
         except Exception as e:
             counter.count('error')
             logger.exception(run.format("Exception {e} thrown for run = {run_id}, production_version = {production_version}", e = e))
@@ -222,10 +225,14 @@ if __name__ == '__main__':
     parser.add_argument("--runs", type = int, nargs = '*', required = False, help = "Submitting specific runs. Can be mixed with -s and -e")
     parser.add_argument("--nometadata", action = "store_true", default = False, help="Do not write meta data files")
     parser.add_argument("--cron", action = "store_true", default = False, help = "Use this option if you call this script via a cron")
+    parser.add_argument("--re-validate", action = "store_true", default = False, help = "Also validate runs that have already been validated")
     parser.add_argument("--create-grl-only", action = "store_true", default = False, help = "Do not validate runs. Just create the GRL for the current season")
     args = parser.parse_args()
 
     logfile = os.path.join(get_logdir(sublogpath = 'PostProcessing'), 'PostProcessing_')
+
+    if args.cron:
+        logfile += 'CRON_'
 
     if args.logfile is not None:
         logfile = args.logfile

@@ -63,6 +63,9 @@ class File(object):
     def __str__(self):
         return self.path
 
+    def __repr__(self):
+        return 'File({0})'.format(self.__str__())
+
     @classmethod
     def get_md5(cls, path, logger):
         f = cls(path, logger)
@@ -224,13 +227,17 @@ class GoodRunList(File):
                 f.write(create_line(self.columns, max_width, self._data[run_id], self._empty_cell_value) + '\n')
 
 class GapsFile(File):
-    def __init__(self, path, logger):
+    def __init__(self, path, logger, sub_run = None):
         super(GapsFile, self).__init__(path, logger)
         self._values = None
+        self._sub_run = sub_run
 
     def read(self, force = False):
         if self._values is not None and not force:
             return
+
+        from config import get_config
+        config = get_config(self.logger)
 
         self._values = {}
     
@@ -273,7 +280,15 @@ class GapsFile(File):
                 else:
                     self._values[key] = value
     
-        self._values['subrun'] = path.get_sub_run_id_from_path(self.path, 'Level2', self.logger)
+        if self._sub_run is None:
+            season = config.get_season_by_run(self.get_run_id())
+
+            if season < 0:
+                raise Exception('Season for run {0} has not been found'.format(season))
+
+            self._values['subrun'] = path.get_sub_run_id_from_path(self.path, config.get_l2_path_pattern(season, 'GAPS', pass_number = 1), self.logger)
+        else:
+            self._values['subrun'] = self._sub_run.sub_run_id
 
     def has_gaps(self):
         return 'gap' in self._values.keys()
@@ -646,11 +661,11 @@ def create_good_run_list(dataset_id, db, logger, dryrun):
             grl_row['ActiveInIce'] = run['active_in_ice_doms']
 
         # Not versioned version:
-        grl_row['OutDir'] = format_run_path(config.get('Level2', 'RunLinkName'))
+        grl_row['OutDir'] = format_run_path(config.get_l2_path_pattern(dataset_info['season'], 'RUN_FOLDER_LINK'))
         grl.add_run(copy.deepcopy(grl_row))
 
         # Versioned version:
-        grl_row['OutDir'] = format_run_path(config.get('Level2', 'RunFolder'))
+        grl_row['OutDir'] = format_run_path(config.get_l2_path_pattern(dataset_info['season'], 'RUN_FOLDER', pass_number = 1))
         grl_versioned.add_run(grl_row)
 
     # Write files
@@ -689,22 +704,21 @@ def create_good_run_list(dataset_id, db, logger, dryrun):
 
         path.make_relative_symlink(grl_versioned.path, symlink.path, dryrun, logger)
 
-def clean_datawarehouse(run, logger, dryrun):
+def clean_datawarehouse(run, logger, dryrun, run_folder):
     """
-    Cleans the run folder (Level2) of the given run. Removes ALL files and ALL folders
+    Cleans the run folder (usually Level2, when you do not specify a folder) of the given run. Removes ALL files and ALL folders
     that are in the run folder.
 
     Args:
         run (runs.Run): The run
         logger (Logger): The logger
         dryrun (boolean): If `True`, this function does NOT delete files.
+        run_folder (str): This folder will be emptied.
     """
 
     from config import get_config
     from glob import glob
     import shutil
-
-    run_folder = run.format(get_config(logger).get('Level2', 'RunFolder'))
 
     files = glob(os.path.join(run_folder, '*'))
 
@@ -761,10 +775,13 @@ def tar_log_files(run, logger, dryrun):
     from glob import glob
 
     config = get_config(logger)
-    tar_name = run.format(config.get('Level2', 'TarLogFileName'))
+
+    run_folder = config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER', pass_number = 1)
+
+    tar_name = run.format(config.get('Level2', 'TarLogFileName'), RUN_FOLDER = run_folder)
     glob_str = config.get_var_list('Level2', 'LogFileGlob')
 
-    globs = [run.format(gs) for gs in glob_str]
+    globs = [run.format(gs, RUN_FOLDER = run_folder) for gs in glob_str]
 
     files = []
     for g in globs:
@@ -796,8 +813,8 @@ def tar_gaps_files(iceprod, dataset_id, run, logger, dryrun):
 
     from config import get_config
 
-    gaps_path_pattern = get_config(logger).get('Level2', 'GapsFile')
-    gaps_tar_file = run.format(get_config(logger).get('Level2', 'GapsTarFile'))
+    run_folder = config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER', pass_number = 1)
+    gaps_tar_file = run.format(get_config(logger).get('Level2', 'GapsTarFile'), RUN_FOLDER = run_folder)
 
     l2files = run.get_level2_files()
     gaps_files = [f.get_gaps_file() for f in l2files]

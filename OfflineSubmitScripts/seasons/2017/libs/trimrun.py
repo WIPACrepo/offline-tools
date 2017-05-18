@@ -72,7 +72,7 @@ def trim_to_good_run_time_range(iceprod, dataset_id, run, logger, dryrun):
     from config import get_config
     from runs import SubRun
 
-    bad_sub_run_folder = run.format(get_config(logger).get('Level2', 'BadSubRunFolder'))
+    bad_sub_run_folder = run.format(get_config(logger).get_l2_path_pattern(run.get_season(), 'BAD_FILE_FOLDER'))
 
     l2files = SubRun.sort_sub_runs(run.get_level2_files())
     good_l2_files = []
@@ -180,7 +180,7 @@ def trim_sub_run(iceprod, dataset_id, sub_run, bad_sub_run_folder, logger, dryru
 
     # re-write gaps.txt file using new (trimmed) .i3 file
     logger.info('Re-creating the gaps file')
-    gaps_file = GapsFile(tmp_gaps_file, logger)
+    gaps_file = GapsFile(tmp_gaps_file, logger, sub_run = sub_run)
     gaps_file.create_from_data(sub_run.path, overwrite = True) # Just overwriting the file in the tmp folder!
 
     if not dryrun:

@@ -7,10 +7,10 @@ from libs.argparser import get_defaultparser
 from libs.iceprod1 import IceProd1
 from libs.config import get_config
 from libs.runs import Run, LoadRunDataException
-from libs.files import clean_datawarehouse, ChecksumCache, MetaXMLFile
+from libs.files import clean_datawarehouse, MetaXMLFile
 from libs.path import make_relative_symlink, get_logdir, get_tmpdir
 from libs.databaseconnection import DatabaseConnection
-from libs.utils import Counter
+from libs.utils import Counter, DBChecksumCache
 
 def main(args, run_ids, logger):
     config = get_config(logger)
@@ -43,14 +43,15 @@ def main(args, run_ids, logger):
     runs = []
     for run_id in run_ids:
         try:
-            r = Run(run_id, logger)
-            r.get_production_version()
+            r = Run(run_id, logger, dryrun = args.dryrun)
+            r.load()
             runs.append(r)
         except LoadRunDataException:
             logger.warning('Skipping run {0} since there are no DB entries'.format(run_id))
             counter.count('skipped')
 
-    runs = [run for run in runs if run.is_good_run() or run.is_test_run()]
+    # Submit only good runs or test runs (if not failed)
+    runs = [run for run in runs if run.is_good_run() or (run.is_test_run() and not run.is_failed_run())]
 
     iceprod = IceProd1(logger, args.dryrun)
 
@@ -61,7 +62,7 @@ def main(args, run_ids, logger):
                 logger.critical('Run {0} has not been submitted before. Do not use the resubmission flag to submit runs for the first time.'.format(run.run_id))
                 exit(1)
 
-    checksumcache = ChecksumCache(logger)
+    checksumcache = DBChecksumCache(logger, dryrun = args.dryrun)
 
     for run in runs:
         counter.count('handled')
@@ -69,74 +70,71 @@ def main(args, run_ids, logger):
         try:
             # Dataset id for this run
             dataset_id = run_id_dataset_id_mapping[run.run_id]
-    
+
             logger.info(run.format('Start submission for run {run_id} with dataset id {dataset_id}', dataset_id = dataset_id))
-    
+
             iceprod.clean_run(dataset_id, run)
-    
+
             if args.cleandatawarehouse:
-                clean_datawarehouse(run, logger, args.dryrun)
-    
+                clean_datawarehouse(run, logger, args.dryrun, run_folder = run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER')))
+
             # Create output folder if not exists
-            output = run.format(config.get('Level2', 'RunFolder'))
+            output = run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER'))
             if not os.path.exists(output):
                 logger.debug('Create output folder: {0}'.format(output))
-    
+
                 if not args.dryrun:
                     os.makedirs(output)
-    
+
             # Create GCD link
             gcd_file = run.get_gcd_file()
-    
+
             if gcd_file is None:
                 logger.critical('No GCD found')
                 counter.count('error')
                 continue
-    
+
             if not run.get_gcd_bad_dom_list_checked() or not run.get_gcd_generated():
                 logger.critical('The GCD file has not been validated yet')
                 counter.count('error')
                 continue   
- 
-            make_relative_symlink(gcd_file.path, run.format(config.get('Level2', 'RunFolderGCD')), args.dryrun, logger)
-    
+
+            make_relative_symlink(gcd_file.path, run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER_GCD')), args.dryrun, logger, replace = True)
+
             # Put GCD symlink in run folder into cache since it is probably used in iceprod.submit_run()
             run.get_gcd_file(force_reload = True)
-    
+
             # Check for input files
             input_files = run.get_pffilt_files()
-    
+
             if not len(input_files):
                 logger.critical('No input files found')
                 counter.count('error')
                 continue
-    
+
             # Submit run
-            iceprod.submit_run(dataset_id, run, checksumcache)
-    
+            iceprod.submit_run(dataset_id, run, checksumcache, 'PFFilt')
+
             # Write metadata
             if not args.nometadata:
                 meta_file_dest = ''
-    
+
                 if args.dryrun:
                     meta_file_dest = get_tmpdir()
                 else:
-                    meta_file_dest = run.format(config.get('Level2', 'RunFolder'))
-    
+                    meta_file_dest = run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER'))
+
                 metafile = MetaXMLFile(meta_file_dest, run, 'L2', dataset_id, logger)
                 metafile.add_main_processing_info()
             else:
                 logger.info("No meta data files will be written")
-    
+
             logger.info('Run {0} submitted'.format(run.run_id))
 
             counter.count('submitted')
         except Exception as e:
             counter.count('error')
             logger.exception(e)
-
-    if not args.dryrun:
-        checksumcache.write()
 
     logger.info('Run submission complete: {0}'.format(counter.get_summary()))
 

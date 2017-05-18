@@ -15,7 +15,6 @@ from libs.logger import get_logger
 from libs.path import get_logdir
 from libs.config import get_config
 from libs.utils import DBChecksumCache
-from libs.process import Lock
 from libs.stringmanipulation import replace_var
 
 def main(logger, args):
@@ -62,10 +61,6 @@ def main(logger, args):
 
     logger.info("Attempting Update @ {0}".format(datetime.now().isoformat().replace("T"," ")))
 
-    # Stop process if running
-    lock = Lock(os.path.basename(__file__), logger)
-    lock.lock()
-
     cache = DBChecksumCache(logger, dryrun = args.dryrun)
 
     current_day = date.today()
@@ -110,8 +105,6 @@ def main(logger, args):
 
         look_back += timedelta(days = 1)
 
-    lock.unlock()
-
 if __name__ == "__main__":
     argparser = get_defaultparser(__doc__, dryrun = True)
     argparser.add_argument('--start-date', type = str, required = False, default= None, help = "Do cache files between two dates. Start here. Format: YYYY-MM-DD")
@@ -125,7 +118,7 @@ if __name__ == "__main__":
     if args.logfile is not None:
         logfile = args.logfile
 
-    logger = get_logger(args.loglevel, logfile)
+    logger = get_logger(args.loglevel, logfile, no_svn = True)
 
     if args.type not in ['config', 'Level2', 'PFDST', 'PFFilt']:
         logger.critical('Unknown file type')

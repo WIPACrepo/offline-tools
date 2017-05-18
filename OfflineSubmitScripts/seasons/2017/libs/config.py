@@ -21,6 +21,7 @@ class Config(ConfigParser.SafeConfigParser):
         self.db = None
         self.season_info = None
         self.dataset_info = None
+        self.level3_info = None
 
     def get(self, section, option, raw=False, vars=None):
         r_opt = ConfigParser.SafeConfigParser.get(self, section, option, raw=True, vars=vars)
@@ -132,6 +133,63 @@ class Config(ConfigParser.SafeConfigParser):
 
         return val_list
 
+    def get_l2_path_pattern(self, season, ftype, pass_number = 1):
+        """
+        Returns the path pattern for the given season, pass and file type.
+
+        If no path pattern has been found, an Exception is raised.
+
+        Args:
+            season (int): The season, e.g. 2015
+            pass_number (int): Usually it is pass_number = 1 (default)
+            ftype (str): The file type: `DATA` (L2 files), `EHE`, `GCD`, `ICE_TOP`, `SLOP`, `RUN_FOLDER_GCD`
+
+        Returns:
+            str: The path pattern.
+        """
+
+        if ftype not in ['DATA', 'ICE_TOP', 'SLOP', 'EHE', 'GCD', 'RUN_FOLDER_GCD', 'GAPS', 'RUN_FOLDER', 'RUN_FOLDER_LINK', 'BAD_FILE_FOLDER']:
+            raise Exception('Unknown file type')
+
+        try:
+            section = None
+
+            if pass_number == 1:
+                if ftype == 'GCD':
+                    section = 'GCD'
+                else:
+                    section = 'Level2'
+            elif pass_number == 2:
+                if ftype == 'GCDPass2':
+                    section = 'GCD'
+                else:
+                    section = 'Level2pass2'
+            else:
+                self.logger.warning('Pass {0} is not supported!'.format(pass_number))
+
+            if section is not None:
+                value = self.get(section, ftype)
+                self.logger.warning('*** OVERRIDDEN VALUE {0} ***'.format(ftype))
+                return value
+
+        except ConfigParser.NoOptionError as e:
+            # OK, the value has not been overridden within the donfig file. Let's proceed
+            pass
+
+        season = int(season)
+        pass_number = int(pass_number)
+
+        if self.db is None:
+            self.db = DatabaseConnection.get_connection('filter-db', self.logger);
+
+        sql = "SELECT * FROM i3filter.level2_paths WHERE `season` = {season} AND `pass` = {pass_number} AND `type` = '{ftype}'".format(season = season, pass_number = pass_number, ftype = ftype)
+
+        result = self.db.fetchall(sql)
+        if not len(result):
+            raise Exception('Did not find pattern')
+
+        return result[0]['pattern']
+
     def get_seasons_info(self, force_reload = False):
         """
         Returns the available informations of the seasons that are stored in the database
@@ -166,7 +224,7 @@ class Config(ConfigParser.SafeConfigParser):
                 if row['test_runs'] is not None:
                     testruns = [int(r) for r in row['test_runs'].split(',')]
 
-                seasons[int(row['season'])] = {'first': row['first_run'], 'test': testruns}
+                seasons[int(row['season'])] = {'first': row['first_run'], 'test': testruns, 'detector_config': row['detector_config']}
 
             self.season_info = collections.OrderedDict(sorted(seasons.items()))
 
@@ -238,6 +296,55 @@ class Config(ConfigParser.SafeConfigParser):
         """
 
         return self.get_datasets_info(force_reload = force_reload)[int(dataset_id)]
+
+    def get_level3_info(self, force_reload = False):
+        """
+        Returns information about all L3 datasets that are in the database. The returned object is an OrderedDict that contains as
+        the keys the dataset id. To combine it with season info, look for the 'season' value.
+
+        Args:
+            force_reload (boolean): If `True`, no cached data will be used. The default is `False` and usally the value does not change within a script.
+
+        Returns:
+            collection.OrderedDict: The dict with dataset ids as keys
+        """
+
+        if self.level3_info is None or force_reload:
+            if self.db is None:
+                self.db = DatabaseConnection.get_connection('filter-db', self.logger);
+
+            self.logger.debug('Load data')
+
+            data = self.db.fetchall("SELECT * FROM i3filter.datasets ds JOIN i3filter.level3_outdir l3 ON ds.dataset_id = l3.dataset_id WHERE type = 'L3'")
+
+            datasets = {}
+
+            for row in data:
+                datasets[int(row['dataset_id'])] = row
+
+            self.level3_info = collections.OrderedDict(sorted(datasets.items()))
+
+        return self.level3_info
+
+    def get_source_dataset_ids(self, dataset_id):
+        """
+        Get all parent dataset ids for the given dataset id. The dataset ids are ordered by priority: The first one has the highest priority.
+
+        Note: L2 datasets do not have a parent dataset id.
+
+        Args:
+            dataset_id (int): The dataset id
+
+        Returns:
+            list: The parent dataset ids.
+        """
+
+        if self.db is None:
+            self.db = DatabaseConnection.get_connection('filter-db', self.logger);
+
+        data = self.db.fetchall('SELECT * FROM i3filter.source_dataset_id WHERE dataset_id = {0} ORDER BY priority, source_dataset_id'.format(dataset_id))
+
+        return [int(r['source_dataset_id']) for r in data]
 
     def get_season_by_run(self, run_id, force_reload = False):
         """

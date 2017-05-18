@@ -186,6 +186,8 @@ class DBChecksumCache(ChecksumCache):
         if not self.dryrun:
             self.db.execute(sql)
 
+        return self._data[ctype][path]
+
     def get_checksum(self, path, ctype):
         if self.has_checksum(path, ctype):
             return self._data[ctype][path]

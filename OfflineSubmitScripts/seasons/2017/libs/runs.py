@@ -2,6 +2,7 @@
 import os
 import files
 import times
+import json
 from config import get_config
 from icecube import dataclasses, icetray
 
@@ -26,6 +27,7 @@ class Run(object):
         self._subruns = {'common': None, 'PFDST': None, 'PFFilt': None, 'Level2': None, 'Level2pass2': None}
         self._gcd_file = None
         self._season = None
+        self._detector_configuration = None
 
     def get_sub_runs(self, force_reload = False):
         """
@@ -129,7 +131,34 @@ class Run(object):
 
         return self.is_good_ice_top_run(force_reload) or self.is_good_in_ice_run(force_reload)
 
-    def set_data(self, tstart, tstart_frac, good_tstart, good_tstart_frac, tstop, tstop_frac, good_tstop, good_tstop_frac, good_i3, good_it, snapshot_id, production_version, nevents, rate):
+    def is_failed_run(self, force_reload = False):
+        """
+        Checks if this run is marked as failed. It is only a secondary information! If it is a bad run, it
+        is still a bad run if it is not a failed run!
+
+        The information is gathered from the comments in reason_i3 and reason_it.
+
+        Args:
+            force_reload (boolean): If `True`, no cached data will be used. The default is `False` and usally the value does not change within a script.
+
+        Returns:
+            boolean: `True` if it is a failed run.
+        """
+        self._load_data(force_reload)
+
+        sample = None
+
+        self.logger.debug('Data: {0}'.format(self._data))
+
+        try:
+            sample = json.loads(self._data['reason_i3'])
+            sample.extend(json.loads(self._data['reason_it']))
+        except ValueError:
+            sample = self._data['reason_i3'] + self._data['reason_it']
+
+        return 'failed' in sample
+
+    def set_data(self, tstart, tstart_frac, good_tstart, good_tstart_frac, tstop, tstop_frac, good_tstop, good_tstop_frac, good_i3, good_it, reason_i3, reason_it, snapshot_id, production_version, nevents, rate):
         """
         In order to be able to use this class although this run is not in the production database yet, you need to provide all information
         explicitely.
@@ -138,6 +167,22 @@ class Run(object):
         # Set common sub run info to a empty dict to avoid auto-loading.
         self._subruns['common'] = {}
         self._data = locals()
+
+    def load(self):
+        """
+        Forces to load almost all data now if not already loaded.
+
+        Can be used to determine if a run is in the DB. If the run is not in the DB, `LoadRunDataException` is thrown.
+        """
+        self._load_data()
+
+    def reload(self):
+        """
+        Forces to (re-)load almost all data now.
+
+        Can be used to determine if a run is in the DB. If the run is not in the DB, `LoadRunDataException` is thrown.
+        """
+        self._load_data(force_reload = True)
 
     def _load_data(self, force_reload = False):
         """
@@ -398,17 +443,19 @@ class Run(object):
             from glob import glob
             from path import get_sub_run_id_from_path
 
-            path_pattern = replace_var(path_pattern, 'sub_run_id', '*')
+            path_pattern_repl = replace_var(path_pattern, 'sub_run_id', '*')
 
             next_day = self.get_start_time().date_time + relativedelta(days = 1)
 
-            todays_path = self.format(path_pattern)
-            tomorrows_path = self.format(path_pattern, **{'year': next_day.year, 'month': next_day.month, 'day': next_day.day})
+            todays_path = self.format(path_pattern_repl)
+            tomorrows_path = self.format(path_pattern_repl, **{'year': next_day.year, 'month': next_day.month, 'day': next_day.day})
+
+            self.logger.debug('path patterns: {0} and {1}'.format(todays_path, tomorrows_path))
 
             paths = glob(todays_path)
             paths.extend(glob(tomorrows_path))
 
-            result = {get_sub_run_id_from_path(p, x, self.logger): p for p in paths}
+            result = {get_sub_run_id_from_path(p, path_pattern, self.logger): p for p in paths}
 
             # Create SubRuns
             self._subruns[x] = {}
@@ -467,7 +514,7 @@ class Run(object):
             list: List of SubRuns
         """
 
-        return self._get_x_files(get_config(self.logger).get('Level2', 'Level2File'), 'Level2', force_reload).values()
+        return self._get_x_files(get_config(self.logger).get_l2_path_pattern(season = self.get_season(), ftype = 'DATA', pass_number = 1), 'Level2', force_reload).values()
 
     def get_level2pass2_files(self, force_reload = False):
         """
@@ -480,7 +527,7 @@ class Run(object):
             list: List of SubRuns
         """
 
-        return self._get_x_files(get_config(self.logger).get('Level2pass2', 'Level2pass2File'), 'Level2pass2', force_reload).values()
+        return self._get_x_files(get_config(self.logger).get_l2_path_pattern(season = self.get_season(), ftype = 'DATA', pass_number = 2), 'Level2pass2', force_reload).values()
 
     def set_post_processing_state(self, dataset_id, validated):
         """
@@ -563,8 +610,6 @@ class Run(object):
         """
         Look for GCD files in the following order:
           1. run folder
-          2. verified gcd folder
-          3. all gcd folder
           4. data files folder
 
         Args:
@@ -580,11 +625,11 @@ class Run(object):
         config = get_config(self.logger)
 
         paths = [
-            config.get('Level2', 'RunFolderGCD'),
-            config.get('GCD', 'VerifiedGCDPath'),
-            config.get('GCD', 'AllGCDPath'),
-            config.get('GCD', 'GCDDataPath'),
+            config.get_l2_path_pattern(self.get_season(), 'RUN_FOLDER_GCD'),
+            config.get_l2_path_pattern(self.get_season(), 'GCD'),
         ]
+
+        self.logger.debug('GCD lookup paths: {0}'.format(paths))
 
         f = None
         for path in paths:
@@ -652,6 +697,14 @@ class Run(object):
         return result[0]['validated']
 
     def get_season(self):
+        """
+        This is a shortut for `get_config().get_season_by_run(run.run_id)`. If the
+        season could not be determined, an Exception is thrown.
+
+        Returns:
+            int: The season, e.g. 2016
+        """
+
         if self._season is None:
             self._season = get_config(self.logger).get_season_by_run(self.run_id)
             if self._season == -1:
@@ -659,7 +712,21 @@ class Run(object):
 
         return self._season
 
-    def format(self, path, force_reload = False, **kwargs):
+    def get_detector_configuration(self):
+        """
+        Shortcut for `get_config().get_season_info(run.get_season())['detector_config']`.
+        Raises an Exception if the season has not been found.
+
+        Returns:
+            str: The detector configuration, e.g. IC79, IC86.
+        """
+
+        if self._detector_configuration is None:
+            self._detector_configuration = get_config(self.logger).get_season_info(self.get_season())['detector_config']
+
+        return self._detector_configuration
+
+    def format(self, path_, force_reload = False, **kwargs):
         """
         Formats paths or strings with the information of this run. It provides the values for the following data:
             * run_id
@@ -669,6 +736,8 @@ class Run(object):
             * season
             * production_version
             * snapshot_id
+            * ic86_season
+            * detector_configuration
             * now (the current time)
 
         Args:
@@ -683,7 +752,7 @@ class Run(object):
         if 'run_id' not in kwargs:
             kwargs['run_id'] = self.run_id
 
-        if 'ywar' not in kwargs:
+        if 'year' not in kwargs:
             kwargs['year'] = self._data['tstart'].year
 
         if 'month' not in kwargs:
@@ -701,19 +770,51 @@ class Run(object):
         if 'snapshot_id' not in kwargs:
             kwargs['snapshot_id'] = self._data['snapshot_id']
 
+        if 'ic86_season' not in kwargs:
+            ic86_season =  self.get_season()
+
+            if ic86_season < 2011:
+                raise Exception('This run is not IC86! You cannot use `ic86_season`.')
+
+            kwargs['ic86_season'] = int(str(ic86_season)[-1])
+
+        if 'detector_configuration' not in kwargs:
+            kwargs['detector_configuration'] = self.get_detector_configuration()
+
         if 'now' not in kwargs:
             kwargs['now'] = datetime.datetime.now()
 
-        return path.format(**kwargs)
+        return path_.format(**kwargs)
+
+    def __str__(self):
+        return self.format('(run_id = {run_id}, snapshot_id = {snapshot_id}, production_version = {production_version})')
+
+    def __repr__(self):
+        return self.__str__()
+
+    @classmethod
+    def sort_runs(cls, runs):
+        """
+        Sorts a list of runs by run id.
+
+        Args:
+            runs (list): List of runs
+
+        Returns:
+            list: Sorted list of runs
+        """
+
+        return sorted(runs, key = lambda r: r.run_id)
 
 class SubRun(files.File):
-    def __init__(self, path, logger):
+    def __init__(self, path, logger, pass_number = 1):
         super(SubRun, self).__init__(path, logger)
 
         self.run = None
         self.sub_run_id = None
         self.filetype = None
         self._data = None
+        self.pass_number = pass_number
 
     def copy(self):
         """
@@ -841,7 +942,7 @@ class SubRun(files.File):
         """
 
         from files import GapsFile
-        return GapsFile(self.format(get_config(self.logger).get('Level2', 'GapsFile')), self.logger)
+        return GapsFile(self.format(get_config(self.logger).get_l2_path_pattern(self.run.get_season(), 'GAPS', pass_number = self.pass_number)), self.logger, sub_run = self)
 
     def mark_as_bad(self):
         """
@@ -861,7 +962,7 @@ class SubRun(files.File):
         if not self.run.dryrun:
             self.run._db.execute(self.format(sql, bad = 1))
 
-    def format(self, path, force_reload = False, **kwargs):
+    def format(self, path_, force_reload = False, **kwargs):
         """
         Same as Run.format() but it also knows about the sub run id.
         """
@@ -869,7 +970,16 @@ class SubRun(files.File):
         if 'sub_run_id' not in kwargs:
             kwargs['sub_run_id'] = self.sub_run_id
 
-        return self.run.format(path, force_reload = force_reload, **kwargs)
+        if 'path' not in kwargs:
+            kwargs['path'] = self.path
+
+        return self.run.format(path_, force_reload = force_reload, **kwargs)
+
+    def __str__(self):
+        return self.format('(run_id = {run_id}, sub_run_id = {sub_run_id}, snapshot_id = {snapshot_id}, production_version = {production_version}, path = {path})')
+
+    def __repr__(self):
+        return self.__str__()
 
     @classmethod
     def sort_sub_runs(cls, sub_runs):
@@ -1036,5 +1146,102 @@ def validate_file_integrity(run, files, logger, run_start_time = None, run_stop_
             logger.debug('Found file with wrong permissions: {0}'.format(f.path))
 
     return (not mismatches) and len(detailed_info_element['empty_files']) == 0 and len(detailed_info_element['wrong_permission']) == 0
+
+def get_all_runs_of_season(season, logger):
+    """
+    Returns a list of good run ids of the given season that are in the `runs` table.
+
+    Args:
+        season (int): The season
+
+    Returns:
+        list: List of run ids
+    """
+
+    from databaseconnection import DatabaseConnection
+    db = DatabaseConnection.get_connection('filter-db', logger)
+
+    seasons = get_config(logger).get_seasons_info()
+    first_run = seasons[season]['first']
+    last_run = 99999999
+    exclude_next_testruns = []
+
+    if first_run <= 0:
+        raise Exception('Not sufficient information for the given season: {0}'.format(season))
+
+    if season + 1 in seasons:
+        if seasons[season + 1]['first'] > 0:
+            last_run = seasons[season + 1]['first'] - 1
+
+        exclude_next_testruns = seasons[season + 1]['test']
+
+    sql = """
+        SELECT
+            run_id
+        FROM i3filter.runs
+        WHERE (run_id BETWEEN {first_run} AND {last_run} OR run_id IN ({test_runs}))
+            AND run_id NOT IN ({exclude_next_testruns})
+            AND (good_it OR good_i3)
+    """.format(
+            first_run = first_run,
+            test_runs = ','.join([str(r) for r in seasons[season]['test']] + ['-1']),
+            last_run = last_run,
+            exclude_next_testruns = ','.join(str(r) for r in exclude_next_testruns + ['-1'])
+    )
+
+    logger.debug('SQL: {0}'.format(sql))
+
+    return [e['run_id'] for r in db.fetchall(sql)]
+
+def get_validated_runs(dataset_id, logger):
+    """
+    Returns a list of run ids of validated runs of the given dataset id.
+
+    Args:
+        dataset_id (int): The dataset_id
+
+    Returns:
+        list: Run ids.
+    """
+
+    # It's compllicated:
+    #   1) If it is a L3 dataset < 1885, we do not have any information. Therefore, ignore the validation flag.
+    #   2) If it is a L2 dataset < 1915, there is no dataset specific validation information. Therefore, we need
+    #      to check for `dataset_id = 0`.
+    #   3) For season 2010 and 2012 there are no validation information found
+
+    dataset = get_config(logger).get_dataset_info(dataset_id)
+
+    sql = """
+    SELECT run_id FROM i3filter.runs r
+    JOIN i3filter.post_processing pp
+        ON r.run_id = pp.run_id
+    WHERE pp.dataset_id = {dataset_id}
+        AND pp.validated = 1
+    """
+
+    eff_dataset_id = dataset_id
+
+    if dataset['type'] == 'L2':
+        if dataset['season'] in [2010, 2012]:
+            # No validation information found
+            return get_all_runs_of_season(dataset['season'])
+        elif dataset_id < 1915:
+            eff_dataset_id = 0
+    elif dataset['type'] == 'L3':
+        if dataset_id < 1885:
+            # Ok, only look for L2 validated runs
+            eff_dataset_id = 0
+    else:
+        raise Exception('Not supported dataset type')
+
+    sql = sql.format(dataset_id = eff_dataset_id)
+
+    logger.debug('SQL: {0}'.format(sql))
+
+    from databaseconnection import DatabaseConnection
+    db = DatabaseConnection.get_connection('filter-db', logger)
+
+    return [e['run_id'] for r in db.fetchall(sql)]
 
 

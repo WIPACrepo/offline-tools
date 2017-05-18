@@ -213,19 +213,21 @@ def main(inputfiletype, logger, dryrun, check):
         run = Run(r, logger)
         run.set_data(
             tstart = current_run_data['tStart'],
-            tstart_frac = current_run_data['tStart_frac'],
+            tstart_frac = current_run_data['tStart_frac'] or 0,
             good_tstart = current_run_data['good_tstart'] or current_run_data['tStart'],
-            good_tstart_frac = current_run_data['good_tstart_frac'] or current_run_data['tStart_frac'],
+            good_tstart_frac = current_run_data['good_tstart_frac'] or current_run_data['tStart_frac'] or 0,
             tstop = current_run_data['tStop'],
-            tstop_frac = current_run_data['tStop_frac'],
+            tstop_frac = current_run_data['tStop_frac'] or 0,
             good_tstop = current_run_data['good_tstop'] or current_run_data['tStop'],
-            good_tstop_frac = current_run_data['good_tstop_frac'] or current_run_data['tStop_frac'],
+            good_tstop_frac = current_run_data['good_tstop_frac'] or current_run_data['tStop_frac'] or 0,
             good_i3 = current_run_data['good_i3'],
             good_it = current_run_data['good_it'],
             snapshot_id = current_run_data['snapshot_id'],
             production_version = current_info['production_version'],
-            nevents = current_run_data['nEvents'],
-            rate = current_run_data['rateHz']
+            nevents = current_run_data['nEvents'] or 0,
+            rate = current_run_data['rateHz'] or 0,
+            reason_i3 = current_run_data['reason_i3'] or '',
+            reason_it = current_run_data['reason_it'] or ''
         )
 
         logger.debug("Is run {run_id} a good run? = {is_good_run}".format(run_id = run.run_id, is_good_run = run.is_good_run()))
@@ -283,7 +285,7 @@ def main(inputfiletype, logger, dryrun, check):
             update_comment = 'Updated in snapshot {0}'.format(run.get_snapshot_id())
 
         # Insert new runs from live in filter-db
-        if check_files or (not run.is_good_run() and not run.is_test_run()):
+        if check_files or (not run.is_good_run() and (not run.is_test_run() or run.is_failed_run())):
             logger.info('Insert run into database')
 
             run_insertion_sql = """
@@ -309,9 +311,9 @@ def main(inputfiletype, logger, dryrun, check):
                     good_tstop = times.get_db_time(run.get_good_stop_time()),
                     good_tstop_frac = times.get_db_frac(run.get_good_stop_time()),
                     tstart = current_run_data['tStart'],
-                    tstart_frac = current_run_data['tStart_frac'],
+                    tstart_frac = current_run_data['tStart_frac'] or 0,
                     tstop = current_run_data['tStop'],
-                    tstop_frac = current_run_data['tStop_frac'],
+                    tstop_frac = current_run_data['tStop_frac'] or 0,
                     nevents = run.get_number_of_events(),
                     rate = run.get_rate()
             )
