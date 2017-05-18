@@ -26,6 +26,8 @@ from libs.checks import CheckFiles
 import libs.process
 from GoodRuntimeAdjust import main as GoodRuntimeAdjust
 
+from libs.databaseconnection import DatabaseConnection
+
 import SQLClient_i3live as live
 import SQLClient_dbs4 as dbs4
 import SQLClient_dbs2 as dbs2
@@ -76,6 +78,22 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False):
                          set validated=1
                          where run_id=%s and production_version=%s"""%\
                      (r['run_id'],str(r['production_version'])))
+
+
+    sql = """   INSERT INTO post_processing
+                    (run_id, dataset_id, validated, date_of_validation)
+                VALUES
+                    (%s, %s, %s, NOW())
+                ON DUPLICATE KEY UPDATE
+                    validated = %s,
+                    date_of_validation = NOW()
+                    """ % (r['run_id'], 0, 1, 1)
+
+    logger.debug("SQL: %s" % sql)
+
+    if not dryrun:
+        filter_db = DatabaseConnection.get_connection('filter-db', logger)
+        filter_db.execute(sql)
 
     sDay = r['tStart']
     sY = sDay.year

@@ -42,6 +42,8 @@ from libs.argparser import get_defaultparser
 from libs.runs import set_post_processing_state, get_validated_runs
 import libs.process
 
+from libs.databaseconnection import DatabaseConnection
+
 ##-----------------------------------------------------------------
 ## setup DB
 ##-----------------------------------------------------------------
@@ -303,7 +305,8 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
                 counter['errors'] = counter['errors'] + 1
             
             if not dryrun:
-                set_post_processing_state(RunId, DDatasetId, verified, dbs4_, dryrun, logger)
+                filter_db = DatabaseConnection.get_connection('filter-db', logger)
+                set_post_processing_state(RunId, DDatasetId, verified, dbs4_, filter_db, dryrun, logger)
 
         except Exception,err:
             logger.exception(err)

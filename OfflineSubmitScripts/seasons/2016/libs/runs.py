@@ -262,7 +262,7 @@ def get_validated_runs(dataset_id, dbs4, use_dict = True, logger = DummyLogger()
     return dbs4.fetchall(sql, UseDict = use_dict)
 
 
-def set_post_processing_state(run_id, dataset_id, validated, dbs4, dryrun, logger = DummyLogger()):
+def set_post_processing_state(run_id, dataset_id, validated, dbs4, filter_db, dryrun, logger = DummyLogger()):
     """
     Sets the flag for the specified run and dataset in the database.
 
@@ -292,4 +292,18 @@ def set_post_processing_state(run_id, dataset_id, validated, dbs4, dryrun, logge
 
     if not dryrun:
         dbs4.execute(sql)
+
+    sql = """   INSERT INTO post_processing
+                    (run_id, dataset_id, validated, date_of_validation)
+                VALUES
+                    (%s, %s, %s, NOW())
+                ON DUPLICATE KEY UPDATE
+                    validated = %s,
+                    date_of_validation = NOW()
+                    """ % (run_id, dataset_id, validated, validated)
+
+    logger.debug("SQL: %s" % sql)
+
+    if not dryrun:
+        filter_db.execute(sql)
 
