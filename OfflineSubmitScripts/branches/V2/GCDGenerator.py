@@ -6,7 +6,7 @@ from icecube import icetray
 
 from libs.argparser import get_defaultparser
 from libs.logger import DummyLogger, get_logger
-from libs.path import get_condor_scratch_folder, make_relative_symlink
+from libs.path import get_condor_scratch_folder
 from libs.config import get_config
 from libs.runs import Run
 from libs.gcdgeneration import *
@@ -29,8 +29,6 @@ def main(run_id, production_version, snapshot_id, outdir, logger):
 
     # Format paths
     gcd_data_path = run.format(config.get('GCD', 'GCDDataPath'))
-    gcd_all_path = run.format(config.get('GCD', 'AllGCDPath'))
-    gcd_verified_path = run.format(config.get('GCD', 'VerifiedGCDPath'))
 
     # If outdir was set, use new location
     if outdir:
@@ -38,14 +36,6 @@ def main(run_id, production_version, snapshot_id, outdir, logger):
     else:
         if not os.path.exists(os.path.dirname(gcd_data_path)):
             os.makedirs(os.path.dirname(gcd_data_path))
-
-    # Create folders if neccessary
-    if not os.path.exists(os.path.dirname(gcd_all_path)):
-        logger.debug('Create {0}'.format(os.path.dirname(gcd_all_path)))
-        os.mkdir(os.path.dirname(gcd_all_path))
-    if not os.path.exists(os.path.dirname(gcd_verified_path)):
-        logger.debug('Create {0}'.format(os.path.dirname(gcd_verified_path)))
-        os.mkdir(os.path.dirname(gcd_verified_path))
 
     # Generate the actual GCD file
     generate_gcd(run, gcd_data_path, spe_correction_file, logger)

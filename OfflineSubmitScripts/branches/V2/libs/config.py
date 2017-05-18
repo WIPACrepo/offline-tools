@@ -133,6 +133,63 @@ class Config(ConfigParser.SafeConfigParser):
 
         return val_list
 
+    def get_l2_path_pattern(self, season, ftype, pass_number = 1):
+        """
+        Returns the path pattern for the given season, pass and file type.
+
+        If no path pattern has been found, an Exception is raised.
+
+        Args:
+            season (int): The season, e.g. 2015
+            pass_number (int): Usually it is pass_number = 1 (default)
+            ftype (str): The file type: `DATA` (L2 files), `EHE`, `GCD`, `ICE_TOP`, `SLOP`, `RUN_FOLDER_GCD`
+
+        Returns:
+            str: The path pattern.
+        """
+
+        if ftype not in ['DATA', 'ICE_TOP', 'SLOP', 'EHE', 'GCD', 'RUN_FOLDER_GCD', 'GAPS', 'RUN_FOLDER', 'RUN_FOLDER_LINK', 'BAD_FILE_FOLDER']:
+            raise Exception('Unknown file type')
+
+        try:
+            section = None
+
+            if pass_number == 1:
+                if ftype == 'GCD':
+                    section = 'GCD'
+                else:
+                    section = 'Level2'
+            elif pass_number == 2:
+                if ftype == 'GCDPass2':
+                    section = 'GCD'
+                else:
+                    section = 'Level2pass2'
+            else:
+                self.logger.warning('Pass {0} is not supported!'.format(pass_number))
+
+            if section is not None:
+                value = self.get(section, ftype)
+                self.logger.warning('*** OVERRIDDEN VALUE {0} ***'.format(ftype))
+                return value
+
+        except ConfigParser.NoOptionError as e:
+            # OK, the value has not been overridden within the donfig file. Let's proceed
+            pass
+
+        season = int(season)
+        pass_number = int(pass_number)
+
+        if self.db is None:
+            self.db = DatabaseConnection.get_connection('filter-db', self.logger);
+
+        sql = "SELECT * FROM i3filter.level2_paths WHERE `season` = {season} AND `pass` = {pass_number} AND `type` = '{ftype}'".format(season = season, pass_number = pass_number, ftype = ftype)
+
+        result = self.db.fetchall(sql)
+        if not len(result):
+            raise Exception('Did not find pattern')
+
+        return result[0]['pattern']
+
     def get_seasons_info(self, force_reload = False):
         """
         Returns the available informations of the seasons that are stored in the database

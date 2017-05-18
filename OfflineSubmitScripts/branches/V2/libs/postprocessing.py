@@ -36,7 +36,6 @@ def validate_GCD(jobs, run, logger):
     * Do use all jobs the expected GCD file
     * Does the expected GCD file exist
     * Check if several GCD files exist in run folder
-    * Check if the run has a verified GCD file
 
     Args:
         jobs (dict): Output of IceProdInterface.get_jobs()
@@ -56,7 +55,7 @@ def validate_GCD(jobs, run, logger):
 
     logger.info('GCD file has been validated')
 
-    gcd_name_pattern = config.get('Level2', 'RunFolderGCD')
+    gcd_name_pattern = config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER_GCD')
     gcd_name = run.format(gcd_name_pattern)
 
     # Check if all jobs have the same GCD file
@@ -155,14 +154,6 @@ def validate_GCD(jobs, run, logger):
 
     logger.info('Found exactly one GCD file in run folder')
 
-    # Check if run has verified GCD file
-    verified_gcd_path = run.format(config.get('GCD', 'VerifiedGCDPath'))
-    if not os.path.exists(verified_gcd_path):
-        logger.error('Did not find the verified GCD file for this run. Expected path is {0}'.format(verified_gcd_path))
-        return False
-
-    logger.info('Found verified GCD file for this run')
-
     # Yay! All checks passed
     return True
 
@@ -189,7 +180,7 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger):
             continue
 
         found_l2_output = False
-        expected_l2_file_name = run.format(config.get('Level2', 'Level2File'), sub_run_id = sub_run_id)
+        expected_l2_file_name = run.format(config.get_l2_path_pattern(run.get_season(), 'DATA'), sub_run_id = sub_run_id)
 
         logger.info('Calculating checksums for sub run {0}'.format(sub_run_id))
 

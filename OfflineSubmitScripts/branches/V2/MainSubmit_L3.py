@@ -85,11 +85,11 @@ def main(run_ids, config, args, logger):
                         counter.count('skipped')
                 else:
                     runs.append(r)
-
-                runs.append(r)
         except LoadRunDataException:
             logger.warning('Skipping run {0} since there are no DB entries'.format(run_id))
             counter.count('skipped')
+
+    logger.debug('runs = {0}'.format(runs))
 
     for run in runs:
         counter.count('handled')
@@ -110,7 +110,7 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, coun
     logger.info('Output folder: {0}'.format(outdir))
 
     # Are there L2 files?
-    sub_runs = run.get_sub_runs()
+    sub_runs = run.get_sub_runs().values()
     l2files = run.get_level2_files()
 
     if not len(l2files):
@@ -122,6 +122,14 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, coun
         # Ok, there are some mismatches of how many L2 _could_ be there and how many are actually are there
         # This does NOT indicate an error. It could be an error. If sub runs have been marked as bad, there are no L2 files.
         # Therefore, check if this is the case
+
+        logger.debug('L2 files: {0}'.format(len(l2files)))
+        for f in l2files:
+            logger.debug('  {0}'.format(f))
+
+        logger.debug('Subruns: {0}'.format(len(sub_runs)))
+        for f in sub_runs:
+            logger.debug('  {0}'.format(f))
 
         sub_runs = [sr for sr in sub_runs if not sr.is_bad()]
 
@@ -284,6 +292,7 @@ if __name__ == '__main__':
         logger.critical("--destination-dataset-id is required")
         exit(1)
 
+    delete_log = False
     lock = None
     if args.cron:
         if not config.getboolean('Level3', 'CronMainSubmission'):
@@ -294,7 +303,13 @@ if __name__ == '__main__':
         lock = Lock(os.path.basename(__file__), logger)
         lock.lock()
 
-    main(runs, config, args, logger)
+        # If it is a cron, delete the log of nothing happened
+        delete_log = True
+
+    counter = main(runs, config, args, logger)
+
+    if counter.get('handled') > 0:
+        delete_log = False
 
     if delete_log:
         delete_log_file(logger)

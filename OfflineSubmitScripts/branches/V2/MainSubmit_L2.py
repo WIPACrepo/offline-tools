@@ -50,7 +50,8 @@ def main(args, run_ids, logger):
             logger.warning('Skipping run {0} since there are no DB entries'.format(run_id))
             counter.count('skipped')
 
-    runs = [run for run in runs if run.is_good_run() or run.is_test_run()]
+    # Submit only good runs or test runs (if not failed)
+    runs = [run for run in runs if run.is_good_run() or (run.is_test_run() and not run.is_failed_run())]
 
     iceprod = IceProd1(logger, args.dryrun)
 
@@ -75,10 +76,10 @@ def main(args, run_ids, logger):
             iceprod.clean_run(dataset_id, run)
 
             if args.cleandatawarehouse:
-                clean_datawarehouse(run, logger, args.dryrun, run_folder = run.format(config.get('Level2', 'RunFolder')))
+                clean_datawarehouse(run, logger, args.dryrun, run_folder = run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER')))
 
             # Create output folder if not exists
-            output = run.format(config.get('Level2', 'RunFolder'))
+            output = run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER'))
             if not os.path.exists(output):
                 logger.debug('Create output folder: {0}'.format(output))
 
@@ -98,7 +99,7 @@ def main(args, run_ids, logger):
                 counter.count('error')
                 continue   
 
-            make_relative_symlink(gcd_file.path, run.format(config.get('Level2', 'RunFolderGCD')), args.dryrun, logger, replace = True)
+            make_relative_symlink(gcd_file.path, run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER_GCD')), args.dryrun, logger, replace = True)
 
             # Put GCD symlink in run folder into cache since it is probably used in iceprod.submit_run()
             run.get_gcd_file(force_reload = True)
@@ -121,7 +122,7 @@ def main(args, run_ids, logger):
                 if args.dryrun:
                     meta_file_dest = get_tmpdir()
                 else:
-                    meta_file_dest = run.format(config.get('Level2', 'RunFolder'))
+                    meta_file_dest = run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER'))
 
                 metafile = MetaXMLFile(meta_file_dest, run, 'L2', dataset_id, logger)
                 metafile.add_main_processing_info()

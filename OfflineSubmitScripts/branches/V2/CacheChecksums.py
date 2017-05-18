@@ -118,7 +118,7 @@ if __name__ == "__main__":
     if args.logfile is not None:
         logfile = args.logfile
 
-    logger = get_logger(args.loglevel, logfile)
+    logger = get_logger(args.loglevel, logfile, no_svn = True)
 
     if args.type not in ['config', 'Level2', 'PFDST', 'PFFilt']:
         logger.critical('Unknown file type')

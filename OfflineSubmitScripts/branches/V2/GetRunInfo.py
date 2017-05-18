@@ -225,7 +225,9 @@ def main(inputfiletype, logger, dryrun, check):
             snapshot_id = current_run_data['snapshot_id'],
             production_version = current_info['production_version'],
             nevents = current_run_data['nEvents'] or 0,
-            rate = current_run_data['rateHz'] or 0
+            rate = current_run_data['rateHz'] or 0,
+            reason_i3 = current_run_data['reason_i3'] or '',
+            reason_it = current_run_data['reason_it'] or ''
         )
 
         logger.debug("Is run {run_id} a good run? = {is_good_run}".format(run_id = run.run_id, is_good_run = run.is_good_run()))
@@ -283,7 +285,7 @@ def main(inputfiletype, logger, dryrun, check):
             update_comment = 'Updated in snapshot {0}'.format(run.get_snapshot_id())
 
         # Insert new runs from live in filter-db
-        if check_files or (not run.is_good_run() and not run.is_test_run()):
+        if check_files or (not run.is_good_run() and (not run.is_test_run() or run.is_failed_run())):
             logger.info('Insert run into database')
 
             run_insertion_sql = """

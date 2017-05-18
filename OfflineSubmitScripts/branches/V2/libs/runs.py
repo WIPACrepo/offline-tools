@@ -2,6 +2,7 @@
 import os
 import files
 import times
+import json
 from config import get_config
 from icecube import dataclasses, icetray
 
@@ -130,7 +131,34 @@ class Run(object):
 
         return self.is_good_ice_top_run(force_reload) or self.is_good_in_ice_run(force_reload)
 
-    def set_data(self, tstart, tstart_frac, good_tstart, good_tstart_frac, tstop, tstop_frac, good_tstop, good_tstop_frac, good_i3, good_it, snapshot_id, production_version, nevents, rate):
+    def is_failed_run(self, force_reload = False):
+        """
+        Checks if this run is marked as failed. It is only a secondary information! If it is a bad run, it
+        is still a bad run if it is not a failed run!
+
+        The information is gathered from the comments in reason_i3 and reason_it.
+
+        Args:
+            force_reload (boolean): If `True`, no cached data will be used. The default is `False` and usally the value does not change within a script.
+
+        Returns:
+            boolean: `True` if it is a failed run.
+        """
+        self._load_data(force_reload)
+
+        sample = None
+
+        self.logger.debug('Data: {0}'.format(self._data))
+
+        try:
+            sample = json.loads(self._data['reason_i3'])
+            sample.extend(json.loads(self._data['reason_it']))
+        except ValueError:
+            sample = self._data['reason_i3'] + self._data['reason_it']
+
+        return 'failed' in sample
+
+    def set_data(self, tstart, tstart_frac, good_tstart, good_tstart_frac, tstop, tstop_frac, good_tstop, good_tstop_frac, good_i3, good_it, reason_i3, reason_it, snapshot_id, production_version, nevents, rate):
         """
         In order to be able to use this class although this run is not in the production database yet, you need to provide all information
         explicitely.
@@ -415,17 +443,19 @@ class Run(object):
             from glob import glob
             from path import get_sub_run_id_from_path
 
-            path_pattern = replace_var(path_pattern, 'sub_run_id', '*')
+            path_pattern_repl = replace_var(path_pattern, 'sub_run_id', '*')
 
             next_day = self.get_start_time().date_time + relativedelta(days = 1)
 
-            todays_path = self.format(path_pattern)
-            tomorrows_path = self.format(path_pattern, **{'year': next_day.year, 'month': next_day.month, 'day': next_day.day})
+            todays_path = self.format(path_pattern_repl)
+            tomorrows_path = self.format(path_pattern_repl, **{'year': next_day.year, 'month': next_day.month, 'day': next_day.day})
+
+            self.logger.debug('path patterns: {0} and {1}'.format(todays_path, tomorrows_path))
 
             paths = glob(todays_path)
             paths.extend(glob(tomorrows_path))
 
-            result = {get_sub_run_id_from_path(p, x, self.logger): p for p in paths}
+            result = {get_sub_run_id_from_path(p, path_pattern, self.logger): p for p in paths}
 
             # Create SubRuns
             self._subruns[x] = {}
@@ -484,7 +514,7 @@ class Run(object):
             list: List of SubRuns
         """
 
-        return self._get_x_files(get_config(self.logger).get('Level2', 'Level2File'), 'Level2', force_reload).values()
+        return self._get_x_files(get_config(self.logger).get_l2_path_pattern(season = self.get_season(), ftype = 'DATA', pass_number = 1), 'Level2', force_reload).values()
 
     def get_level2pass2_files(self, force_reload = False):
         """
@@ -497,7 +527,7 @@ class Run(object):
             list: List of SubRuns
         """
 
-        return self._get_x_files(get_config(self.logger).get('Level2pass2', 'Level2pass2File'), 'Level2pass2', force_reload).values()
+        return self._get_x_files(get_config(self.logger).get_l2_path_pattern(season = self.get_season(), ftype = 'DATA', pass_number = 2), 'Level2pass2', force_reload).values()
 
     def set_post_processing_state(self, dataset_id, validated):
         """
@@ -580,8 +610,6 @@ class Run(object):
         """
         Look for GCD files in the following order:
           1. run folder
-          2. verified gcd folder
-          3. all gcd folder
           4. data files folder
 
         Args:
@@ -597,11 +625,11 @@ class Run(object):
         config = get_config(self.logger)
 
         paths = [
-            config.get('Level2', 'RunFolderGCD'),
-            config.get('GCD', 'VerifiedGCDPath'),
-            config.get('GCD', 'AllGCDPath'),
-            config.get('GCD', 'GCDDataPath'),
+            config.get_l2_path_pattern(self.get_season(), 'RUN_FOLDER_GCD'),
+            config.get_l2_path_pattern(self.get_season(), 'GCD'),
         ]
+
+        self.logger.debug('GCD lookup paths: {0}'.format(paths))
 
         f = None
         for path in paths:
@@ -779,13 +807,14 @@ class Run(object):
         return sorted(runs, key = lambda r: r.run_id)
 
 class SubRun(files.File):
-    def __init__(self, path, logger):
+    def __init__(self, path, logger, pass_number = 1):
         super(SubRun, self).__init__(path, logger)
 
         self.run = None
         self.sub_run_id = None
         self.filetype = None
         self._data = None
+        self.pass_number = pass_number
 
     def copy(self):
         """
@@ -913,7 +942,7 @@ class SubRun(files.File):
         """
 
         from files import GapsFile
-        return GapsFile(self.format(get_config(self.logger).get('Level2', 'GapsFile')), self.logger)
+        return GapsFile(self.format(get_config(self.logger).get_l2_path_pattern(self.run.get_season(), 'GAPS', pass_number = self.pass_number)), self.logger, sub_run = self)
 
     def mark_as_bad(self):
         """

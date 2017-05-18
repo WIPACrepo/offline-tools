@@ -20,7 +20,7 @@ from libs.files import File
 def main(run_ids, args, config, logger):
     counter = Counter(['handled', 'skipped', 'error', 'validated'])
 
-    logger.info('Start checking {0} runs'.format(len(runs)))
+    logger.info('Start checking {0} runs'.format(len(run_ids)))
 
     # Create Run objects and filter bad runs
     runs = []
@@ -29,7 +29,7 @@ def main(run_ids, args, config, logger):
             r = Run(run_id, logger, dryrun = args.dryrun)
             r.load()
 
-            if r.is_good_run():
+            if r.is_good_run() or (r.is_test_run() and not r.is_failed_run()):
                 runs.append(r)
         except LoadRunDataException:
             logger.warning('Skipping run {0} since there are no DB entries'.format(run_id))
