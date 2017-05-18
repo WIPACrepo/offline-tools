@@ -93,7 +93,7 @@ def grl_to_runs(dbs4, filter_db):
         counter += 1
 
         # Skip 2017 runs:
-        if e['run_id'] in [129393, 129394, 129395, 129396, 129397]:
+        if e['run_id'] in [129393, 129394, 129395, 129396, 129397] or e['run_id'] >= 129523:
             print 'Skip 2017 run: {0}'.format(e['run_id'])
             continue
     
@@ -154,7 +154,7 @@ def post_processing(dbs4, filter_db):
         counter += 1
 
         # Skip 2017 runs and datasets after 1914:
-        if e['run_id'] in [129393, 129394, 129395, 129396, 129397] or e['dataset_id'] > 1914:
+        if e['run_id'] in [129393, 129394, 129395, 129396, 129397] or e['dataset_id'] > 1914 or e['run_id'] >= 129523:
             print 'Skip run because too new: {0}'.format(e['run_id'])
             continue
     
@@ -195,7 +195,7 @@ WHERE
         counter += 1
 
         # Skip 2017 runs and datasets after 1914:
-        if e['run_id'] in [129393, 129394, 129395, 129396, 129397] or e['dataset_id'] > 1914:
+        if e['run_id'] in [129393, 129394, 129395, 129396, 129397] or e['dataset_id'] > 1914 or e['run_id'] >= 129523:
             print 'Skip run because too new: {0}'.format(e['run_id'])
             continue
 
