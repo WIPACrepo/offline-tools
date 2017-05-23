@@ -163,7 +163,7 @@ class DBChecksumCache(ChecksumCache):
 
             self.logger.debug('SQL: {0}'.format(sql))
 
-            query = self.db.fetchall(sql)
+            query = self.db.fetchall(sql, UseDict = True)
             if len(query) == 1:
                 self._data[ctype][path] = query[0]['md5']
             elif len(query) == 0:
@@ -189,6 +189,8 @@ class DBChecksumCache(ChecksumCache):
 
         if not self.dryrun:
             self.db.execute(sql)
+
+        return self._data[ctype][path]
 
     def get_checksum(self, path, ctype):
         if self.has_checksum(path, ctype):

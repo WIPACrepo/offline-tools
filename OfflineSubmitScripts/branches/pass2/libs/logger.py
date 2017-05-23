@@ -85,8 +85,8 @@ def get_logger(loglevel,logfile):
         logfile = logfile.replace("." + str(logfilecount -1),"")
         logfile = logfile +"." + str(logfilecount)
         logfilecount += 1
-        if logfilecount >= 60:
-            raise SystemError("More than 1 logfile per second, this is insane.. aborting")
+#        if logfilecount >= 60:
+#            raise SystemError("More than 1 logfile per second, this is insane.. aborting")
    
     fh = logging.FileHandler(logfile)
     fh.setFormatter(formatter)
