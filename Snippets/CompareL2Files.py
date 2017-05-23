@@ -106,14 +106,14 @@ def compare(files):
     pyplot.yscale('log', nonposy='clip')
     h1 = pyplot.hist(qtot[0], bins, alpha = 0.5, label = 'file 1')
     pyplot.legend(loc = 'upper right')
-    pyplot.savefig('/home/joertlin/public_html/tmp/pass2cpr_1.png')
+    pyplot.savefig('/home/joertlin/public_html/tmp/pass2cpr_1_2.png')
 
     # H2
     pyplot.figure()
     pyplot.yscale('log', nonposy='clip')
     h2 = pyplot.hist(qtot[1], bins, alpha = 0.5, label = 'file 2')
     pyplot.legend(loc = 'upper right')
-    pyplot.savefig('/home/joertlin/public_html/tmp/pass2cpr_2.png')
+    pyplot.savefig('/home/joertlin/public_html/tmp/pass2cpr_2_2.png')
 
     # H2
     pyplot.figure()
@@ -121,7 +121,7 @@ def compare(files):
     pyplot.hist(qtot[0], bins, alpha = 0.5, label = 'file 1')
     pyplot.hist(qtot[1], bins, alpha = 0.5, label = 'file 2')
     pyplot.legend(loc = 'upper right')
-    pyplot.savefig('/home/joertlin/public_html/tmp/pass2cpr.png')
+    pyplot.savefig('/home/joertlin/public_html/tmp/pass2cpr_2.png')
 
     # Diff
     import math
@@ -133,7 +133,7 @@ def compare(files):
 
     pyplot.figure()
     pyplot.plot(h2[1][:-1], data, 'bo')
-    pyplot.savefig('/home/joertlin/public_html/tmp/pass2cpr_diff.png')
+    pyplot.savefig('/home/joertlin/public_html/tmp/pass2cpr_diff_2.png')
     
 
 
