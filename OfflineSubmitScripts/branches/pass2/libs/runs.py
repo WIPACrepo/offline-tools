@@ -40,6 +40,9 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, checksumcache, dryrun, logg
     if input:
         logger.debug("InFiles glob = %s" % format_path(input))
         InFiles = sorted(glob.glob(format_path(input)))
+
+    # Filter xml files
+    InFiles = [f for f in InFiles if 'xml' not in f]
  
     logger.debug("InFiles = %s" % InFiles)
  
