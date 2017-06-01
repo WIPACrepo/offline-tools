@@ -24,7 +24,7 @@ from libs.files import File
 def main(run_ids, args, config, logger):
     counter = Counter(['handled', 'skipped', 'error', 'validated'])
 
-    logger.info('Start checking {0} runs'.format(len(runs)))
+    logger.info('Start checking {0} runs'.format(len(run_ids)))
 
     # Create Run objects and filter bad runs
     runs = []

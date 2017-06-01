@@ -224,7 +224,7 @@ class Config(ConfigParser.SafeConfigParser):
                 if row['test_runs'] is not None:
                     testruns = [int(r) for r in row['test_runs'].split(',')]
 
-                seasons[int(row['season'])] = {'first': row['first_run'], 'test': testruns, 'detector_config': row['detector_config']}
+                seasons[int(row['season'])] = {'first': int(row['first_run']), 'test': testruns, 'detector_config': row['detector_config']}
 
             self.season_info = collections.OrderedDict(sorted(seasons.items()))
 
@@ -358,6 +358,8 @@ class Config(ConfigParser.SafeConfigParser):
             int: Season. If no season found, -1 will be returned.
         """
         seasons = self.get_seasons_info(force_reload = force_reload)
+
+        run_id = int(run_id)
 
         found_season = -1
         for s, v in seasons.iteritems():

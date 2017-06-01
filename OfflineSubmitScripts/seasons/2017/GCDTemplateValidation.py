@@ -69,7 +69,8 @@ def main(run_ids, args, config, logger):
                 get_env_python_path(),
                 config.get('GCDGeneration', 'GCDCompareTool'),
                 template_gcd.path,
-                current_gcd.path
+                current_gcd.path,
+                '--ignore-start-end-times'
                 ], stdout = run_log, stderr = run_log)
 
         logger.debug('GCD Diff return code: {0}'.format(return_code))
@@ -115,15 +116,6 @@ def main(run_ids, args, config, logger):
         else:
             logger.info(run.format("Run {run_id} passed check"))
             counter.count('validated')
-
-        # Clean up
-        files = glob(os.path.join(get_tmpdir(), os.path.basename(os.path.splitext(sps_gcd.path)[0]) + '*'))
-
-        for f in files:
-            logger.debug('Delete: {0}'.format(f))
-
-            if not args.dryrun:
-                os.remove(f)
 
     logger.info('Template GCD validation complete: {0}'.format(counter.get_summary()))
 
