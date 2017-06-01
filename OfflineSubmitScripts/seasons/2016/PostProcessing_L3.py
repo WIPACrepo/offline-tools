@@ -83,6 +83,8 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
         logger.critical("Can't access GRL file %s for run validation, check path, exiting ...... " % GRL)
         return counter
         
+    logger.info('Use GRL: %s' % GRL)
+
     with open(GRL,"r") as G:
         L = G.readlines()
         GoodRuns = [int(l.split()[0]) for l in L if l.split()[0].isdigit()]

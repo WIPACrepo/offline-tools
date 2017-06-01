@@ -197,6 +197,8 @@ def get_season_by_run(run_id):
     """
     seasons = get_seasons_info()
 
+    run_id = int(run_id)
+
     found_season = -1
     for s, v in seasons.iteritems():
         if (run_id >= v['first'] and v['first'] != -1) or run_id in v['test']:
