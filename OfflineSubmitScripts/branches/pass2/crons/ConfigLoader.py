@@ -2,7 +2,7 @@
 
 import sys
 
-sys.path.append('/data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2016/')
+sys.path.append('/data/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_pass2/')
 import libs.files
 from libs.config import get_config
 

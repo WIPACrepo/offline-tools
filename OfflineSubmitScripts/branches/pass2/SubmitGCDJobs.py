@@ -189,8 +189,8 @@ if __name__ == '__main__':
             exit(1)
  
         GCDNamePass1 = GCDFilesPass1[-1]
-        GCDName = os.path.join(GCDDir, "Level2pass2_%sdata_Run00%s_%s_%s_GCD.i3.gz" % (Season, r, PV, SId))
-        GCDLinkName = "Level2pass2_%sdata_Run00%s_%s%s_%s_%s_GCD.i3.gz"%(Season, r, sM, sD, PV, SId)
+        GCDName = os.path.join(GCDDir, "Level2pass2_%sdata_Run00%s_%s_%s_GCD.i3.zst" % (Season, r, PV, SId))
+        GCDLinkName = "Level2pass2_%sdata_Run00%s_%s%s_%s_%s_GCD.i3.zst"%(Season, r, sM, sD, PV, SId)
 
         if not dryrun and not options.out:
             os.system("ln -sf %s %s/%s"%(os.path.relpath(GCDName, GCDDirVerified), GCDDirVerified, GCDLinkName))
