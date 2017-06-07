@@ -8,6 +8,7 @@ from libs.argparser import get_defaultparser
 from libs.logger import get_logger
 from libs.path import get_logdir, get_tmpdir, get_rootdir, get_env_python_path
 from libs.runs import Run
+from libs.databaseconnection import DatabaseConnection
 
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__, dryrun = True)
@@ -15,6 +16,7 @@ if __name__ == '__main__':
     parser.add_argument("-e", "--endrun", type = int, required = False, default= None, help = "End generating GCD files at this run")
     parser.add_argument("--runs", type = int, nargs = '*', required = False, help = "Generate GCD file of specific runs. Can be mixed with -s and -e")
     parser.add_argument("--resubmission", action = "store_true", default = False, help = "Regenerate GCD file even if already attempted")
+    parser.add_argument("--local-execution", action = "store_true", default = False, help = "Do not submit a condor file. Generate a .sh file inseatd. It contains the run commands in order to generate the GCD files on your local machine.")
     args = parser.parse_args() 
 
     logfile = os.path.join(get_logdir(sublogpath = 'MainProcessing'), 'SubmitGCDJobs_')
@@ -23,6 +25,11 @@ if __name__ == '__main__':
         logfile = args.logfile
 
     logger = get_logger(args.loglevel, logfile)
+
+    # DB connection
+    db = DatabaseConnection.get_connection('filter-db', logger)
+    if db is None:
+        raise Exception('No database connection')
 
     # Config
     config = get_config(logger)
@@ -58,6 +65,12 @@ if __name__ == '__main__':
 
     runs = [Run(run_id, logger = logger, dryrun = args.dryrun) for run_id in runs]
 
+    if args.local_execution:
+        from datetime import datetime
+        bash_file = open(config.get('GCD', 'LocalExecutionBashFile'), 'w')
+        bash_file.write('# This file needs to be execute manually!\n')
+        bash_file.write('# This file was create at {0}\n'.format(datetime.now()))
+
     for run in runs:
         logger.info('Submit GCD generation script for run {0}'.format(run.run_id))
 
@@ -88,30 +101,37 @@ if __name__ == '__main__':
                 logger.info('{0} does not exist yet. Creating...'.format(os.path.dirname(out_log)))
                 os.makedirs(os.path.dirname(out_log))
 
-        with open(condor_file_path,"w") as condor_file:
-            condor_file.write("Universe = vanilla ")
-            condor_file.write('\nExecutable = {0}'.format(get_env_python_path()))
-            condor_file.write(run.format("\narguments =  {script} --run-id {run_id} --production-version {production_version} --snapshot-id {snapshot_id}", script = os.path.join(get_rootdir(), 'GCDGenerator.py')))
-            condor_file.write("\nLog = {0}".format(condor_log))
-            condor_file.write("\nError = {0}".format(condor_err))
-            condor_file.write("\nOutput = {0}".format(out_log))
-            condor_file.write("\nNotification = Never")
-            condor_file.write("\npriority = 15")
-            condor_file.write("\nQueue")
+        if args.local_execution:
+            bash_file.write(run.format('nohup {python} {script} --run-id {run_id} --production-version {production_version} --snapshot-id {snapshot_id} > {logfile} &\n', python = get_env_python_path(), script = os.path.join(get_rootdir(), 'GCDGenerator.py'), logfile = run.format(config.get('GCD', 'LocalExecutionLogFile'))))
+        else:
+            with open(condor_file_path,"w") as condor_file:
+                condor_file.write("Universe = vanilla ")
+                condor_file.write('\nExecutable = {0}'.format(get_env_python_path()))
+                condor_file.write(run.format("\narguments =  {script} --run-id {run_id} --production-version {production_version} --snapshot-id {snapshot_id}", script = os.path.join(get_rootdir(), 'GCDGenerator.py')))
+                condor_file.write("\nLog = {0}".format(condor_log))
+                condor_file.write("\nError = {0}".format(condor_err))
+                condor_file.write("\nOutput = {0}".format(out_log))
+                condor_file.write("\nNotification = Never")
+                condor_file.write("\npriority = 15")
+                condor_file.write("\nQueue")
 
         if not args.dryrun:
             if args.resubmission:
                 logger.debug("Update i3filter.runs: gcd_generated = 0, gcd_bad_doms_validated = 0, gcd_pole_validation = NULL, gcd_template_validation = NULL")
-                dbs4_.execute(run.format("""UPDATE i3filter.runs
+                db.execute(run.format("""UPDATE i3filter.runs
                                  SET gcd_generated = 0, gcd_bad_doms_validated = 0, gcd_pole_validation = NULL, gcd_template_validation = NULL
                                  WHERE run_id = {run_id}
                                     AND snapshot_id = {snapshot_id}
                                     AND production_version = {production_version}
                               """))
 
-            logger.debug("Execute `condor_submit {0}`".format(condor_file_path))
-            processoutput = subprocess.check_output("condor_submit {0}".format(condor_file_path), shell = True, stderr = subprocess.STDOUT)
-            logger.info(processoutput.strip())
+            if not args.local_execution:
+                logger.debug("Execute `condor_submit {0}`".format(condor_file_path))
+                processoutput = subprocess.check_output("condor_submit {0}".format(condor_file_path), shell = True, stderr = subprocess.STDOUT)
+                logger.info(processoutput.strip())
+
+    if args.local_execution:
+        bash_file.close()
 
     logger.info('Done')
 
