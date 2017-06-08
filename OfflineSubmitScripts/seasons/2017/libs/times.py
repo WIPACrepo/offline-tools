@@ -9,9 +9,12 @@ def get_i3time(time, frac, i3time = None):
         i3time (dataclasses.I3Time): If you want to set an existing time, pass the time here
 
     Returns:
-        dataclasses.I3Time: Returns the I3Time. If you passed a `i3time` it is the same object.
+        dataclasses.I3Time: Returns the I3Time. If you passed a `i3time` it is the same object. Returns `None` if `time` is `None`.
     """
     from icecube import dataclasses
+
+    if time is None:
+        return None
 
     if i3time is None:
         i3time = dataclasses.I3Time()
@@ -34,10 +37,13 @@ def get_db_time(i3time):
         i3time (dataclasses.I3Time): The I3Time.
 
     Returns:
-        datetime.datetime: No microseconds.
+        datetime.datetime: No microseconds. `None` if `i3time` is `None`.
     """
 
-    return i3time.date_time.replace(microsecond = 0)
+    if i3time is None:
+        return None
+    else:
+        return i3time.date_time.replace(microsecond = 0)
 
 def get_db_frac(i3time):
     """
@@ -50,6 +56,8 @@ def get_db_frac(i3time):
         int: Tenth of nanoseconds since the last second.
     """
 
-    return int(i3time.utc_nano_sec * 10)
-
+    if i3time is None:
+        return None
+    else:
+        return int(i3time.utc_nano_sec * 10)
 

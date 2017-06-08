@@ -230,6 +230,11 @@ def main(inputfiletype, logger, dryrun, check):
             reason_it = current_run_data['reason_it'] or ''
         )
 
+        logger.debug('Current run data: {0}'.format(current_run_data))
+        logger.debug('Current run._data: {0}'.format(run._data))
+
+        logger.debug('Current good_tstart: {0}'.format(run.get_good_start_time()))
+
         logger.debug("Is run {run_id} a good run? = {is_good_run}".format(run_id = run.run_id, is_good_run = run.is_good_run()))
 
         check_files = True
@@ -294,33 +299,35 @@ def main(inputfiletype, logger, dryrun, check):
                     `good_tstart`, `good_tstart_frac`, `good_tstop`, `good_tstop_frac`, `tstart`, `tstart_frac`, `tstop`, `tstop_frac`,
                     `nevents`, `rate`
                 ) VALUES (
-                    {run_id}, {snapshot_id}, {production_version}, {good_i3}, {good_it}, '{reason_i3}', '{reason_it}',
-                    '{good_tstart}', {good_tstart_frac}, '{good_tstop}', {good_tstop_frac}, '{tstart}', {tstart_frac},
-                    '{tstop}', {tstop_frac}, {nevents}, {rate}
+                    %(run_id)s, %(snapshot_id)s, %(production_version)s, %(good_i3)s, %(good_it)s, %(reason_i3)s, %(reason_it)s,
+                    %(good_tstart)s, %(good_tstart_frac)s, %(good_tstop)s, %(good_tstop_frac)s, %(tstart)s, %(tstart_frac)s,
+                    %(tstop)s, %(tstop_frac)s, %(nevents)s, %(rate)s
                 )
-            """.format(
-                    run_id = run.run_id,
-                    snapshot_id = run.get_snapshot_id(),
-                    production_version = run.get_production_version(),
-                    good_i3 = int(run.is_good_in_ice_run()),
-                    good_it = int(run.is_good_ice_top_run()),
-                    reason_i3 = current_run_data['reason_i3'],
-                    reason_it = current_run_data['reason_it'],
-                    good_tstart = times.get_db_time(run.get_good_start_time()),
-                    good_tstart_frac = times.get_db_frac(run.get_good_start_time()),
-                    good_tstop = times.get_db_time(run.get_good_stop_time()),
-                    good_tstop_frac = times.get_db_frac(run.get_good_stop_time()),
-                    tstart = current_run_data['tStart'],
-                    tstart_frac = current_run_data['tStart_frac'] or 0,
-                    tstop = current_run_data['tStop'],
-                    tstop_frac = current_run_data['tStop_frac'] or 0,
-                    nevents = run.get_number_of_events(),
-                    rate = run.get_rate()
-            )
+            """
+
+            run_insertion_args = {
+                    'run_id': run.run_id,
+                    'snapshot_id': run.get_snapshot_id(),
+                    'production_version': run.get_production_version(),
+                    'good_i3': int(run.is_good_in_ice_run()),
+                    'good_it': int(run.is_good_ice_top_run()),
+                    'reason_i3': current_run_data['reason_i3'],
+                    'reason_it': current_run_data['reason_it'],
+                    'good_tstart': times.get_db_time(run.get_good_start_time()),
+                    'good_tstart_frac': times.get_db_frac(run.get_good_start_time()),
+                    'good_tstop': times.get_db_time(run.get_good_stop_time()),
+                    'good_tstop_frac': times.get_db_frac(run.get_good_stop_time()),
+                    'tstart': current_run_data['tStart'],
+                    'tstart_frac': current_run_data['tStart_frac'] or 0,
+                    'tstop': current_run_data['tStop'],
+                    'tstop_frac': current_run_data['tStop_frac'] or 0,
+                    'nevents': run.get_number_of_events(),
+                    'rate': run.get_rate()
+            }
 
             logger.debug('Run insertion SQL: {0}'.format(run_insertion_sql))
             if not dryrun:
-                db_filter.execute(run_insertion_sql)
+                db_filter.execute(run_insertion_sql, run_insertion_args)
 
 if __name__ == "__main__":
     parser = get_defaultparser(__doc__, dryrun = True)
