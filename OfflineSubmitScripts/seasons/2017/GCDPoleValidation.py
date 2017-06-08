@@ -60,19 +60,29 @@ def main(run_ids, args, config, logger):
             continue
 
         # Untar/gunzip SPS gcd file
-        with tarfile.open(sps_gcd.path, 'r:gz') as tf:
+        with tarfile.open(sps_gcd.path, 'r:*') as tf:
             tf.extractall(path = get_tmpdir())
 
-        # In the .tar.gz file is another tar file that is similar named
+        # In the past there was in the .tar.gz file another tar file that is similar named
         tartar = os.path.join(get_tmpdir(), os.path.basename(sps_gcd.path.replace('.i3.tar.gz', '.i3.dat.tar')))
+        # The new GCD file name should be
+        tartarnew = os.path.join(get_tmpdir(), os.path.basename(sps_gcd.path.replace('.flat.tar', '.i3.gz')))
 
         logger.debug('Untar: {0}'.format(tartar))
 
-        with tarfile.open(tartar, 'r') as tf:
-            tf.extractall(path = get_tmpdir())
+        # Check if old tar structure applies
+        if os.path.exists(tartar):
+            with tarfile.open(tartar, 'r') as tf:
+                tf.extractall(path = get_tmpdir())
 
-        # The actual GCD file name iiiiiiiiiis:
-        sps_gcd_actual = os.path.join(get_tmpdir(), sps_gcd.get_name().replace('.i3.tar.gz', '.i3.gz'))
+            # The actual GCD file name iiiiiiiiiis:
+            sps_gcd_actual = os.path.join(get_tmpdir(), sps_gcd.get_name().replace('.i3.tar.gz', '.i3.gz'))
+        elif os.path.exists(tartarnew):
+            sps_gcd_actual = tartarnew
+        else:
+            logger.error('Cannot find SPS GCD file. The structure is probably unknown...')
+            counter.count('error')
+            continue
 
         # Check if this file really exists:
         if not os.path.isfile(sps_gcd_actual):
@@ -87,7 +97,8 @@ def main(run_ids, args, config, logger):
                 get_env_python_path(),
                 config.get('GCDGeneration', 'GCDCompareTool'),
                 sps_gcd_actual,
-                north_gcd.path
+                north_gcd.path,
+                '--ignore-start-end-times'
                 ], stdout = run_log, stderr = run_log)
 
         logger.debug('GCD Diff return code: {0}'.format(return_code))
@@ -135,7 +146,10 @@ def main(run_ids, args, config, logger):
             counter.count('validated')
 
         # Clean up
+        # Old naming
         files = glob(os.path.join(get_tmpdir(), os.path.basename(os.path.splitext(sps_gcd.path)[0]) + '*'))
+        # New naming
+        files.extend(glob(os.path.join(get_tmpdir(), os.path.basename(os.path.splitext(sps_gcd.path)[0].replace('.flat', '')) + '*')))
 
         for f in files:
             logger.debug('Delete: {0}'.format(f))

@@ -173,7 +173,7 @@ if __name__ == '__main__':
             SELECT run_id FROM i3filter.runs
             WHERE (run_id BETWEEN {first_run} AND {last_run} OR run_id IN ({test_runs})) AND
                 run_id NOT IN ({exclude_next_testruns}) AND
-                (gcd_pole_validation IS NULL OR gcd_pole_validation > 0) AND
+                (gcd_template_validation IS NULL OR gcd_template_validation > 0) AND
                 gcd_generated AND gcd_bad_doms_validated
         """.format(
             first_run = first_run,
