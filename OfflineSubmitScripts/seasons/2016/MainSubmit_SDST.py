@@ -21,8 +21,10 @@ from libs.checks import runs_already_submitted
 from libs.runs import get_run_status, clean_run
 from libs.dbtools import max_queue_id 
 from libs.config import get_dataset_id_by_run
+from libs.config import get_season_by_run
 from libs.databaseconnection import DatabaseConnection
 from libs.utils import DBChecksumCache
+
 
 ##-----------------------------------------------------------------
 ## setup DB
@@ -85,14 +87,22 @@ def submit_run(checksumcache, db, run_id, status, DatasetId, QueueId, dryrun, lo
     logger.debug("InFiles = %s" % InFiles)
 
     logger.info("Found %s PFRaw files for this run" % len(InFiles))
- 
-    MainOutputDir = OutputDir = "/data/user/joertlin/PFDST/%s/%s%s/"%(sY,sM,sD)
+
+    season = get_season_by_run(run_id)
+
+    dst_folder = 'PFDST'
+    if season in (2015, 2016):
+        dst_folder += 'noSPE'
+
+    MainOutputDir = OutputDir = "/data/exp/IceCube/%s/unbiased/%s/%s%s/"%(sY, dst_folder, sM, sD)
     if not os.path.exists(MainOutputDir) and not dryrun:
         os.makedirs(MainOutputDir)
     
     if not os.path.exists(OutputDir) and not dryrun:
         os.makedirs(OutputDir)
     
+    logger.debug('OutputDir = %s' % OutputDir)
+
     logger.debug('Find GCD file')
 
     GCDFileName = []

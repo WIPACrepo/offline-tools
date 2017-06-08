@@ -38,6 +38,7 @@ from libs.dbtools import max_queue_id as MaxQId
 import libs.process
 import json
 import shutil
+from libs.databaseconnection import DatabaseConnection
 
 # FIXME: this CleanRun is slightly different from libs.runs.clean_ru
 # TODO: unify!
@@ -83,7 +84,7 @@ def CleanRun(DatasetId,Run,CLEAN_DW,logger,dryrun=False):
         dbs4_.execute("""delete from i3filter.job where dataset_id=%s and queue_id in (%s)"""%(DatasetId,CleanListStr))
         dbs4_.execute("""delete from i3filter.urlpath where dataset_id=%s and queue_id in (%s)"""%(DatasetId,CleanListStr))
         dbs4_.execute("""delete from i3filter.run where dataset_id=%s and queue_id in (%s)"""%(DatasetId,CleanListStr))
-        set_post_processing_state(run_id = Run, dataset_id = DatasetId, validated = 0, dbs4 = dbs4_, dryrun = dryrun, logger = logger)
+        set_post_processing_state(run_id = Run, dataset_id = DatasetId, validated = 0, dbs4 = dbs4_, filter_db = databaseConnection.get_connection('filter-db', logger), dryrun = dryrun, logger = logger)
         
 def add_prefix(path, prefix):
     return prefix + remove_path_prefix(path)

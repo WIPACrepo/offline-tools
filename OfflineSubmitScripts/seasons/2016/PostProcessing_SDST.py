@@ -107,6 +107,8 @@ def CheckFiles(r, logger, dataset_id, season, run_id, dryrun):
     
     GCDName = [f for f in OutFiles if "GCD" in f]
 
+    logger.debug('GCDName = %s' % GCDName)
+
     if len(GCDName)!=1:
         logger.warning("Either None or more than 1 GCD file in output dir for run=%s"%str(r['run_id']))
         return 1
@@ -179,7 +181,7 @@ def CheckFiles(r, logger, dataset_id, season, run_id, dryrun):
                                     UseDict = True)
 
     for i, subrunInfo in enumerate(outputFileInfos):
-        path = os.path.join(subrunInfo['path'][5:], subrunInfo['name'])
+        path = os.path.join(remove_path_prefix(subrunInfo['path']), subrunInfo['name'])
 
         if path in OutFiles:
             logger.info('(%s / %s)\tCheck checksums for %s' % (i, len(outputFileInfos), path))
