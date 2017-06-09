@@ -7,7 +7,7 @@ from libs.config import get_config
 from libs.argparser import get_defaultparser
 from libs.logger import get_logger
 from libs.path import get_logdir, get_tmpdir, get_rootdir, get_env_python_path
-from libs.runs import Run
+from libs.runs import Run, LoadRunDataException
 from libs.databaseconnection import DatabaseConnection
 
 if __name__ == '__main__':
@@ -74,8 +74,12 @@ if __name__ == '__main__':
     for run in runs:
         logger.info('Submit GCD generation script for run {0}'.format(run.run_id))
 
-        if not run.is_good_run() and not run.is_test_run():
-            logger.info('Skip run since it is a bad run and not a 24h test run.')
+        try:
+            if not run.is_good_run() and not run.is_test_run():
+                logger.info('Skip run since it is a bad run and not a 24h test run.')
+                continue
+        except LoadRunDataException as e:
+            logger.error(str(e))
             continue
 
         if not args.resubmission and run.get_gcd_file() is not None:

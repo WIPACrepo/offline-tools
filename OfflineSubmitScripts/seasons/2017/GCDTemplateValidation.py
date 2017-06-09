@@ -97,8 +97,8 @@ def main(run_ids, args, config, logger):
                 Run: <b>{run_id}</b><br>
                 returned a non-zero value: <b>{return_code}</b> <br>
                 The files compared are:<br>
-                North File: {current_gcd}<br>
-                Pole File: {template_gcd}
+                Current File: {current_gcd}<br>
+                Template File: {template_gcd}
                 """
 
             email_content = run.format(email_content, return_code = return_code, current_gcd = current_gcd, template_gcd = template_gcd)
