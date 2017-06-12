@@ -124,6 +124,7 @@ if __name__ == '__main__':
     parser.add_argument("-s", "--startrun", type = int, required = False, default = None, help = "Start checking from this run")
     parser.add_argument("-e", "--endrun", type = int, required = False, default= None, help = "End checking at this run")
     parser.add_argument("--runs", type = int, nargs = '*', required = False, help = "Checking specific runs. Can be mixed with -s and -e")
+    parser.add_argument("--recheck-failed", action = "store_true", default = False, help = "Re-check all failed files")
     args = parser.parse_args()
 
     logfile = os.path.join(get_logdir(sublogpath = 'TemplateGCDChecks'), 'TemplateGCDChecks_')
@@ -169,13 +170,19 @@ if __name__ == '__main__':
 
             exclude_next_testruns = info[season + 1]['test']
 
+        if args.recheck_failed:
+            recheck = 'OR gcd_template_validation > 0'
+        else:
+            recheck = ''
+
         sql = """
             SELECT run_id FROM i3filter.runs
             WHERE (run_id BETWEEN {first_run} AND {last_run} OR run_id IN ({test_runs})) AND
                 run_id NOT IN ({exclude_next_testruns}) AND
-                (gcd_template_validation IS NULL OR gcd_template_validation > 0) AND
+                (gcd_template_validation IS NULL {recheck}) AND
                 gcd_generated AND gcd_bad_doms_validated
         """.format(
+            recheck = recheck,
             first_run = first_run,
             last_run = last_run,
             test_runs = ','.join([str(r) for r in test_runs + ['-1']]),
