@@ -180,7 +180,7 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
                 if (int(sr['sub_run']) - int(sRunInfo[0]['sub_run'])) % aggregate:
                     continue
 
-                nName = sr['name'].replace("Level2_","Level3_").replace("Test_","")
+                nName = sr['name'].replace("Level2_","Level3_").replace("Test_","").replace('_Part', '_Subrun')
 
                 if it_files:
                     nName = nName.replace("_IT", "")
@@ -210,7 +210,7 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
                         for row in dRunInfo:
                             logger.debug('sr = %s' % sr)
                             logger.debug('row = %s' % row)
-                            if row['run_id'] == sr['run_id'] and row['sub_run'] == sr['sub_run'] - aggregate and row['type'] == 'INPUT' and row['name'] == sr['name']:
+                            if row['run_id'] == sr['run_id'] and row['sub_run'] == sr['sub_run'] - aggregate and row['type'] == 'INPUT' and row['name'] == sr['name'].replace('_Part', '_Subrun'):
                                 found = True
                                 break
 
