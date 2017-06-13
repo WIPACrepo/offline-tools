@@ -716,7 +716,6 @@ def clean_datawarehouse(run, logger, dryrun, run_folder):
         run_folder (str): This folder will be emptied.
     """
 
-    from config import get_config
     from glob import glob
     import shutil
 
@@ -776,7 +775,7 @@ def tar_log_files(run, logger, dryrun):
 
     config = get_config(logger)
 
-    run_folder = config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER', pass_number = 1)
+    run_folder = run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER', pass_number = 1))
 
     tar_name = run.format(config.get('Level2', 'TarLogFileName'), RUN_FOLDER = run_folder)
     glob_str = config.get_var_list('Level2', 'LogFileGlob')
@@ -813,7 +812,7 @@ def tar_gaps_files(iceprod, dataset_id, run, logger, dryrun):
 
     from config import get_config
 
-    run_folder = config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER', pass_number = 1)
+    run_folder = run.format(get_config(logger).get_l2_path_pattern(run.get_season(), 'RUN_FOLDER', pass_number = 1))
     gaps_tar_file = run.format(get_config(logger).get('Level2', 'GapsTarFile'), RUN_FOLDER = run_folder)
 
     l2files = run.get_level2_files()
@@ -834,7 +833,6 @@ def tar_gaps_files(iceprod, dataset_id, run, logger, dryrun):
 
 def insert_gaps_file_info_into_db(run, dryrun, logger):
     from databaseconnection import DatabaseConnection
-    from config import get_config
 
     l2files = run.get_level2_files()
     gaps_files = [f.get_gaps_file() for f in l2files]

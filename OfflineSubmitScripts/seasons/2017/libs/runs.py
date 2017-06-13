@@ -443,7 +443,7 @@ class Run(object):
             from glob import glob
             from path import get_sub_run_id_from_path
 
-            path_pattern_repl = replace_var(path_pattern, 'sub_run_id', '*')
+            path_pattern_repl = replace_var(path_pattern, 'sub_run_id', '*[0-9]')
 
             next_day = self.get_start_time().date_time + relativedelta(days = 1)
 
@@ -843,7 +843,7 @@ class SubRun(files.File):
         if self.run.get_good_start_time() >= self.get_stop_time():
             return False
 
-        if self.run.get_stop_time() <= self.get_start_time():
+        if self.run.get_good_stop_time() <= self.get_start_time():
             return False
 
         return True
@@ -856,7 +856,13 @@ class SubRun(files.File):
             dataclasses.I3Time: Time of first event
         """
 
-        return dataclasses.I3Time(self._data['first_event_year'], self._data['first_event_frac'])
+        if self._data is None:
+            self.logger.debug('Try to use actual gaps file')
+            gaps_file = self.get_gaps_file()
+            gaps_file.read()
+            return dataclasses.I3Time(gaps_file.get_first_event()['year'], gaps_file.get_first_event()['frac'])
+        else:
+            return dataclasses.I3Time(self._data['first_event_year'], self._data['first_event_frac'])
 
     def get_stop_time(self):
         """
@@ -866,7 +872,13 @@ class SubRun(files.File):
             dataclasses.I3Time: Time of the end of the last event
         """
 
-        return dataclasses.I3Time(self._data['last_event_year'], self._data['last_event_frac'])
+        if self._data is None:
+            self.logger.debug('Try to use actual gaps file')
+            gaps_file = self.get_gaps_file()
+            gaps_file.read()
+            return dataclasses.I3Time(gaps_file.get_last_event()['year'], gaps_file.get_last_event()['frac'])
+        else:
+            return dataclasses.I3Time(self._data['last_event_year'], self._data['last_event_frac'])
 
     def get_first_event(self):
         """
@@ -876,7 +888,13 @@ class SubRun(files.File):
             int: Event number
         """
 
-        return self._data['first_event']
+        if self._data is None:
+            self.logger.debug('Try to use actual gaps file')
+            gaps_file = self.get_gaps_file()
+            gaps_file.read()
+            return gaps_file.get_first_event()['event']
+        else:
+            return self._data['first_event']
 
     def get_last_event(self):
         """
@@ -886,7 +904,13 @@ class SubRun(files.File):
             int: Event number
         """
 
-        return self._data['last_event']
+        if self._data is None:
+            self.logger.debug('Try to use actual gaps file')
+            gaps_file = self.get_gaps_file()
+            gaps_file.read()
+            return gaps_file.get_last_event()['event']
+        else:
+            return self._data['last_event']
 
     def get_livetime(self):
         """
@@ -898,7 +922,13 @@ class SubRun(files.File):
             float: The livetime in seconds.
         """
 
-        return self._data['livetime']
+        if self._data is None:
+            self.logger.debug('Try to use actual gaps file')
+            gaps_file = self.get_gaps_file()
+            gaps_file.read()
+            return gaps_file.get_livetime()
+        else:
+            return self._data['livetime']
 
     def is_bad(self):
         """
@@ -961,6 +991,13 @@ class SubRun(files.File):
 
         if not self.run.dryrun:
             self.run._db.execute(self.format(sql, bad = 1))
+
+    def get_icetop_file(self):
+        """
+        Get corresponding IceTop file.
+        """
+
+        return File(self.format(get_config(self.logger).get_l2_path_pattern(self.run.get_season(), 'ICE_TOP', pass_number = 1)), self.logger)
 
     def format(self, path_, force_reload = False, **kwargs):
         """

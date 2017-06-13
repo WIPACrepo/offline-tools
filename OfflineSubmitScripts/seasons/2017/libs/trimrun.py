@@ -4,6 +4,7 @@ import shutil
 
 from icecube import dataio, dataclasses, icetray
 from I3Tray import *
+from icecube.filterscripts.offlineL2 import SpecialWriter
 
 class TrimFileClass(icetray.I3PacketModule):
     """
@@ -143,11 +144,12 @@ def trim_sub_run(iceprod, dataset_id, sub_run, bad_sub_run_folder, logger, dryru
 
     # bzip2 -f of a zero-sized file results in a 
     # 14 byte large file 
-    if sub_run.size() <= 14:
+    if sub_run.get_name().endswidth('.bz2') and sub_run.size() <= 14:
         logger.error('Cannot trim {0} because the file size is <= 14 byte (bzip2 -f of an empty file results in 14-byte-sized file)'.format(sr.path))
         return
 
     tmp_file = os.path.join(get_tmpdir(), 'Trimmed_' + sub_run.get_name())
+    tmp_it_file = os.path.join(get_tmpdir(), 'Trimmed_' + sub_run.get_icetop_file().get_name())
     tmp_gaps_file = os.path.join(get_tmpdir(), 'Trimmed_' + sub_run.get_gaps_file().get_name())
 
     # The actual trimming is done with the TrimFileClass,
@@ -163,9 +165,21 @@ def trim_sub_run(iceprod, dataset_id, sub_run, bad_sub_run_folder, logger, dryru
                     Streams = [icetray.I3Frame.DAQ,
                                icetray.I3Frame.Physics]
     )
+
+    # This needs to be the last output: IceTop Writer
+    tray.AddModule('Delete','deleteicetopextrakeys',
+        keys=['InIceRawData','CleanInIceRawData']
+    )
+    tray.AddSegment(SpecialWriter.IceTopWriter, "write_icetop",
+        Filename = tmp_it_file
+    )
+    # End IceTop Writer
+
     tray.AddModule("TrashCan","trash")
     tray.Execute()
     tray.Finish()
+
+    del tray
 
     # Move files
     new_subrun_name = os.path.join(bad_sub_run_folder, sub_run.get_name())

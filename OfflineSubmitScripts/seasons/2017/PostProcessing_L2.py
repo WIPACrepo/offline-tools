@@ -16,7 +16,7 @@ from libs.iceprod1 import IceProd1
 from libs.postprocessing import validate_files
 from libs.files import tar_gaps_files, insert_gaps_file_info_into_db, tar_log_files, create_good_run_list, MetaXMLFile
 from libs.trimrun import trim_to_good_run_time_range
-from libs.path import make_relative_symlink, get_logdir
+from libs.path import make_relative_symlink, get_logdir, get_tmpdir
 from libs.utils import Counter, DBChecksumCache
 
 def validate_run(dataset_id, run, args, iceprod, logger, counter, checksumcache):

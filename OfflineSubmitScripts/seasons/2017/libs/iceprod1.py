@@ -235,7 +235,7 @@ class IceProd1(iceprodinterface.IceProdInterface):
 
         query = self._dbs4.fetchall(sql)
 
-        if not len(query):
+        if not len(query) or query[0]['ok'] is None:
             return 'NOT_SUBMITTED'
 
         data = query[0]

@@ -1,7 +1,7 @@
 
 import string
 
-def make_regex_for_var(pattern, var_name, ignored_var_names = []):
+def make_regex_for_var(pattern, var_name, ignored_var_names = [], var_value = '.+'):
     """
     Uses a string pattern that contains at least one variable name `var_name` to
     create a regex in order to find from a string exactly this variable.
@@ -15,6 +15,7 @@ def make_regex_for_var(pattern, var_name, ignored_var_names = []):
         pattern (str): The pattern that contains `var_name`
         var_name (str): The variable name for that the regex should be created
         ignored_var_names (list|str): List of var_names that are ignore and can have any value. If the value is '*', all other var names are ignored.
+        var_value (str): How should the value of the var look like? Use regex syuntax that will be placed between ( and ). Default is `.+`. E.g. if you only want numbers, use `[0-9]+`.
 
     Returns:
         str: The regex to find `var_name`
@@ -35,7 +36,7 @@ def make_regex_for_var(pattern, var_name, ignored_var_names = []):
 
         if v[1] is not None:
             if v[1] == var_name:
-                result += '(.+)'
+                result += '(' + var_value + ')'
             elif ignored(v[1]):
                 result += '.*'
             else:
