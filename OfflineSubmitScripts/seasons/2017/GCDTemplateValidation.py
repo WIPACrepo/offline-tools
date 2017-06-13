@@ -98,10 +98,15 @@ def main(run_ids, args, config, logger):
                 returned a non-zero value: <b>{return_code}</b> <br>
                 The files compared are:<br>
                 Current File: {current_gcd}<br>
-                Template File: {template_gcd}
+                Template File: {template_gcd}<br>
+                <b>GCD Diff output:</b><br>
+                <pre>{gcddiff}</pre>
                 """
 
-            email_content = run.format(email_content, return_code = return_code, current_gcd = current_gcd, template_gcd = template_gcd)
+            with open(run_log_file, 'r') as f:
+                gcddiff = f.read()
+
+            email_content = run.format(email_content, return_code = return_code, current_gcd = current_gcd, template_gcd = template_gcd, gcddiff = gcddiff)
 
             send_email(
                 config.get_var_list('TemplateGCDChecks', 'NotificationReceiver'),

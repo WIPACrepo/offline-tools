@@ -126,10 +126,15 @@ def main(run_ids, args, config, logger):
                 returned a non-zero value: <b>{return_code}</b> <br>
                 The files compared are:<br>
                 North File: {north_gcd}<br>
-                Pole File: {sps_gcd}
+                Pole File: {sps_gcd}<br>
+                <b>GCD Diff output:</b><br>
+                <pre>{gcddiff}</pre>
                 """
 
-            email_content = run.format(email_content, return_code = return_code, north_gcd = north_gcd, sps_gcd = sps_gcd)
+            with open(run_log_file, 'r') as f:
+                gcddiff = f.read()
+
+            email_content = run.format(email_content, return_code = return_code, north_gcd = north_gcd, sps_gcd = sps_gcd, gcddiff = gcddiff)
 
             send_email(
                 config.get_var_list('PoleGCDChecks', 'NotificationReceiver'),
