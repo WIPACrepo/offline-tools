@@ -204,7 +204,7 @@ FROM
     i3filter.grid g ON j.grid_id = g.grid_id
 WHERE
     dataset_id = {$this->dataset_id}
-        AND status IN ('OK' , 'FAILED')
+        AND status = 'OK'
         AND status_changed IS NOT NULL
 GROUP BY DATE(status_changed) , j.grid_id";
 
