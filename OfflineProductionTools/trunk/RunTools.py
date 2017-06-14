@@ -98,7 +98,7 @@ class RunTools(object):
 
             passString = ''
             if self.passNumber > 1:
-                passString = 'pass%s' % self.passNumber
+                passString = '_pass%s' % self.passNumber
 
             dbs4_.execute("""update i3filter.grl_snapshot_info%s g set ActiveStrings=%d, ActiveDoms=%s, ActiveInIceDoms=%s
                              where g.run_id=%d """%(passString, ActiveStrings,ActiveDoms,ActiveInIceDoms,self.RunNumber))
