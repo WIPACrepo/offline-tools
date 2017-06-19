@@ -87,7 +87,7 @@ def main(args, run_ids, logger):
                     os.makedirs(output)
 
             # Create GCD link
-            gcd_file = run.get_gcd_file()
+            gcd_file = run.get_gcd_file(exclude_run_folder_gcd = True)
 
             if gcd_file is None:
                 logger.critical('No GCD found')

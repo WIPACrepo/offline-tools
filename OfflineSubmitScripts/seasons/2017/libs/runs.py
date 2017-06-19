@@ -411,7 +411,7 @@ class Run(object):
 
     def get_livetime(self, force_reload = False):
         """
-        Returns the livetime of the with respect to the gaps.
+        Returns the livetime of the with respect to the gaps and bad files.
 
         Args:
             force_reload (boolean): If `True`, no cached data will be used. The default is `False` and usally the value does not change within a script.
@@ -426,7 +426,7 @@ class Run(object):
             raise Exception('This run has no sub runs in the database yet. Make sure that you call this method only if this run has been processed successfully.')
 
         # get_livetime() and get_gaps() do not need a force_reload since it will be forced to reload with the call of self._load_data(force_reload).
-        return sum([sr.get_livetime() for sr in self._subruns['common'].values()]) - sum([g['delta_time'] for sr in self._subruns['common'].values() for g in sr.get_gaps()])
+        return sum([sr.get_livetime() for sr in self._subruns['common'].values() if not sr.is_bad()]) - sum([g['delta_time'] for sr in self._subruns['common'].values() for g in sr.get_gaps()])
 
     def _get_x_files(self, path_pattern, x, force_reload = False):
         """
@@ -606,7 +606,7 @@ class Run(object):
         else:
             return None
 
-    def get_gcd_file(self, force_reload = False):
+    def get_gcd_file(self, force_reload = False, exclude_run_folder_gcd = False):
         """
         Look for GCD files in the following order:
           1. run folder
@@ -614,6 +614,7 @@ class Run(object):
 
         Args:
             force_reload (boolean): If `True`, no cached data will be used. The default is `False` and usally the value does not change within a script.
+            exclude_run_folder_gcd (boolean): If `True`, the GCD that is linked in the run folder will not be returned. Other locations of the GCd file will be checked.
 
         Returns:
             files.File: The GCD file. If no GCD file has been found, `None` is returned.
@@ -628,6 +629,9 @@ class Run(object):
             config.get_l2_path_pattern(self.get_season(), 'RUN_FOLDER_GCD'),
             config.get_l2_path_pattern(self.get_season(), 'GCD'),
         ]
+
+        if exclude_run_folder_gcd:
+            paths = paths[1:]
 
         self.logger.debug('GCD lookup paths: {0}'.format(paths))
 
