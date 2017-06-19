@@ -284,7 +284,7 @@ def main(inputfiletype, logger, dryrun, check):
             logger.debug("Check files returned {0}".format(check_files))
             logger.debug("detailed_info = {0}".format(detailed_info))
 
-        update_comment = ''
+        update_comment = None
         if r in changed_runs.keys():
             logger.info("updating records for run = {0}".format(r))
             update_comment = 'Updated in snapshot {0}'.format(run.get_snapshot_id())
@@ -325,9 +325,36 @@ def main(inputfiletype, logger, dryrun, check):
                     'rate': run.get_rate()
             }
 
+            if update_comment is not None:
+                comment_insertion_sql = """
+                    INSERT INTO `i3filter`.`run_comments`
+                    (`run_id`,
+                    `snapshot_id`,
+                    `production_version`,
+                    `date`,
+                    `comment`)
+                    VALUES
+                    (%(run_id)s,
+                    %(snapshot_id)s,
+                    %(production_version)s,
+                    NOW(),
+                    %(comment)s)
+                """
+
+            comment_insertion_args = {
+                'run_id': run.run_id,
+                'snapshot_id': run.get_snapshot_id(),
+                'production_version': run.get_production_version(),
+                'comment': update_comment
+            }
+
             logger.debug('Run insertion SQL: {0}'.format(run_insertion_sql))
             if not dryrun:
                 db_filter.execute(run_insertion_sql, run_insertion_args)
+
+                if update_comment is not None:
+                    logger.info('Insert comment: {0}'.format(update_comment))
+                    db_filter.execute(comment_insertion_sql, comment_insertion_args)
 
 if __name__ == "__main__":
     parser = get_defaultparser(__doc__, dryrun = True)
