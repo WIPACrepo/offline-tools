@@ -180,6 +180,11 @@ JobMonitorDatasetInformation.prototype._generateChartJobsPerStatus = function(da
             title: {
                 display: true,
                 text: 'Job Status'
+            },
+            tooltips: {
+                callbacks: {
+                    label: this._chartTooltip
+                }
             }
         }
     });
