@@ -1,12 +1,13 @@
 # RegEx                                             Name
+/^[-a-zA-Z0-9_]+\.icecube\.wisc\.edu$/              icecube.wisc.edu
+/^compute\-[0-9]{1,2}[n]{0,1}\-[0-9]{1,2}\.tier2$/  ultralight.org
+/^blade\-[0-9]+\.tier2$/                            ultralight.org
+/^[ajeigh][0-9]{4}$/                                uni-mainz.de
 /^cn[0-9]+\.local$/                                 stanford.edu
 /^n[0-9]{4}$/                                       hyak.washington.edu
 /^cwrc\-c[0-9]{2}$/                                 westgrid.ca
 /^muon-[0-9]{3}$/                                   eri.u-tokyo.ac.jp
 /^cl[1-2]{1}n[0-9]{3}$/                             westgrid.ca, ualberta.ca
-/^[ajeigh][0-9]{4}$/                                uni-mainz.de
 /^gpc-f[0-9]{3}n[0-9]{3}-ib0$/                      scinet.utoronto.ca
 /^osg\-jetstream\-worker\-[0-9]+\.jetstreamlocal$/  Jetstream
-/^compute\-[0-9]{1,2}[n]{0,1}\-[0-9]{1,2}\.tier2$/  ultralight.org
-/^blade\-[0-9]+\.tier2$/                            ultralight.org
 /^vm\-osg\-[0-9]+\.comet$/                          COMET OSG VM

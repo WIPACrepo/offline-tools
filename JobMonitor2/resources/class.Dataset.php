@@ -1,5 +1,41 @@
 <?php
 
+#require_once('class.Timer.php');
+
+if (!function_exists('stats_standard_deviation')) {
+    /**
+     * This user-land implementation follows the implementation quite strictly;
+     * it does not attempt to improve the code or algorithm in any way. It will
+     * raise a warning if you have fewer than 2 values in your array, just like
+     * the extension does (although as an E_USER_WARNING, not E_WARNING).
+     *
+     * @param array $a
+     * @param bool $sample [optional] Defaults to false
+     * @return float|bool The standard deviation or false on error.
+     */
+    function stats_standard_deviation(array $a, $sample = false) {
+        $n = count($a);
+        if ($n === 0) {
+            trigger_error("The array has zero elements", E_USER_WARNING);
+            return false;
+        }
+        if ($sample && $n === 1) {
+            trigger_error("The array has only 1 element", E_USER_WARNING);
+            return false;
+        }
+        $mean = array_sum($a) / $n;
+        $carry = 0.0;
+        foreach ($a as $val) {
+            $d = ((double) $val) - $mean;
+            $carry += $d * $d;
+        };
+        if ($sample) {
+           --$n;
+        }
+        return sqrt($carry / $n);
+    }
+}
+
 class Dataset {
     private $mysql;
     private $dataset_id;
@@ -131,31 +167,20 @@ WHERE
     }
 
     private static function make_host($name) {
-        $splitname = explode('.', $name);
-
-        $host = array_slice($splitname, -2);
-
         foreach(self::$node_regex as $data) {
             if(preg_match($data['regex'], $name)) {
                 return $data['name'];
             }
         }
 
-        if(count($splitname) > 3) {
-            if($splitname[count($splitname) - 3] == 'icecube') {
-                return implode('.', array_slice($splitname, -3));
-            }
-        }
+        $splitname = explode('.', $name);
+        $host = array_slice($splitname, -2);
 
         return implode('.', $host);
     }
 
-    private static function std_square($x, $mean) {
-        return pow($x - $mean, 2);
-    }
-    
     private static function std(array $array) {
-        return sqrt(array_sum(array_map(array('Dataset', 'std_square'), $array, array_fill(0, count($array), (array_sum($array) / count($array))))) / (count($array)));
+        return stats_standard_deviation($array);
     }
 
     public function add_runntime_statistics() {
@@ -170,7 +195,11 @@ WHERE
     `host` IS NOT NULL AND name = 'i3exec runtime' AND j.dataset_id = {$this->dataset_id}";
      
         $data = array();
-   
+  
+#        $t = new Timer();
+
+#        $t->start();
+ 
         $query = $this->mysql->query($sql);
         while($set = $query->fetch_assoc()) {
             $host = self::make_host($set['host']);
@@ -181,12 +210,16 @@ WHERE
             $data[$host]['i3exec runtime'][] = $set['value'];
         }
 
+#        $t->stop()->print_elapsed('Runntime Statistics: while')->start();
+
         foreach($data as &$value) {
             $value['exec_average'] = array_sum($value['i3exec runtime']) / (double) count($value['i3exec runtime']);
             $value['exec_std'] = self::std($value['i3exec runtime']);
             $value['jobs'] = count($value['i3exec runtime']);
             unset($value['i3exec runtime']);
         }
+
+#        $t->stop()->print_elapsed('Runntime Statistics: foreach');
 
         $this->result['data']['statistics']['execution_time'] = $data;
     }
@@ -268,15 +301,35 @@ GROUP BY run_id";
             throw new Exception("No dataset given.");
         }
 
+#        $t = new Timer();
+#        $t->start();
         $this->add_storage_information();   
+#        $t->stop()->print_elapsed('Storage Information');
+
+#        $t->start();
         $this->add_metaproject_information();
+#        $t->stop()->print_elapsed('metaproject Information');
+
+#        $t->start();
         $this->add_grid_information();
+#        $t->stop()->print_elapsed('Grid Infrormation');
+
+#        $t->start();
         $this->add_total_number_of_jobs();
+#        $t->stop()->print_elapsed('Total Number of Jobs');
 
         if($this->include_statistics) {
+#            $t->start();
             $this->add_runntime_statistics();
+#            $t->stop()->print_elapsed('Runntime Statistics');
+
+#            $t->start();
             $this->add_num_of_jobs_completed_per_day();
+#            $t->stop()->print_elapsed('Job Completion/Day');
+
+#            $t->start();
             $this->add_parent_delay();
+#            $t->stop()->print_elapsed('Parent Delay');
         }
 
         $this->add_parents();
