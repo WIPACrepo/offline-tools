@@ -35,7 +35,10 @@ def main(run_id, production_version, snapshot_id, outdir, logger):
         gcd_data_path = os.path.join(outdir, os.path.basename(gcd_data_path))
     else:
         if not os.path.exists(os.path.dirname(gcd_data_path)):
-            os.makedirs(os.path.dirname(gcd_data_path))
+            try:
+                os.makedirs(os.path.dirname(gcd_data_path))
+            except OSError:
+                logger.warning('Looks like the folder has already been created...')
 
     # Generate the actual GCD file
     generate_gcd(run, gcd_data_path, spe_correction_file, logger)
