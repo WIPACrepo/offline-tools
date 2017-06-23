@@ -34,6 +34,9 @@ from libs.logger import get_logger
 from libs.files import get_logdir, get_rootdir, get_tmpdir
 import libs.config
 
+sys.path.append(libs.config.get_config().get('DEFAULT', 'SQLClientPath'))
+sys.path.append(libs.config.get_config().get('DEFAULT', 'ProductionToolsPath'))
+
 ##-----------------------------------------------------------------
 ## setup DB
 ##-----------------------------------------------------------------

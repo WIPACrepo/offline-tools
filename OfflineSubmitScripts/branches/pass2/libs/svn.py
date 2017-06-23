@@ -5,9 +5,10 @@ class SVN:
     # Share data for all instances. Avoids unnecessary executions of `svn` commands
     _data = {}
 
-    def __init__(self, svn_path, logger = None):
+    def __init__(self, svn_path, logger = None, load_from_file = None):
         self._logger = logger
         self._svn_path = svn_path
+        self._load_from_file = load_from_file
 
     def read_info(self, force = False):
         """
@@ -18,6 +19,13 @@ class SVN:
         """
 
         if self._svn_path in self._data.keys() and not force:
+            return
+
+        if self._load_from_file is not None:
+            import json
+            with open(self._load_from_file) as f:
+                self._data = json.load(f)
+
             return
 
         self._data[self._svn_path] = {}

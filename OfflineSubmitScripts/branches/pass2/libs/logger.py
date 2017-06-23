@@ -50,7 +50,7 @@ class DummyLogger(object):
 
 
 
-def get_logger(loglevel,logfile):
+def get_logger(loglevel, logfile, svn_info_from_file = False):
     """
     A root logger with a formatted output logging to stdout and a file
 
@@ -60,7 +60,7 @@ def get_logger(loglevel,logfile):
 
     """   
 
-    from files import get_rootdir
+    from files import get_rootdir, get_tmpdir
     
     def exception_handler(exctype, value, tb):
         logger.critical("Uncaught exception", exc_info=(exctype, value, tb))
@@ -98,9 +98,13 @@ def get_logger(loglevel,logfile):
     logger.info("Starting " + firstlog)
     logger.info("Using Python %s" % sys.version.replace('\n', ' '))
 
-    svn = SVN(get_rootdir(), logger)
+    if svn_info_from_file:
+        svn = SVN(get_rootdir(), logger, os.path.join(get_tmpdir(), 'svninfo.txt'))
+    else:
+        svn = SVN(get_rootdir(), logger)
 
     logger.info("SVN Revision %s" % svn.get('Revision'))
+
     return logger
 
 def delete_log_file(logger):

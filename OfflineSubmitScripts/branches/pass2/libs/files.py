@@ -62,6 +62,10 @@ def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
     RunInfoFileV = RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_Versioned_"%(ProductionYear,LatestProductionVersion)+time.strftime("%Y_%m_%d-%H_%M_%S",time.localtime()) + ".txt"
     if dryrun: RunInfoFile  = os.path.join(get_tmpdir(), "runinfo")
     if dryrun: RunInfoFileV = os.path.join(get_tmpdir(), "runinfoV")
+
+    if not dryrun and not os.path.exists(RUNINFODIR(ProductionYear)):
+        os.mkdir(RUNINFODIR(ProductionYear))
+
     RI_File = open(RunInfoFile,'w')
     RI_FileV = open(RunInfoFileV,'w')
     
@@ -73,8 +77,8 @@ def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
     
     for k in keys_:
         if not RunInfoDict[k]['validated']:
-            RI_File.write("\n%s  **Incomplete Processing or Not Validated**"%k)
-            RI_FileV.write("\n%s  **Incomplete Processing or Not Validated**"%k)
+            #RI_File.write("\n%s  **Incomplete Processing or Not Validated**"%k)
+            #RI_FileV.write("\n%s  **Incomplete Processing or Not Validated**"%k)
             continue
     
         StartTime = RunInfoDict[k]['tStart'] 
@@ -530,12 +534,15 @@ def get_existing_check_sums(logger, ChkSumFile = config.get_config().get('CacheC
 
 #############################################
 
-def write_meta_xml_post_processing(dest_folder, level, script_file, logger):
+def write_meta_xml_post_processing(dest_folder, level, script_file, logger, npx):
     import xml.etree.ElementTree as ET
     import xml.dom.minidom as minidom
     import libs.svn
 
-    svn = libs.svn.SVN(get_rootdir(), logger)
+    if npx:
+        svn = libs.svn.SVN(get_rootdir(), logger, os.path.join(get_tmpdir(), 'svninfo.txt'))
+    else:
+        svn = libs.svn.SVN(get_rootdir(), logger)
 
     # Since it is the post processing, there should already be a meta file
     # If there is no meta file, display a warning.
@@ -731,7 +738,7 @@ class GapsFile:
         return self.__path
 
     def __get_sub_run_id_from_path(self):
-        c = re.compile(r'^/.*Subrun0+([0-9]+).*txt$')
+        c = re.compile(r'^/.*Subrun0+\_([0-9]+).*txt$')
         return int(c.search(self.__path).groups()[0])
 
     def read(self, force = False):

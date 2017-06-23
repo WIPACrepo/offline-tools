@@ -77,6 +77,18 @@ def send_check_notification(logger, dryrun, config, new_records, changed_records
     if len(message) and not dryrun:
         SN.SendMsg(SENDER,RECEIVERS,message)
 
+def read_grl_file(f):
+    fh = open(f, 'r')
+    first = 2   
+    r = {}
+    for l in fh: 
+        if first > 0:
+            first = first - 1 
+            continue
+        s = l.split()
+        r[int(s[0])] = s 
+    fh.close()
+    return r
     
 def main(config, logger,dryrun = False, check = False):
     if check:
@@ -140,11 +152,52 @@ def main(config, logger,dryrun = False, check = False):
     logger.debug("SQL to get data from live: %s" % livesql)
 
     tmp_i3_ = m_live.fetchall(livesql, UseDict = True)
+
+    if current_season == 2010:
+        logger.warning('The current season is 2010. Since not all runs are in a snapshot, we don\'t have information about if they are good or not. Therefore, we need to check the GRL of IC79 and get the run information from i3live for those runs.')
+
+        good_ic79_runs_data = read_grl_file('/data/exp/IceCube/2010/filtered/level2/IC79_GRLists/IC79_GRL_NewFormat.txt')
+        good_ic79_runs = good_ic79_runs_data.keys()
+
+        livesql = """SELECT r.runNumber,r.tStart,r.tStop,
+                        r.tStart_frac,r.tStop_frac,r.nEvents,r.rateHz,
+                        0 AS snapshot_id, 0 AS good_i3, 0 AS good_it, '' AS reason_i3, '' AS reason_it,
+                        NULL AS good_tstart, NULL AS good_tstart_frac, NULL AS good_tstop, NULL AS good_tstop_frac
+                     FROM live.livedata_run r
+                     WHERE (r.runNumber>=%s OR r.runNumber IN (%s))
+                        AND r.runNumber<=%s
+                        AND r.runNumber NOT IN (%s)
+                     ORDER BY runNumber""" % (IC86_5_FirstRun,
+                            ','.join([str(r) for r in seasons[current_season]['test']] + ['-1']),
+                            IC86_5_LastRun,
+                            ','.join(str(r) for r in exclude_next_testruns))
+
+        all_runs = m_live.fetchall(livesql, UseDict = True)
+        all_run_ids = [int(r['runNumber']) for r in all_runs]
+        all_already_queried_runs = [int(r['runNumber']) for r in tmp_i3_]
+
+        # Check if we have all good runs
+        for r in good_ic79_runs:
+            if r not in all_run_ids:
+                logger.critical('We do not have information for all good runs.')
+                logger.critical('Missing run: {0}'.format(r))
+                exit(1)
+
+        # Add run info
+        for data in all_runs:
+            if data['runNumber'] in good_ic79_runs and data['runNumber'] not in all_already_queried_runs:
+                data['good_i3'] = int(good_ic79_runs_data[data['runNumber']][1])
+                data['good_it'] = int(good_ic79_runs_data[data['runNumber']][2])
+                logger.info('Add IC79 run w/o snapshot: {0}'.format(data['runNumber']))
+
+                logger.debug('data = {0}'.format(data))
+
+                tmp_i3_.append(data)
  
     if not len(tmp_i3_):
         logger.info("no results from i3Live DB for runs>=%s, snapshot_id>%s. no DB info. updated,exiting"%(IC86_5_FirstRun,CurrentMaxSnapshot))
         exit(0)
-        
+    
     # dict structure of live db data ensures only latest entry for every run is considered
     RunInfo_ = {}
 
@@ -259,9 +312,10 @@ def main(config, logger,dryrun = False, check = False):
             logger.info("Skip run %s because it is a bad run" % r)
             continue
 
-        if r in [119194, 119398]:
-            logger.warning("Skip run %s because it has bad InIce % r")
-            continue
+        # It should not matter if they are only good_it
+        #if r in [119194, 119398]:
+        #    logger.warning("Skip run %s because it has bad InIce % r")
+        #    continue
 
         if r in OldRecords_ : continue
         if r in NewRecords_:
@@ -278,7 +332,7 @@ def main(config, logger,dryrun = False, check = False):
 
             # Hack for season 2012: We agreed that we're using the pDAQ/tstart/tstop times (meeting 02/01/2017, John, Dave, Matt, Michael, Colin, Jan)
             # Hack for season 2011: We agreed that we don't have any `good` time information at all. Therefore, we will process the entire files.
-            if current_season in [2011, 2012] and not CheckFiles:
+            if current_season in [2010, 2011, 2012] and not CheckFiles:
                 # Check why the CheckFiles went wrong
                 # If it is only the tstart/tstop time, we'll ignore it
                 if len(detailed_check_information[detailed_check_information.keys()[0]]['missing_files']) == 0:
@@ -287,7 +341,7 @@ def main(config, logger,dryrun = False, check = False):
 
                 if current_season == 2012:
                     logger.warning("*** You are currently import runs of season 2012. We agreed to ignore time mismatches and use the pDAQ times. ***")
-                elif current_season == 2011:
+                elif current_season in (2010, 2011):
                     logger.warning("*** You are currently import runs of season 2011. We agreed to ignore time mismatches and process the entire file. ***")
   
             #  fill new runs from live in run_info_summary_pass2 
@@ -322,9 +376,9 @@ def main(config, logger,dryrun = False, check = False):
         if RunInfo_[r]['good_tstop_frac'] != "NULL"  : goodStop_frac = RunInfo_[r]['good_tstop_frac']
 
         # Hack for season 2011: Use as good start/stop times the PFDS start/end time
-        if current_season == 2011:
+        if current_season in (2010, 2011):
             if r not in gaps_data:
-                logger.fatal('*** Run %s of season 2011 does not have proper start/stop meta information. ***' % r)
+                logger.fatal('*** Run %s of season %s does not have proper start/stop meta information. ***' % (r, current_season))
                 exit(-1)
 
             first_sr = min(gaps_data[r].keys())

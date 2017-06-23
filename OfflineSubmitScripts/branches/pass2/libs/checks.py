@@ -135,13 +135,12 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
         return 1
 
     for p in InFiles:
-        l = os.path.join(os.path.dirname(L2Files[0]),os.path.basename(p).replace\
-             ("PFFilt_PhysicsFiltering","Level2pass2_IC86.%s_data" % season).replace\
-             (".tar",".i3").replace\
-             ("Subrun00000000_","Subrun")).\
-             replace('PFDST_PhysicsTrig_PhysicsFiltering', 'Level2pass2_IC86.%s_data' % season).\
-             replace('PFDST_PhysicsFiltering', 'Level2pass2_IC86.%s_data' % season).\
-             replace('.gz', '.bz2')
+        l = os.path.join(os.path.dirname(L2Files[0]),
+                        os.path.basename(p).replace("PFFilt_PhysicsFiltering","Level2pass2_IC86.%s_data" % season)
+                                           .replace(".tar",".i3"))\
+                .replace('PFDST_PhysicsTrig_PhysicsFiltering', 'Level2pass2_IC86.%s_data' % season)\
+                .replace('PFDST_PhysicsFiltering', 'Level2pass2_IC86.%s_data' % season)\
+                .replace('.gz', '.zst')
    
         logger.debug("looking for file %s" % l)
  
@@ -192,8 +191,10 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
                                             AND run_id = %s""" % (dataset_id, r['run_id']),
                                     UseDict = True)
 
-    for subrunInfo in outputFileInfos:
+    for i, subrunInfo in enumerate(outputFileInfos):
         path = os.path.join(remove_path_prefix(subrunInfo['path']), subrunInfo['name'])
+
+        logger.info('Validate checksum %s/%s' % (i + 1, len(outputFileInfos)))
 
         if path in OutFiles:
             md5sum = FileTools(FileName = path, logger = logger).md5sum()
