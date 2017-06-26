@@ -23,6 +23,7 @@ from DbTools import *
 from libs.files import get_tmpdir, get_logdir, tar_log_files, insert_gap_file_info_and_delete_files
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
+from libs.utils import DBChecksumCache
 
 from libs.checks import PrintVerboseDifference
 
@@ -82,7 +83,7 @@ def get_x_files(run_id, start_date, folder_pattern):
     return files
 
 ICECUBE_GCDDIR = lambda x : "/data/exp/IceCube/%s/filtered/level2/VerifiedGCD" %str(x)
-def CheckFiles(r, logger, dataset_id, season, run_id, dryrun):
+def CheckFiles(r, logger, dataset_id, season, run_id, dryrun, checksumcache):
     if not r['GCDCheck'] or not r['BadDOMsCheck']:
         logger.info("GCDCheck or BadDOMsCheck failed for run=%s, production_version%s" %(str(r['run_id']),str(r['production_version'])))
         return 1
@@ -191,6 +192,7 @@ def CheckFiles(r, logger, dataset_id, season, run_id, dryrun):
             # Check if checksum matches the checksum in DB
             if md5sum == subrunInfo['md5sum']:
                 logger.debug("MD5 check sums match for %s" % path)
+                checksumcache.set_md5(path, md5sum)
             else:
                 logger.warning("MD5 check sum mismatch for %s" % path)
                 return 1
@@ -201,7 +203,7 @@ def CheckFiles(r, logger, dataset_id, season, run_id, dryrun):
     # all checks passed
     return 0
 
-def main_run(r, logger, season, args):
+def main_run(r, logger, season, args, checksumcache):
     dryrun = args.dryrun
     dataset_id = args.dataset_id
 
@@ -215,7 +217,7 @@ def main_run(r, logger, season, args):
      
     # check i/o files in data warehouse and Db
     logger.info("Checking Files in Data warehouse and database records ...")
-    if CheckFiles(r, logger, dataset_id = dataset_id, season = season, run_id = r['run_id'], dryrun = dryrun):
+    if CheckFiles(r, logger, dataset_id = dataset_id, season = season, run_id = r['run_id'], dryrun = dryrun, checksumcache = checksumcache):
         logger.error("FilesCheck failed: for Run=%s, production_version=%s"\
         %(r['run_id'],str(r['production_version'])))
         return
@@ -256,6 +258,7 @@ def main_run(r, logger, season, args):
     return
 
 def main(runinfo, logger, season, args):
+    checksumcache = DBChecksumCache(logger, args.dryrun)
     fdb = DatabaseConnection.get_connection('filter-db', logger)
     sql = "SELECT * FROM i3filter.post_processing WHERE dataset_id = {0} AND validated".format(args.dataset_id)
     validated_runs = fdb.fetchall(sql, UseDict = True)
@@ -266,7 +269,7 @@ def main(runinfo, logger, season, args):
     for run in runinfo:
         try:
             if int(run['run_id']) not in validated_runs:
-                main_run(run, logger, season, args)
+                main_run(run, logger, season, args, checksumcache)
             else:
                 logger.info('Skip run %s because it has already been validated' % run['run_id'])
         except Exception as e:
