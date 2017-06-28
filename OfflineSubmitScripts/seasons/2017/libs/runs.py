@@ -836,6 +836,53 @@ class SubRun(files.File):
 
         return copy
 
+    def is_empty(self, dont_count_i_frames = True):
+        """
+        Checks if the file is actually empty. By default it ignores I frames. That means this method returns
+        `True` even if the file contains I frames.
+
+        Args:
+            dont_count_i_frames (boolean): If set to `False`, the file needs to be entirely empty in order to return `True`.
+        """
+
+        if self.size() == 0:
+            return True
+
+        # Check gaps file
+        # If exists, check if empty. If not empty, the i3 file is not empty. If empty, check if i3 file is really empty
+        gaps_file = self.get_gaps_file()
+        if gaps_file.exists():
+            if gaps_file.size() > 0:
+                return False
+
+        # OK, the gaps file is empty, chekc if the i3 file is really empty
+        from icecube import dataio, icetray
+        o = dataio.I3File(self.path)
+
+        only_i_frame = True
+        has_i_frame = False
+
+        while o.more():
+            frame = o.pop_frame()
+
+            if frame.Stop != icetray.I3Frame.TrayInfo:
+                only_i_frame = False
+                break
+            else:
+                has_i_frame = True
+
+        o.close()
+
+        if not only_i_frame:
+            # The file is not empty
+            return False
+        elif has_i_frame:
+            # The file has I frames only
+            return dont_count_i_frames
+        else:
+            # The file is really empty, no I frames or ither frames
+            return True
+
     def is_in_good_time_range(self):
         """
         Checks if the file is completely or partly in good time range.
@@ -972,7 +1019,7 @@ class SubRun(files.File):
         Returns a `files.GapsFile` object that has the path to the gaps file: `GapsFile.path`.
 
         Returns:
-            files.GapsFile: Object for the corresponding. gaps file.
+            files.GapsFile: Object for the corresponding gaps file.
         """
 
         from files import GapsFile

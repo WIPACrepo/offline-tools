@@ -57,7 +57,7 @@ def validate_run(dataset_id, run, args, iceprod, logger, counter, checksumcache)
 
     ## delete/trim files when food start/stop differ from run start/stop
     logger.info('Check if run is in good start/stop time range')
-    trim_to_good_run_time_range(iceprod, dataset_id, run, logger, args.dryrun)
+    trim_to_good_run_time_range(iceprod, dataset_id, run, logger, args.dryrun, not args.not_already_trimmed)
 
     # Now, we do this a second time: the trim function may have recreated a gaps file
     logger.info('Insert additional gaps file info into DB')
@@ -227,6 +227,7 @@ if __name__ == '__main__':
     parser.add_argument("--cron", action = "store_true", default = False, help = "Use this option if you call this script via a cron")
     parser.add_argument("--re-validate", action = "store_true", default = False, help = "Also validate runs that have already been validated")
     parser.add_argument("--create-grl-only", action = "store_true", default = False, help = "Do not validate runs. Just create the GRL for the current season")
+    parser.add_argument("--not-already-trimmed", action = "store_true", default = False, help = "If the data files aren't already trimmed to the right size (is automatically done since V05-01-06) activate this option")
     args = parser.parse_args()
 
     logfile = os.path.join(get_logdir(sublogpath = 'PostProcessing'), 'PostProcessing_')

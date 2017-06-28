@@ -57,7 +57,7 @@ class TrimFileClass(icetray.I3PacketModule):
             self.logger.debug("GoodEnd: {0}".format(self.GoodEnd.__repr__()))
             self.logger.debug("Frame start time: {0}".format(frames[0]["I3EventHeader"].start_time.__repr__()))
 
-def trim_to_good_run_time_range(iceprod, dataset_id, run, logger, dryrun):
+def trim_to_good_run_time_range(iceprod, dataset_id, run, logger, dryrun, already_trimmed):
     """
     Checks if the L2 output files of the given run are within the good start/stop times.
     If not, the run start/stop files that are outside the range will be moved to a sub folder
@@ -66,8 +66,11 @@ def trim_to_good_run_time_range(iceprod, dataset_id, run, logger, dryrun):
 
     Args:
         run (Run): The run
+        dataset_id (int): The dataset id
+        iceprod (iceprod.IceProdInterace): The IceProd interface
         logger (Logger): The logger
         dryrun (boolean): If `True`, no data will be deleted
+        already_trimmed (boolean): Usually `True`. It indicates that only empty files need to be removed.
     """
 
     from config import get_config
@@ -79,24 +82,39 @@ def trim_to_good_run_time_range(iceprod, dataset_id, run, logger, dryrun):
     good_l2_files = []
     bad_l2_files = []
 
-    for f in l2files:
-        if f.is_in_good_time_range():
-            good_l2_files.append(f)
-        else:
-            bad_l2_files.append(f)
+    if already_trimmed:
+        # Check if there are empty files (they are empty because the good start/stop time made them empty during processing
+        for f in l2files:
+            if f.is_empty():
+                bad_l2_files.append(f)
+            else:
+                good_l2_files.append(f)
+    else:
+        for f in l2files:
+            if f.is_in_good_time_range():
+                good_l2_files.append(f)
+            else:
+                bad_l2_files.append(f)
 
     if len(bad_l2_files):
-        if not os.path.isdir(bad_sub_run_folder):
+        if not already_trimmed and not os.path.isdir(bad_sub_run_folder):
             logger.debug('Create bad sub run folder: {0}'.format(bad_sub_run_folder))
             if not dryrun:
                 os.mkdir(bad_sub_run_folder)
 
         for f in bad_l2_files:
-            dest = os.path.join(bad_sub_run_folder, f.get_name())
+            if not already_trimmed:
+                dest = os.path.join(bad_sub_run_folder, f.get_name())
 
-            logger.info('Move {0} to bad {1} since this sub run is not in good time range'.format(f.path, dest))
-            if not dryrun:
-                shutil.move(f.path, dest)
+                logger.info('Move {0} to bad {1} since this sub run is not in good time range'.format(f.path, dest))
+                if not dryrun:
+                    shutil.move(f.path, dest)
+            else:
+                # If the files have already been trimmed during processing
+                # there is no need to keep those empty files. Just delete it
+                logger.info('Delete {0} since this sub run is not in good time range and therefore empty'.format(f.path, dest))
+                if not dryrun:
+                    os.remove(f.path)
 
             logger.debug('Remove file from catalog')
             iceprod.remove_file_from_catalog(dataset_id, run, f)
@@ -104,6 +122,9 @@ def trim_to_good_run_time_range(iceprod, dataset_id, run, logger, dryrun):
             logger.info(f.format('Mark sub run {run_id}/{sub_rub_id} as bad'))
             # Note: Dryrun is considered within this method:
             f.mark_as_bad()
+
+    if already_trimmed:
+        return
 
     # Check if a file needs to be trimmed
     if good_l2_files[0].get_start_time() < run.get_good_start_time():
