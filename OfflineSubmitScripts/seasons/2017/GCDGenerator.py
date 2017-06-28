@@ -11,6 +11,7 @@ from libs.config import get_config
 from libs.runs import Run
 from libs.gcdgeneration import *
 from libs.databaseconnection import DatabaseConnection
+from libs.utils import DBChecksumCache
 
 def main(run_id, production_version, snapshot_id, outdir, logger):
     scratch_folder = get_condor_scratch_folder(default = './')
@@ -95,6 +96,10 @@ def main(run_id, production_version, snapshot_id, outdir, logger):
             if last_bad_dom_audit_result:
                 if not outdir:
                     db.execute(run.format("UPDATE i3filter.runs SET gcd_bad_doms_validated = 1 WHERE run_id = {run_id} and snapshot_id = {snapshot_id}"))
+
+                    # Calculate MD5 checksum for faster run submission
+                    checksumcache = DBChecksumCache(logger, dryrun = False)
+                    checksumcache.set_md5(gcd_data_path)
 
                 logger.info("Bad doms audit for {0} OK".format(gcd_data_path))
             else:
