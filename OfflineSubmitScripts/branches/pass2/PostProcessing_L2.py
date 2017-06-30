@@ -250,7 +250,7 @@ if __name__ == '__main__':
     if args.CRON:
         LOGFILE = LOGFILE + 'CRON_'
 
-    logger = get_logger(args.loglevel, LOGFILE, not args.npx)
+    logger = get_logger(args.loglevel, LOGFILE, args.npx)
 
     # Check if --cron option is enabled. If so, check if cron usage allowed by config
     lock = None
