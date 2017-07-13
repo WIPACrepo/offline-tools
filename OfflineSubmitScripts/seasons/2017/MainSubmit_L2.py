@@ -71,12 +71,20 @@ def main(args, run_ids, logger):
             # Dataset id for this run
             dataset_id = run_id_dataset_id_mapping[run.run_id]
 
-            logger.info(run.format('Start submission for run {run_id} with dataset id {dataset_id}', dataset_id = dataset_id))
+            if not args.remove_submitted_runs:
+                logger.info(run.format('Start submission for run {run_id} with dataset id {dataset_id}', dataset_id = dataset_id))
+            else:
+                logger.info(run.format('Remove run {run_id} with dataset id {dataset_id}', dataset_id = dataset_id))
 
             iceprod.clean_run(dataset_id, run)
 
             if args.cleandatawarehouse:
                 clean_datawarehouse(run, logger, args.dryrun, run_folder = run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER')))
+
+            if args.remove_submitted_runs:
+                logger.warning(run.format('Run {run_id} has been removed. Please not that no folders were removed nor the good run list has been modified.'))
+                logger.warning(run.format('The IceProd DB has been modified ONLY!'))
+                continue
 
             # Create output folder if not exists
             output = run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER'))
@@ -147,6 +155,7 @@ if __name__ == '__main__':
     parser.add_argument("--cleandatawarehouse", action = "store_true", default = False, help = "Clean output files in datawarehouse as part of (re)submission process.")
     parser.add_argument("--resubmission", action = "store_true", default = False, help = "Resubmit the runs. Note that all runs are resubmitted. If a run would be submitted for the very first time, an error is thrown.")
     parser.add_argument("--nometadata", action = "store_true", default = False, help="Do not write meta data files")
+    parser.add_argument("--remove-submitted-runs", action = "store_true", default = False, help="Instead of submitting runs, it will remove all runs that are specified from the iceprod DB. This means that those runs will be stopped to be processed.")
     args = parser.parse_args()
 
     logfile = os.path.join(get_logdir(sublogpath = 'MainProcessing'), 'RunSubmission_')
