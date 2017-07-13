@@ -123,9 +123,6 @@ def trim_to_good_run_time_range(iceprod, dataset_id, run, logger, dryrun, alread
             # Note: Dryrun is considered within this method:
             f.mark_as_bad()
 
-    if already_trimmed:
-        return
-
     # Check if a file needs to be trimmed
     if good_l2_files[0].get_start_time() < run.get_good_start_time():
         logger.info('First subrun in good time range needs to be trimmed: sub_run_id = {sub_run_id}, start_time = {start_time}, stop_time = {stop_time}, good_start_time = {good_start_time}, good_stop_time = {good_stop_time}'.format(
@@ -136,7 +133,10 @@ def trim_to_good_run_time_range(iceprod, dataset_id, run, logger, dryrun, alread
             good_stop_time = run.get_good_stop_time()
         ))
 
-        if not os.path.isdir(bad_sub_run_folder):
+        if already_trimmed:
+            logger.error('The file is marked as already trimmed but it looks like there are still some events not withing the good start/stop times')
+            raise Exception('The file is marked as already trimmed but it looks like there are still some events not withing the good start/stop times')
+        elif not os.path.isdir(bad_sub_run_folder):
             logger.debug('Create bad sub run folder: {0}'.format(bad_sub_run_folder))
             if not dryrun:
                 os.mkdir(bad_sub_run_folder)
@@ -152,7 +152,10 @@ def trim_to_good_run_time_range(iceprod, dataset_id, run, logger, dryrun, alread
             good_stop_time = run.get_good_stop_time()
         ))
 
-        if not os.path.isdir(bad_sub_run_folder):
+        if already_trimmed:
+            logger.error('The file is marked as already trimmed but it looks like there are still some events not withing the good start/stop times')
+            raise Exception('The file is marked as already trimmed but it looks like there are still some events not withing the good start/stop times')
+        elif not os.path.isdir(bad_sub_run_folder):
             logger.debug('Create bad sub run folder: {0}'.format(bad_sub_run_folder))
             if not dryrun:
                 os.mkdir(bad_sub_run_folder)
