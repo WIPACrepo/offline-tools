@@ -280,6 +280,8 @@ if __name__ == '__main__':
         logger.critical('If --endrun, -e has been set, also the --startrun, -s needs to be set.')
         exit(1)
 
+    logger.debug('Runs: %s' % runs)
+
     if len(runs) > 0:
         RunInfo = dbs4_.fetchall("""SELECT r.tStart,g.* FROM i3filter.grl_snapshot_info_pass2 g
                                   JOIN i3filter.run_info_summary_pass2 r ON r.run_id=g.run_id
@@ -290,6 +292,11 @@ if __name__ == '__main__':
                                  JOIN i3filter.run_info_summary_pass2 r ON r.run_id=g.run_id
                                  WHERE g.submitted AND (g.good_i3 OR g.good_it) AND NOT validated
                                  ORDER BY g.run_id""", UseDict=True)
+
+    logger.debug("""SELECT r.tStart,g.* FROM i3filter.grl_snapshot_info_pass2 g
+                                  JOIN i3filter.run_info_summary_pass2 r ON r.run_id=g.run_id
+                                  WHERE g.submitted AND (g.good_i3 OR g.good_it) AND NOT validated AND g.run_id IN (%s)
+                                  ORDER BY g.run_id""" % (', '.join([str(r) for r in runs])))
 
     logger.debug("RunInfo = %s" % str(RunInfo))
 

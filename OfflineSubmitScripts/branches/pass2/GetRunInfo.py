@@ -90,9 +90,12 @@ def read_grl_file(f):
     fh.close()
     return r
     
-def main(config, logger,dryrun = False, check = False):
+def main(config, logger,dryrun = False, check = False, updates_only = False):
     if check:
         logger.info('Only in check mode. Just checking if an update is available.')
+
+    if updates_only:
+        logger.info('Only updates will be executed.')
 
     # Get the current production version and snapshot info 
     # from the production database dbs4
@@ -221,7 +224,7 @@ def main(config, logger,dryrun = False, check = False):
     RunStr_ = ",".join([str(r) for r in RunNums_])
 
     # get all previous runs from dbs4 and check if entries in live are different
-    tmpRecords_ = dbs4_.fetchall("""select run_id from i3filter.run_info_summary_pass2
+    tmpRecords_ = dbs4_.fetchall("""select DISTINCT run_id from i3filter.grl_snapshot_info_pass2
                                     order by run_id""",UseDict=True)
     tRecords_ = [t_['run_id'] for t_ in tmpRecords_]
     NewRecords_ = list(set(RunNums_).difference(set(tRecords_)))
@@ -308,25 +311,32 @@ def main(config, logger,dryrun = False, check = False):
         is_good_run = RunInfo_[r]['good_it'] or RunInfo_[r]['good_i3']
         logger.debug("Is run %s a good run? = %s" % (r, is_good_run))
 
-        if not is_good_run:
-            logger.info("Skip run %s because it is a bad run" % r)
-            continue
+       # if not is_good_run:
+       #     logger.info("Skip run %s because it is a bad run" % r)
+       #     continue
 
         # It should not matter if they are only good_it
         #if r in [119194, 119398]:
         #    logger.warning("Skip run %s because it has bad InIce % r")
         #    continue
 
+        logger.debug('Current run: %s' % r)
+
         if r in OldRecords_ : continue
         if r in NewRecords_:
-            logger.info("entering new records for run = %s"%r)
+            if updates_only:
+                logger.info('%s is a new run but the `updates-only` option is enabled. Skip this run.' % r)
+                continue
+
+            gb = ('BAD', 'GOOD')
+            logger.info("entering new records for run = %s (%s)" % (r, gb[is_good_run]))
 
             R = RunTools(r, logger = logger, passNumber = 2)
             RunTimes = R.GetRunTimes()
-            InFiles = R.GetRunFiles(RunTimes['tStart'],'P')
+            InFiles = R.GetRunFiles(RunTimes['tStart'],'P', season = current_season)
 
             detailed_check_information = {}
-            CheckFiles = R.FilesComplete(InFiles, RunTimes, get_tmpdir(), showTimeMismatches = is_good_run, outdict = detailed_check_information)
+            CheckFiles = R.FilesComplete(InFiles, RunTimes, get_tmpdir(), showTimeMismatches = is_good_run, outdict = detailed_check_information, no_xml_bundle = current_season in (2015, 2016))
 
             logger.debug("Check files returned %s" % CheckFiles)
 
@@ -348,7 +358,7 @@ def main(config, logger,dryrun = False, check = False):
             if not dryrun and (CheckFiles or not is_good_run):
                 logger.debug("Insert run into run_info_summary_pass2")
 
-                dbs4_.execute("""INSERT INTO i3filter.run_info_summary_pass2
+                dbs4_.execute("""INSERT IGNORE INTO i3filter.run_info_summary_pass2
                                  (run_id, tStart, tStop, tStart_frac, tStop_frac, nEvents, rateHz, FilesComplete)
                                  VALUES (%u, "%s", "%s", "%s", "%s", %s, %s, %u) """ \
                                  % (r, RunInfo_[r]['tStart'], RunInfo_[r]['tStop'],
@@ -364,6 +374,9 @@ def main(config, logger,dryrun = False, check = False):
         if r in ChangedRecords_.keys():
             logger.info("updating records for run = %s"%r)
             UpdateComment = 'Updated in snapshot'
+
+            # Just updating the Snapshot. Files were already checked the first time
+            CheckFiles = 1
     
         goodStart = RunInfo_[r]['tStart']
         if RunInfo_[r]['good_tstart'] != "NULL" : goodStart = RunInfo_[r]['good_tstart']
@@ -376,7 +389,7 @@ def main(config, logger,dryrun = False, check = False):
         if RunInfo_[r]['good_tstop_frac'] != "NULL"  : goodStop_frac = RunInfo_[r]['good_tstop_frac']
 
         # Hack for season 2011: Use as good start/stop times the PFDS start/end time
-        if current_season in (2010, 2011):
+        if current_season in (2010, 2011) and is_good_run:
             if r not in gaps_data:
                 logger.fatal('*** Run %s of season %s does not have proper start/stop meta information. ***' % (r, current_season))
                 exit(-1)
@@ -413,6 +426,8 @@ def main(config, logger,dryrun = False, check = False):
             for file in fileChkRlt['permission']:
                 logger.warning('    ' + file)
     
+        logger.debug('Insert run %s in DB' % r)
+
         # insert new runs from live in grl_snapshot_info_pass2
         if not dryrun and (CheckFiles or not is_good_run): dbs4_.execute( """insert into i3filter.grl_snapshot_info_pass2
                             (ss_ref,run_id,snapshot_id,good_i3,good_it,reason_i3,reason_it,
@@ -433,10 +448,11 @@ if __name__ == "__main__":
     parser = get_defaultparser(__doc__,dryrun=True)
 
     parser.add_argument('--check', help="Only check for updates. Do nothing else",dest="check",action="store_true",default=False)  
+    parser.add_argument('--updates-only', help="Do only execute updates. Do not insert new entries.",dest="updates_only",action="store_true",default=False)  
 
     args = parser.parse_args()
     LOGFILE=os.path.join(get_logdir(sublogpath = 'PreProcessing'), 'GetRunInfo_')
     logger = get_logger(args.loglevel,LOGFILE)
-    main(logger = logger, dryrun=args.dryrun, check = args.check, config = config)    
+    main(logger = logger, dryrun=args.dryrun, check = args.check, config = config, updates_only = args.updates_only)    
 
 

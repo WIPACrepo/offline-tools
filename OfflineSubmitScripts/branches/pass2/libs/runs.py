@@ -36,7 +36,24 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, checksumcache, dryrun, logg
     logger.debug('Get PFFilt files')
 
     InFiles = R.GetRunFiles(g['tStart'],'P')        
-  
+ 
+    excluded_files = [
+        'PFDST_TestData_Unfiltered_Run00120516_Subrun00000000_0000019.tar.gz',
+        'PFDST_TestData_Unfiltered_Run00120516_Subrun00000000_0000020.tar.gz',
+        'PFDST_TestData_Unfiltered_Run00120516_Subrun00000000_0000021.tar.gz',
+        'PFDST_TestData_Unfiltered_Run00120516_Subrun00000000_0000022.tar.gz',
+        'PFDST_TestData_Unfiltered_Run00120516_Subrun00000000_0000023.tar.gz',
+        'PFDST_TestData_Unfiltered_Run00120516_Subrun00000000_0000024.tar.gz',
+        'PFDST_TestData_Unfiltered_Run00120516_Subrun00000000_0000025.tar.gz',
+        'PFDST_TestData_Unfiltered_Run00120516_Subrun00000000_0000026.tar.gz',
+        'PFDST_TestData_Unfiltered_Run00120516_Subrun00000000_0000027.tar.gz',
+        'PFDST_TestData_Unfiltered_Run00120516_Subrun00000000_0000028.tar.gz',
+        'PFDST_TestData_Unfiltered_Run00120516_Subrun00000000_0000029.tar.gz',
+        'PFDST_TestData_Unfiltered_Run00120516_Subrun00000000_0000030.tar.gz'
+    ]
+
+    InFiles = [f for f in InFiles if os.path.basename(f) not in excluded_files]
+ 
     if input:
         logger.debug("InFiles glob = %s" % format_path(input))
         InFiles = sorted(glob.glob(format_path(input)))

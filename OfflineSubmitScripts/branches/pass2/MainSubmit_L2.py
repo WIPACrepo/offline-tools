@@ -39,20 +39,34 @@ def main(params, logger, DryRun):
 
     dbs4_ = dbs4.MySQL()
 
-    AllRuns = []
+    # Check arguments
+    runs = params.runs
 
-    MARKED_RUNS = []
-    if (END_RUN) and (START_RUN) and END_RUN >= START_RUN:
-        MARKED_RUNS = range(START_RUN,END_RUN+1)
+    if runs is None:
+        runs = []
 
-    AllRuns.extend(MARKED_RUNS)
+    if START_RUN is not None:
+        if END_RUN is None:
+            logger.critical('If --startrun, -s has been set, also the --endrun, -e needs to be set.')
+            exit(1)
+
+        runs.extend(range(START_RUN, END_RUN + 1))
+    elif END_RUN is not None:
+        logger.critical('If --endrun, -e has been set, also the --startrun, -s needs to be set.')
+        exit(1)
+
+    if not len(runs):
+        logger.critical("No runs given.")
+        exit(1)
+
+    AllRuns = runs
 
     if not len(AllRuns):
         logger.warning("No new runs to submit or old to update, check start:%s and end:%s run arguments"%(START_RUN,END_RUN))
         exit(0)
 
     if Resubmission and not args.out:
-        if not runs_already_submitted(dbs4_, START_RUN, END_RUN, logger, DryRun):
+        if not runs_already_submitted(dbs4_, runs, logger, DryRun):
             logger.critical('At least one run has not been submitted before. Do not use the resubmission flag to submit runs for the first time.')
             logger.critical('Exit')
             exit(1)
@@ -60,7 +74,7 @@ def main(params, logger, DryRun):
             dbs4_.execute("""UPDATE i3filter.grl_snapshot_info_pass2\
                                  SET submitted=0, \
                                      validated=0 \
-                                 WHERE run_id BETWEEN %s AND %s AND (good_i3=1 OR good_it=1)"""%(START_RUN, END_RUN))
+                                 WHERE run_id IN (%s) AND (good_i3=1 OR good_it=1)"""%(','.join([str(r) for r in runs])))
 
     checksumcache = DBChecksumCache(logger, DryRun)
 
@@ -99,8 +113,27 @@ def main(params, logger, DryRun):
            
             if QId is None:
                 QId = 0
- 
-            submit_run(dbs4_, g, status, dataset_id, QId, checksumcache, DryRun, logger, use_std_gcds = args.USE_STD_GCDS, gcd = args.gcd, input = args.input, out = args.out)
+
+            try: 
+                submit_run(dbs4_, g, status, dataset_id, QId, checksumcache, DryRun, logger, use_std_gcds = args.USE_STD_GCDS, gcd = args.gcd, input = args.input, out = args.out)
+            except ValueError as e:
+                logger.exception(e)
+
+                logger.warning('Cleaning run...')
+                clean_run(dbs4_, dataset_id, Run,params.CLEANDW, g, logger, DryRun)
+
+                continue
+            except pymysql.err.OperationalError as e:
+                logger.exception(e)
+
+                logger.warning('Cleaning run...')
+                clean_run(dbs4_, dataset_id, Run,params.CLEANDW, g, logger, DryRun)
+
+                logger.warning('Try to submit a this run a second time')
+
+                # Try it a second time
+                submit_run(dbs4_, g, status, dataset_id, QId, checksumcache, DryRun, logger, use_std_gcds = args.USE_STD_GCDS, gcd = args.gcd, input = args.input, out = args.out)
+                continue
         
             if not args.NOMETADATA and (g['good_i3'] or g['good_it']):
                 meta_file_dest = ''
@@ -144,13 +177,14 @@ if __name__ == '__main__':
                                       dest="DATASETID", help="The dataset id. The default value is `None`. In this case it gets the dataset id from the config file.")
 
 
-    parser.add_argument("-s", "--startrun", type=int, required = True,
+    parser.add_argument("-s", "--startrun", type=int, required = False,
                                       dest="STARTRUN", help="start submission from this run")
 
 
     parser.add_argument("-e", "--endrun", type=int, required = False,
                                       dest="ENDRUN", help="end submission at this run")
 
+    parser.add_argument("--runs", type = int, nargs = '*', required = False, help = "Submitting specific runs. Can be mixed with -s and -e")
     parser.add_argument("--input", type = str, required = False, default = None, help="Specify input path where the input files can be found. Use {year}, {month}, {day}, {run_id}, *, and [0-9] if needed. E.g. /data/exp/IceCube/{year}/filtered/PFFilt/{month}{day}/")
 
     parser.add_argument("--gcd", type = str, required = False, default = None, help="Specify the GCD path where the input files can be found. Use {year}, {month}, {day}, {run_id} if needed. E.g. /data/exp/IceCube/{year}/filtered/PFFilt/{month}{day}/")

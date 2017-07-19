@@ -37,7 +37,7 @@ from libs import dbtools
 ICECUBE_GCDDIR = lambda x : "/data/exp/IceCube/%s/filtered/level2pass2/VerifiedGCD" %str(x)
 ICECUBE_DATADIR = lambda x : "/data/exp/IceCube/%s/filtered/level2pass2/" %str(x)
 
-def runs_already_submitted(dbs4_, StartRun, EndRun, logger, dryrun):
+def runs_already_submitted(dbs4_, runs, logger, dryrun):
     """
     Checks if all runs have already been submitted. In fact, it checks if the `submitted` flag in
     `grl_snapshot_info_pass2` is set to `1`.
@@ -56,7 +56,7 @@ def runs_already_submitted(dbs4_, StartRun, EndRun, logger, dryrun):
     logger.info('Check runs for resubmission.')
 
     Runs = dbs4_.fetchall("""SELECT run_id, submitted FROM i3filter.grl_snapshot_info_pass2
-                                    WHERE run_id BETWEEN %s AND %s AND (good_i3=1 OR good_it=1)"""%(StartRun, EndRun),UseDict=True)
+                                    WHERE run_id IN (%s) AND (good_i3=1 OR good_it=1)"""%(','.join([str(r) for r in runs])),UseDict=True)
 
     Abort = False
     for Run in Runs:
@@ -139,6 +139,7 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
                         os.path.basename(p).replace("PFFilt_PhysicsFiltering","Level2pass2_IC86.%s_data" % season)
                                            .replace(".tar",".i3"))\
                 .replace('PFDST_PhysicsTrig_PhysicsFiltering', 'Level2pass2_IC86.%s_data' % season)\
+                .replace('PFDST_TestData_PhysicsFiltering', 'Level2pass2_IC86.%s_data' % season)\
                 .replace('PFDST_PhysicsFiltering', 'Level2pass2_IC86.%s_data' % season)\
                 .replace('.gz', '.zst')
    
