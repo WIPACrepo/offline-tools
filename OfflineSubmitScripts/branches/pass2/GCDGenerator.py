@@ -113,9 +113,9 @@ def MakeGCD(RunNum,FName,GCDName,ProductionVersion,SnapshotId,effectiveStartTime
         #tray.AddModule("QConverter", "qify")
           
         tray.AddSegment(I3Db.GCDSynth,"gcdsynth",
-                        #Host = '128.104.255.19',        # new external ip address for dbs2
+                        Host = '128.104.255.19',        # new external ip address for dbs2
                         #Host = 'dbs2.icecube.wisc.edu',
-                        Host = 'icedb.umons.ac.be',
+                        #Host = 'icedb.umons.ac.be',
                         Mjd = 54560 # any nominal value > PMTInfoIntroduction (54559, 2008/04/03)
                         #Database = 'I3OmDb'
                         )
