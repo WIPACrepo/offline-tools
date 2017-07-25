@@ -137,5 +137,8 @@ if __name__ == '__main__':
     if args.local_execution:
         bash_file.close()
 
+        logger.warning('--local-execution option was enabled. NO JOBS HAVE BEEN SUBMITTED. NO GCD GENERATION PROCESSES ARE RUNNING CURRENTLY!')
+        logger.warning('You need to execute {0} manually on that machine you would like!'.format(config.get('GCD', 'LocalExecutionBashFile')))
+
     logger.info('Done')
 
