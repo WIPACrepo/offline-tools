@@ -161,13 +161,14 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
     # FIXME: we need something to find the gcd for a run    
     # This seems to be fixed, however 
 
+    season = libs.config.get_season_by_run(Run)
+
+
     if not cosmicray:
         GCDEntry = [g for g in runInfo if "GCD" in g['name']][0]
         #GCDEntry = [g for g in runInfo if g['sub_run']==1 and "GCD" in g['name']][0]
         GCDFile = os.path.join(GCDEntry['path'][5:],GCDEntry['name'])
     else:
-        season = libs.config.get_season_by_run(Run)
-
         logger.debug("Season: %s" % season)
 
         if season == -1:
@@ -230,10 +231,10 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
         QId+=1
 
         p = None
-        if not cosmicray:
-            p = [r for r in runInfo if r['sub_run'] in range(groups_[g],groups_[g+1]) and str(r['sub_run']).zfill(8)+"_" not in r['name'] and r['type']=="PERMANENT"]
+        if not cosmicray or season == 2010:
+            p = [r for r in runInfo if r['sub_run'] in range(groups_[g],groups_[g+1]) and str(r['sub_run']).zfill(8)+"_" not in r['name'] and r['type']=="PERMANENT" and not r['name'].endswith('.xml')]
         else:
-            p = [r for r in runInfo if r['sub_run'] in range(groups_[g],groups_[g+1]) and str(r['sub_run']).zfill(8)+"_IT" in r['name'] and r['type']=="PERMANENT"]
+            p = [r for r in runInfo if r['sub_run'] in range(groups_[g],groups_[g+1]) and str(r['sub_run']).zfill(8)+"_IT" in r['name'] and r['type']=="PERMANENT" and not r['name'].endswith('.xml')]
 
         logger.debug("p = %s" % p)
 
@@ -276,10 +277,10 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
         g = -1
 
     p = None
-    if not cosmicray:
-        p = [r for r in runInfo if r['sub_run'] in range(groups_[g+1],lastSubRun+1) and str(r['sub_run']).zfill(8)+"_" not in r['name'] and r['type']=="PERMANENT"]
+    if not cosmicray or season == 2010:
+        p = [r for r in runInfo if r['sub_run'] in range(groups_[g+1],lastSubRun+1) and str(r['sub_run']).zfill(8)+"_" not in r['name'] and r['type']=="PERMANENT" and not r['name'].endswith('.xml')]
     else:
-        p = [r for r in runInfo if r['sub_run'] in range(groups_[g+1],lastSubRun+1) and str(r['sub_run']).zfill(8)+"_IT" in r['name'] and r['type']=="PERMANENT"]
+        p = [r for r in runInfo if r['sub_run'] in range(groups_[g+1],lastSubRun+1) and str(r['sub_run']).zfill(8)+"_IT" in r['name'] and r['type']=="PERMANENT" and not r['name'].endswith('.xml')]
 
     for q in p:
         q['path'] = add_prefix(q['path'], path_prefix)

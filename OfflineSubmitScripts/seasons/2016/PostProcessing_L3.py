@@ -252,7 +252,7 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
                                               and u.name like "%%hdf5%%"
                                               """%(DDatasetId,DDatasetId,DDatasetId,RunId),UseDict=True)
                 
-                hdf5Files = [remove_path_prefix(h['path'])+"/"+h['name'] for h in hInfo if "Merged" not in h['name']] # avoid previously meged hdf5 file if one exists
+                hdf5Files = [os.path.join(remove_path_prefix(h['path']), h['name']) for h in hInfo if "Merged" not in h['name']] # avoid previously meged hdf5 file if one exists
 
                 if len(hdf5Files):
                     hdf5Files.sort()
@@ -318,6 +318,51 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
     logger.info("%s runs were handled | validated %s runs | errors: %s | skipped %s runs" % (counter['all'], counter['validated'], counter['errors'], counter['skipped']))
     return counter
 
+def merge_hd5_only(DDatasetId, RunId, logger, dryrun):
+    logger.info("Merge hdf5 files for run %s" % RunId)
+    SEASON = libs.config.get_season_by_run(RunId)
+    hdf5Files = []
+    
+    # ensures only files from "OK" jobs are included in the Merged file
+    hInfo = dbs4_.fetchall("""SELECT * FROM i3filter.job j join i3filter.urlpath u on j.queue_id=u.queue_id
+                                  join i3filter.run r on r.queue_id=j.queue_id
+                                  where j.dataset_id=%s and u.dataset_id=%s and
+                                  r.dataset_id=%s and j.status="OK" and r.run_id=%s
+                                  and u.name like "%%hdf5%%"
+                                  """%(DDatasetId,DDatasetId,DDatasetId,RunId),UseDict=True)
+    
+    hdf5Files = [os.path.join(remove_path_prefix(h['path']), h['name']) for h in hInfo if "Merged" not in h['name']] # avoid previously meged hdf5 file if one exists
+
+    logger.debug('Found %s hdf5 files' % len(hdf5Files))
+
+    if len(hdf5Files):
+        hdf5Files.sort()
+        hdf5Files = " ".join(hdf5Files)
+        
+        hdf5Out = os.path.join(remove_path_prefix(hInfo[0]['path']), "Level3_IC%s.%s_data_Run00%s_Merged.hdf5" % ('86' if SEASON > 2010 else 79, SEASON, RunId))
+
+        logger.debug('Merged HDF5 out: %s' % hdf5Out)
+        logger.debug('Files to merge: %s' % hdf5Files)
+
+        if not dryrun:
+            buildir = libs.config.get_config().get('L3', "I3_BUILD_%s" % DDatasetId)
+            envpath = os.path.join(buildir, './env-shell.sh')
+            mergescript = os.path.join(buildir, 'hdfwriter/resources/scripts/merge.py')
+
+            mergeReturn = sub.call([envpath,
+                                "python", mergescript,
+                                "%s"%hdf5Files, "-o %s"%hdf5Out])
+        
+        if not dryrun:
+            dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","PERMANENT","%s","%s")\
+                   on duplicate key update dataset_id="%s",queue_id="%s",name="%s",path="%s",type="PERMANENT",md5sum="%s",size="%s",transferstate="WAITING"  """% \
+                             (DDatasetId,hInfo[-1]['queue_id'],os.path.basename(hdf5Out),"file:"+os.path.dirname(hdf5Out)+"/",str(FileTools(hdf5Out, logger).md5sum()),str(os.path.getsize(hdf5Out)),\
+                              DDatasetId,hInfo[-1]['queue_id'],os.path.basename(hdf5Out),"file:"+os.path.dirname(hdf5Out)+"/",str(FileTools(hdf5Out, logger).md5sum()),str(os.path.getsize(hdf5Out))))
+            
+            
+            dbs4_.execute("""update i3filter.urlpath set transferstate="IGNORED" where dataset_id=%s and name like "%%%s%%hdf5%%" and name not like "%%Merged%%" """%(DDatasetId,RunId))
+
+
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__,dryrun=True)
 
@@ -345,6 +390,8 @@ if __name__ == '__main__':
     parser.add_argument("--special-gcd", action="store_true", default=False, dest="SPECIAL_GCD", help="The destination dataset was using a special GCD that was not used in L2.")
     parser.add_argument("--use-icetop-files", action="store_true", default=False, dest="IT_FILES", help="Use IceTop files instead of standard L2 files")
     parser.add_argument("--aggregate", type = int, default = 1, help="number of subruns to aggregate to form one job. Needs to match the value passed for the processing.")
+    parser.add_argument("--merge-hdf5-only", action="store_true", default=False, help="Skip post processing and only merge the hdf5 files")
+    parser.add_argument("--npx", action="store_true", default=False, help="Adjustemnts for letting this script running on NPX")
 
     args = parser.parse_args()
 
@@ -355,11 +402,16 @@ if __name__ == '__main__':
     else:
         LOGFILE = os.path.join(get_logdir(sublogpath = 'L3Processing'), "PostProcessing_%s_%s_" % (args.SDATASETID, args.DDATASETID))
 
-    logger = get_logger(args.loglevel,LOGFILE)
+    logger = get_logger(args.loglevel,LOGFILE, no_svn = args.npx)
 
     if not args.CRON and (args.SDATASETID is None or args.DDATASETID is None or args.STARTRUN is None):
         logger.critical("--sourcedatasetid and --destinationdatasetid and -s are required if not executed with --cron")
         exit(1)
+
+    if args.merge_hdf5_only:
+        for run_id in range(args.STARTRUN, args.ENDRUN + 1):
+            merge_hd5_only(args.DDATASETID, run_id, logger, args.dryrun)
+        exit()
 
     lock = None
     if args.CRON:

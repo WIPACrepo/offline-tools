@@ -62,25 +62,29 @@ def submit_run(checksumcache, db, run_id, status, DatasetId, QueueId, dryrun, lo
     path_prefix = 'gsiftp://gridftp.icecube.wisc.edu'
 
     InFiles = []
-   
-    run_info = db.fetchall("SELECT * FROM i3filter.grl_snapshot_info g JOIN i3filter.run_info_summary s ON g.run_id = s.run_id WHERE g.run_id = %s ORDER BY snapshot_id DESC LIMIT 1" % run_id, UseDict = True)
+  
+    fdb = DatabaseConnection.get_connection('filter-db', logger)
+ 
+    run_info = fdb.fetchall("SELECT * FROM i3filter.runs WHERE run_id = %s ORDER BY snapshot_id DESC LIMIT 1" % run_id, UseDict = True)
+
+    #run_info = db.fetchall("SELECT * FROM i3filter.grl_snapshot_info g JOIN i3filter.run_info_summary s ON g.run_id = s.run_id WHERE g.run_id = %s ORDER BY snapshot_id DESC LIMIT 1" % run_id, UseDict = True)
  
     logger.debug("run_info = %s" % run_info)
 
     g = run_info[0]
 
-    sDay = g['tStart']      # run start date
+    sDay = g['tstart']      # run start date
     sY = sDay.year
     sM = str(sDay.month).zfill(2)
     sD = str(sDay.day).zfill(2)
     
     logger.debug('Get PFFilt files')
 
-    InFiles = glob.glob("/data/exp/IceCube/%s/unbiased/PFRaw/%s%s/*PFRaw_PhysicsFiltering_Run00%s_Subrun00000000_00000*.tar.gz" % (sY, sM, sD, run_id))
+    InFiles = glob.glob("/data/exp/IceCube/%s/unbiased/PFRaw/%s%s/*PFRaw_*_Run00%s_Subrun00000000_00000*.tar.gz" % (sY, sM, sD, run_id))
 
     nextDate = sDay + relativedelta(days = 1)
 
-    InFiles.extend(glob.glob("/data/exp/IceCube/%s/unbiased/PFRaw/%s%s/*PFRaw_PhysicsFiltering_Run00%s_Subrun00000000_00000*.tar.gz" % (nextDate.year, str(nextDate.month).zfill(2), str(nextDate.day).zfill(2), run_id)))       
+    InFiles.extend(glob.glob("/data/exp/IceCube/%s/unbiased/PFRaw/%s%s/*PFRaw_*_Run00%s_Subrun00000000_00000*.tar.gz" % (nextDate.year, str(nextDate.month).zfill(2), str(nextDate.day).zfill(2), run_id)))       
    
     InFiles.sort()
 
@@ -89,6 +93,8 @@ def submit_run(checksumcache, db, run_id, status, DatasetId, QueueId, dryrun, lo
     logger.info("Found %s PFRaw files for this run" % len(InFiles))
 
     season = get_season_by_run(run_id)
+
+    logger.debug('Season = %s' % season)
 
     dst_folder = 'PFDST'
     if season in (2015, 2016):
@@ -106,7 +112,14 @@ def submit_run(checksumcache, db, run_id, status, DatasetId, QueueId, dryrun, lo
     logger.debug('Find GCD file')
 
     GCDFileName = []
-    GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2/VerifiedGCD/*Run00%s*%s_%s*"%(sY,g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
+    if season == 2010:
+        gcd_glob_str = "/data/exp/IceCube/%s/filtered/level2a/%s%s/Level2a_IC79_data_Run00%s_GCD.i3.bz2" % (sY, sM, sD, g['run_id'])
+
+        logger.debug('gcd_glob_str = %s' % gcd_glob_str)
+
+        GCDFileName = glob.glob(gcd_glob_str)
+    else:
+        GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2/VerifiedGCD/*Run00%s*%s_%s*"%(sY,g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
 
     if not len(GCDFileName):
         GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2/AllGCD/*Run00%s*%s_%s*"%(sY,g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
@@ -172,9 +185,11 @@ def main(args, logger):
     for run_id in args.run:
         logger.info("********* Run %s *********" % run_id)
 
-        if not is_good_run(run_id, db, logger):
+        if not is_good_run(run_id, db, logger) and not args.force_submission:
             logger.error("Run %s is not a good run. Run will be skipped." % run_id)
             continue
+        elif args.force_submission:
+            logger.warning('Run %s is marked as bad or no good run information is available. This run has been forced to get submitted.' % run_id)
 
         if run_id in submitted_runs:
             if args.resubmission:
@@ -201,6 +216,7 @@ if __name__ == '__main__':
     parser.add_argument("--run", nargs = '+', type = int, required = True, help = "Run number(s) to process")
 
     parser.add_argument("--cleandatawarehouse", action = "store_true", default = False, help = "Clean output files in datawarehouse as part of (re)submission process.")
+    parser.add_argument("--force-submission", action = "store_true", default = False, help = "Ignore if the run is marked as bad (or if no good run information is available).")
 
     parser.add_argument("--resubmission", action = "store_true", default = False,
               help = "If a run has already been submitted, resubmit it. If this option is not set, alrady submitted runs are skipped.")
