@@ -546,6 +546,17 @@ def create_good_run_list(dataset_id, db, logger, dryrun):
 
     config = get_config(logger)
     dataset_info = config.get_dataset_info(dataset_id)
+    seasons_info = config.get_seasons_info()
+
+    first_run = seasons_info[dataset_info['season']]['first']
+    test_runs = seasons_info[dataset_info['season']]['test']
+
+    exclude_next_testruns = [-1]
+    last_run = 99999999
+
+    if dataset_info['season'] + 1 in seasons_info:
+        exclude_next_testruns = seasons_info[dataset_info['season'] + 1]['test']
+        last_run = seasons_info[dataset_info['season'] + 1]['first'] - 1
 
     # Find latest versions of GRLs:
     format_grl_path = lambda p: replace_var(p, 'now', '*').format(
@@ -579,17 +590,40 @@ def create_good_run_list(dataset_id, db, logger, dryrun):
         latest_grl_versioned = None
 
     # It IS IMPORTANT that the result is sorted descendingwise for the production_version!
+    # Note: Since L2 data has a dataset_id = 0 in i3filter.post_processing for dataset_ids < 1915, we need to take this into account
     runs = db.fetchall("""
         SELECT * FROM i3filter.runs r 
         JOIN i3filter.post_processing p
             ON r.run_id = p.run_id
-        WHERE p.dataset_id = {dataset_id}
+        WHERE (r.run_id >= {first_run} OR r.run_id IN ({test_runs}))
+            AND r.run_id <= {last_run}
+            AND r.run_id NOT IN ({exclude_next_testruns})
+            AND p.dataset_id = {dataset_id}
             AND p.validated
         ORDER BY r.run_id ASC, r.production_version DESC
-    """.format(dataset_id = dataset_id))
+    """.format(dataset_id = dataset_id if dataset_id >= 1915 else 0,
+                first_run = first_run,
+                test_runs = ','.join([str(r) for r in test_runs]),
+                last_run = last_run,
+                exclude_next_testruns = ','.join([str(r) for r in exclude_next_testruns])
+    ))
 
     latest_production_version = max([d['production_version'] for d in runs] or [0])
     latest_snapshot_id = max([d['snapshot_id'] for d in runs], [0])
+
+    # Querying all run comments that should be written into the GRL
+    run_comments_data = db.fetchall("SELECT * FROM i3filter.run_comments WHERE add_to_grl AND (run_id BETWEEN {first_run} AND {last_run} OR run_id IN ({test_runs})) ORDER BY run_id DESC, snapshot_id DESC".format(
+        first_run = first_run,
+        last_run = last_run,
+        test_runs = ','.join([str(r) for r in test_runs])
+    ))
+
+    run_comments = {}
+    for row in run_comments_data:
+        if row['run_id'] in run_comments:
+            continue
+
+        run_comments[row['run_id']] = row
 
     # New GRLs
     format_grl_path = lambda p: p.format(
@@ -615,14 +649,24 @@ def create_good_run_list(dataset_id, db, logger, dryrun):
     if grl.exists() or grl_versioned.exists():
         raise Exception("One good run list already exists.")
 
+    bad_runs = set()
+
     for run in runs:
+        if not run['good_i3'] and not run['good_it']:
+            bad_runs.add(run['run_id'])
+            continue
+
+        # Check if run is in bad_runs. This is required since a run can appear several times
+        # with different snapshots/paduction versions. Since the latest snapshot/production version comes first,
+        # all following versions of this run are not important. So, if the latestest snapshot/production version
+        # of this run is marked as a bad run, it is a bad run no matter of previous versions say something else.
+        if run['run_id'] in bad_runs:
+            continue
+
         # Check if run is alreayd in GRL. `runs` is sorted descending by production version. That means
         # that the latest production version of a given run comes first. Therefore, if a run has two
         # production_versions, the first one is the newest and only this should be added
         if grl.has_run(run['run_id']):
-            continue
-
-        if not run['good_i3'] and not run['good_it']:
             continue
 
         format_run_path = lambda p: p.format(
@@ -640,6 +684,12 @@ def create_good_run_list(dataset_id, db, logger, dryrun):
 
         if config.is_test_run(int(run['run_id'])):
             comment = "IC86_{0} 24hr test run".format(dataset_info['season'])
+
+        if run['run_id'] in run_comments:
+            if len(comment):
+                comment += ', '
+
+            comment += run_comments[run['run_id']]['comment']
 
         run_obj = Run(run['run_id'], logger)
 
@@ -691,7 +741,7 @@ def create_good_run_list(dataset_id, db, logger, dryrun):
     if new_grl:
         # Remove existing symlink
         symlink = File(format_grl_path(config.get('Level2', 'GRLLinkName')), logger)
-        if symlink.exists():
+        if symlink.exists() and not dryrun:
             symlink.remove()
 
         path.make_relative_symlink(grl.path, symlink.path, dryrun, logger)
@@ -699,7 +749,7 @@ def create_good_run_list(dataset_id, db, logger, dryrun):
     if new_grl_versioned:
         # Remove existing symlink
         symlink = File(format_grl_path(config.get('Level2', 'GRLLinkVersionedName')), logger)
-        if symlink.exists():
+        if symlink.exists() and not dryrun:
             symlink.remove()
 
         path.make_relative_symlink(grl_versioned.path, symlink.path, dryrun, logger)

@@ -199,10 +199,12 @@ def create_grl_only(config, args):
     dataset_id = args.dataset_id
 
     if dataset_id is None:
-        season = confog.get('DEFAULT', 'Season')
+        season = config.get('DEFAULT', 'Season')
         datasets = config.get_datasets_info()
-    
-        dataset_ids = [d['dataset_id'] for d in datasets if d['type'] == 'L2' and d['season'] == season]
+   
+        logger.debug('Selected season: {}'.format(season))
+ 
+        dataset_ids = [dataset_id for dataset_id, d in datasets.items() if d['type'] == 'L2' and int(d['season']) == int(season)]
     
         if len(dataset_ids) > 1:
             logger.critical('There are more than one dataset id for the current season. Please specify the dataset id.')
