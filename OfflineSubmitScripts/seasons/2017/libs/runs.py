@@ -778,9 +778,9 @@ class Run(object):
             ic86_season =  self.get_season()
 
             if ic86_season < 2011:
-                raise Exception('This run is not IC86! You cannot use `ic86_season`.')
-
-            kwargs['ic86_season'] = int(str(ic86_season)[-1])
+                self.logger.warning('This run is not IC86! You cannot use `ic86_season`.')
+            else:
+                kwargs['ic86_season'] = int(ic86_season) - 2011 + 1 # First IC86 season was 2011: IC86.1. Then it goes on with IC86.2, IC86.3, ...
 
         if 'detector_configuration' not in kwargs:
             kwargs['detector_configuration'] = self.get_detector_configuration()
