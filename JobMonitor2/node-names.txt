@@ -14,3 +14,5 @@
 /^vm\-osg\-[0-9]+\.comet$/                          COMET OSG VM
 /^.+cedar.computecanada.ca$/                        cedar.computecanada.ca
 /^node[0-9]{3}\.local$/                             grid.unesp.br, sprace.org.br
+/^[a-z]{3}\-[0-9]{3}\.i$/                           net.msu.edu
+
