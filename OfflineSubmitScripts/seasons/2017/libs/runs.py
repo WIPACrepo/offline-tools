@@ -10,6 +10,8 @@ class LoadRunDataException(Exception):
     pass
 
 class Run(object):
+    _displayed_ic79_warning = False
+
     def __init__(self, run_id, logger, db = None, dryrun = False):
         self.run_id = int(run_id)
         self.logger = logger
@@ -778,7 +780,9 @@ class Run(object):
             ic86_season =  self.get_season()
 
             if ic86_season < 2011:
-                self.logger.warning('This run is not IC86! You cannot use `ic86_season`.')
+                if not Run._displayed_ic79_warning:
+                    self.logger.warning('This run is not IC86! You cannot use `ic86_season`.')
+                    Run._displayed_ic79_warning = True
             else:
                 kwargs['ic86_season'] = int(ic86_season) - 2011 + 1 # First IC86 season was 2011: IC86.1. Then it goes on with IC86.2, IC86.3, ...
 

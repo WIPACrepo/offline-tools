@@ -32,7 +32,7 @@ def send_check_notification(new_records, changed_records, logger, dryrun):
 
     send_email(receivers, 'A new snapshot is available!', message, logger, dryrun)
 
-def main(inputfiletype, logger, dryrun, check):
+def main(inputfiletype, logger, dryrun, check, skip_file_validation = False):
     if check:
         logger.info('Only in check mode. Just checking if an update is available.')
 
@@ -290,7 +290,10 @@ def main(inputfiletype, logger, dryrun, check):
             update_comment = 'Updated in snapshot {0}'.format(run.get_snapshot_id())
 
         # Insert new runs from live in filter-db
-        if check_files or (not run.is_good_run() and (not run.is_test_run() or run.is_failed_run())):
+        if check_files or skip_file_validation or (not run.is_good_run() and (not run.is_test_run() or run.is_failed_run())):
+            if skip_file_validation and (check_files or (not run.is_good_run() and (not run.is_test_run() or run.is_failed_run()))):
+                logger.warning('File check was negative but result will be ignored.')
+
             logger.info('Insert run into database')
 
             run_insertion_sql = """
@@ -359,6 +362,7 @@ def main(inputfiletype, logger, dryrun, check):
 if __name__ == "__main__":
     parser = get_defaultparser(__doc__, dryrun = True)
     parser.add_argument('--check', help="Only check for updates. Do nothing else", action = "store_true", default = False)
+    parser.add_argument('--skip-file-validation', help="Skip file check. Ignores if input files do not exists or similar.", action = "store_true", default = False)
     parser.add_argument('--inputfiletype', help="What is the input file type? Available options: PFDST, PFFilt. Default is PFFilt", default = 'PFFilt', required = False)
     args = parser.parse_args()
 
@@ -373,6 +377,6 @@ if __name__ == "__main__":
         logger.critical('Input file type must match `PFDST` or `PFFilt`.')
         exit(1)
 
-    main(inputfiletype = args.inputfiletype, logger = logger, dryrun = args.dryrun, check = args.check)
+    main(inputfiletype = args.inputfiletype, logger = logger, dryrun = args.dryrun, check = args.check, skip_file_validation = args.skip_file_validation)
 
 
