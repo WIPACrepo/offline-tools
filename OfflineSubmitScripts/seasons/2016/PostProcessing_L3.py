@@ -78,7 +78,11 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
    
     counter = {'all': 0, 'validated': 0, 'errors': 0, 'skipped': 0}
  
-    GRL = "/data/exp/IceCube/%s/filtered/level2/IC86_%s_GoodRunInfo.txt"%(SEASON,SEASON)
+    if SEASON > 2010:
+        GRL = "/data/exp/IceCube/%s/filtered/level2/IC86_%s_GoodRunInfo.txt"%(SEASON,SEASON)
+    else:
+        GRL = '/data/exp/IceCube/2010/filtered/level2/IC79_GRLists/IC79_GRL_NewFormat.txt'
+
     if not os.path.isfile(GRL):
         logger.critical("Can't access GRL file %s for run validation, check path, exiting ...... " % GRL)
         return counter
@@ -169,18 +173,22 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
             # End: GCD check
            
             if not it_files:
-                sRunInfo = [s for s in sRunInfo if "EHE" not in s['name'] and "_IT" not in s['name'] and "SLOP" not in s['name'] and "i3.bz2" in s['name']]
+                sRunInfo = [s for s in sRunInfo if "EHE" not in s['name'] and "_IT" not in s['name'] and "SLOP" not in s['name'] and "i3.bz2" in s['name'] and 'GCD' not in s['name']]
             else:
                 sRunInfo = [s for s in sRunInfo if "_IT" in s['name'] and "i3.bz2" in s['name']]
 
             sRunInfo_sorted = sorted(sRunInfo, key=lambda k:['name'])
-           
+    
             for sr in sRunInfo:
                 # Subtract first sub run number because it could be that the first sub runs were not in good time range
                 if (int(sr['sub_run']) - int(sRunInfo[0]['sub_run'])) % aggregate:
                     continue
 
-                nName = sr['name'].replace("Level2_","Level3_").replace("Test_","").replace('_Part', '_Subrun')
+                nName = sr['name'].replace("Level2_","Level3_")\
+                                  .replace('Level2a_', 'Level3_')\
+                                  .replace('_IC79_data_', '_IC79.2010_data_')\
+                                  .replace("Test_","")\
+                                  .replace('_Part', '_Subrun')
 
                 if it_files:
                     nName = nName.replace("_IT", "")
