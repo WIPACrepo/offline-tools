@@ -267,11 +267,11 @@ class Run(object):
 
         # Calculate values
         # Count number of strings with at least one active non-IceTop DOM
-        self._data['active_strings'] = len([k for k in detector_conf.keys() if len(set(detector_conf[k]).difference([61, 62, 63, 64, 65, 66]))])
+        self._data['active_strings'] = len([k for k in detector_conf.keys() if k > 0 and len(set(detector_conf[k]).difference([61, 62, 63, 64, 65, 66]))])
 
         # Sum all DOMs after excluding bad DOMs
-        self._data['active_doms'] = sum([len(detector_conf[k]) for k in detector_conf.keys()])
-        self._data['active_in_ice_doms'] = sum([len(set(detector_conf[k]).difference(set([61, 62, 63, 64, 65, 66]))) for k in detector_conf.keys()])
+        self._data['active_doms'] = sum([len(set(detector_conf[k]).difference([65, 66])) for k in detector_conf.keys() if k > 0])
+        self._data['active_in_ice_doms'] = sum([len(set(detector_conf[k]).difference(set([61, 62, 63, 64, 65, 66]))) for k in detector_conf.keys() if k > 0])
 
     def write_active_x_to_db(self):
         """
