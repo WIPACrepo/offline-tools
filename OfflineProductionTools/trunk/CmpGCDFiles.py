@@ -26,6 +26,9 @@ def cmp_nan(a, b):
     elif isinstance(a, (list, tuple)) ^ isinstance(b, (list, tuple)):
         return False
     else:
+        if not isinstance(a, float) or not isinstance(b, float):
+            print 'a = %s, b = %s' % (a, b)
+
         return a == b or (isnan(a) and isnan(b))
 
 def CheckFiles(GCDFiles):
@@ -142,8 +145,9 @@ def CmpCalibration(GCDFiles, BadDOMsList = [], V = False, T = False, Season = 20
         #if not DCal_Diff_Tdict['atwd_beacon_baseline_Check']:
         #    print [100*fabs(DC2[k].atwd_beacon_baseline[a,b] - DC1[k].atwd_beacon_baseline[a,b])/DC1[k].atwd_beacon_baseline[a,b] for a in xrange(2) for b in xrange(3) if DC1[k].atwd_beacon_baseline[a,b]!=0]
         
-        
-        DCal_Diff_Tdict['dom_cal_version_Check'] = cmp_nan(DC1[k].dom_cal_version, DC2[k].dom_cal_version)
+       
+        print 'key = %s\tdom_cal_version_Check: %s <-> %s' % (k, DC1[k].dom_cal_version, DC2[k].dom_cal_version)
+        DCal_Diff_Tdict['dom_cal_version_Check'] = DC1[k].dom_cal_version == DC2[k].dom_cal_version
         
         # Noise rates don't have to be compared since those aren't inserted/needed in the south and
         # therefore, the check always fails.

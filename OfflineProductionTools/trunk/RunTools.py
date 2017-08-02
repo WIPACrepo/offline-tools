@@ -73,15 +73,15 @@ class RunTools(object):
 
         
         # count number of strings with at least 1 active non-IceTop DOM
-        ActiveStrings = len([k for k in detConf.keys() if len(set(detConf[k]).difference([61,62,63,64,65,66]))])
+        ActiveStrings = len([k for k in detConf.keys() if k > 0 and len(set(detConf[k]).difference([61,62,63,64,65,66]))])
         
         # add all DOMs after excluding Bad DOMs
-        ActiveDoms = sum([len(detConf[k]) for k in detConf.keys()])
+        ActiveDoms = sum([len(set(detConf[k]).difference([65, 66])) for k in detConf.keys() if k > 0])
         
         #print [len(detConf[k]) for k in detConf.keys()]
         #for k in detConf.keys(): print detConf[k]
         
-        ActiveInIceDoms = sum([len(set(detConf[k]).difference(set([61,62,63,64,65,66]))) for k in detConf.keys()])
+        ActiveInIceDoms = sum([len(set(detConf[k]).difference(set([61,62,63,64,65,66]))) for k in detConf.keys() if k > 0])
         
         #print [len(set(detConf[k]).difference(set([61,62,63,64]))) for k in detConf.keys()]
         
@@ -134,11 +134,21 @@ class RunTools(object):
     
 
 
-    def GetRunFiles(self,startDate,Type,ProductionVersion=None):
+    def GetRunFiles(self,startDate,Type,ProductionVersion=None, season = None):
         try:
             Files = []
             
-            if str(Type).upper() == "P" and self.passNumber == 2:
+            if str(Type).upper() == "P" and self.passNumber == 2 and season in (2015, 2016):
+                Files.extend(glob.glob("/data/exp/IceCube/%s/unbiased/PFDSTnoSPE/%s%s/%s*%s*"%(startDate.year,\
+                                    str(startDate.month).zfill(2),str(startDate.day).zfill(2),\
+                                    str(Type).upper(),self.RunNumber)))
+                # useful for PFFilt files because the "spill" over multiple dates
+                nextDate = startDate + relativedelta(days=1)	
+                Files.extend(glob.glob("/data/exp/IceCube/%s/unbiased/PFDSTnoSPE/%s%s/%s*%s*"%(nextDate.year,\
+                                    str(nextDate.month).zfill(2),str(nextDate.day).zfill(2),\
+                                    str(Type).upper(),self.RunNumber)))
+                
+            elif str(Type).upper() == "P" and self.passNumber == 2:
                 Files.extend(glob.glob("/data/exp/IceCube/%s/unbiased/PFDST/%s%s/%s*%s*"%(startDate.year,\
                                     str(startDate.month).zfill(2),str(startDate.day).zfill(2),\
                                     str(Type).upper(),self.RunNumber)))
@@ -182,9 +192,10 @@ class RunTools(object):
             
         except Exception,err:
             raise Exception("Error: %s\n"%str(err))
-        
-        
-    def FilesComplete(self, InFiles, RunTimes, tmppath = '', showTimeMismatches = True, outdict = None):
+
+
+
+    def FilesComplete(self, InFiles, RunTimes, tmppath = '', showTimeMismatches = True, outdict = None, no_xml_bundle = False):
         try:
             if outdict is not None:
                 outdict[self.RunNumber] = {'missing_files': [], 'metadata_start_time': None, 'metadata_stop_time': None}
@@ -197,17 +208,22 @@ class RunTools(object):
 
             FileParts = None
 
-            if len(InFiles) and 'Subrun' in InFiles[0]:
-                FileParts = [int(re.sub("[^0-9]","",i.split("Subrun")[1].split(".bz2")[0])) for i in InFiles]
-            elif len(InFiles) and 'Part' in InFiles[0]:
-                FileParts = [int(re.sub("[^0-9]","",i.split("Part")[1].split(".bz2")[0])) for i in InFiles]
+            if no_xml_bundle:
+                FileParts = [int(i.split('Subrun00000000_')[1].split('.i3')[0]) for i in InFiles]
             else:
-                raise Exception('Do not understand file name')
+                if len(InFiles) and 'Subrun' in InFiles[0]:
+                    FileParts = [int(re.sub("[^0-9]","",i.split("Subrun")[1].split(".bz2")[0])) for i in InFiles]
+                elif len(InFiles) and 'Part' in InFiles[0]:
+                    FileParts = [int(re.sub("[^0-9]","",i.split("Part")[1].split(".bz2")[0])) for i in InFiles]
+                else:
+                    raise Exception('Do not understand file name')
 
             if not len(FileParts) or max(FileParts)>1000:
                 self.logger.warning( "Could not resolve number of files from file names ... file names probably do not follow expected naming convention")
                 return 0
             
+            self.logger.debug("File parts = %s" % FileParts)
+
             if len(InFiles) != FileParts[-1] + 1:
                 self.logger.warning( "Looks like we don't have all the files for this run")
                 MissingParts = (set(range(0,FileParts[-1] + 1))).difference(set(FileParts))
@@ -221,51 +237,97 @@ class RunTools(object):
                     outdict[self.RunNumber]['missing_files'] = MissingParts
 
                 return 0
-           
-            tmpfile = os.path.join(tmppath, 'tmp.xml')
- 
-            StartCheck = 0
-            processoutput = subprocess.check_output("""tar xvf %s --exclude="*.i3*" -O > %s""" % (InFiles[0], tmpfile), shell = True, stderr=subprocess.STDOUT)
-            self.logger.debug(processoutput.strip())
 
-            doc = ET.ElementTree(file = tmpfile)
-            sTime = [t.text for t in doc.getiterator() if t.tag=="Start_DateTime"]
-            fs_time = parse(sTime[0])
-            
-            
             RunStart = RunTimes['tStart']
             if isinstance(RunTimes['grl_start_time'],datetime.datetime): RunStart = RunTimes['grl_start_time']
-            
-            StartCheck = fs_time<=RunStart
-            if not StartCheck and showTimeMismatches:
-                self.logger.warning( "mismatch in start time reported by i3Live:%s and file metadata:%s"%(RunStart, fs_time)) 
-        
-            EndCheck = 0
-            processoutput = subprocess.check_output("""tar xvf %s --exclude="*.i3*" -O > %s""" % (InFiles[-1], tmpfile), shell = True, stderr=subprocess.STDOUT)
-            self.logger.info(processoutput.strip())
-            
-            doc = ET.ElementTree(file = tmpfile)
-            eTime = [t.text for t in doc.getiterator() if t.tag=="End_DateTime"]
-            fe_time = parse(eTime[0])
-            
-            
+                
             RunStop = RunTimes['tStop']
             if isinstance(RunTimes['grl_stop_time'],datetime.datetime): RunStop = RunTimes['grl_stop_time']
-            
-            #t_diff = RunStop - fe_time
-            #t_diff_s = abs((t_diff.seconds*I3Units.s + (t_diff.microseconds*I3Units.microsecond) + t_diff.days*I3Units.day)/I3Units.s)
-            #EndCheck = int(t_diff_s < 1.0)
+                
+            if not no_xml_bundle:
+                tmpfile = os.path.join(tmppath, 'tmp.xml')
+     
+                self.logger.info('Check start time')
+    
+                StartCheck = 0
+                processoutput = subprocess.check_output("""tar xvf %s --exclude="*.i3*" -O > %s""" % (InFiles[0], tmpfile), shell = True, stderr=subprocess.STDOUT)
+                self.logger.debug(processoutput.strip())
+    
+                doc = ET.ElementTree(file = tmpfile)
+                sTime = [t.text for t in doc.getiterator() if t.tag=="Start_DateTime"]
+                fs_time = parse(sTime[0])
+                
+                self.logger.info('Check stop time')
+    
+                EndCheck = 0
+                processoutput = subprocess.check_output("""tar xvf %s --exclude="*.i3*" -O > %s""" % (InFiles[-1], tmpfile), shell = True, stderr=subprocess.STDOUT)
+                self.logger.info(processoutput.strip())
+                
+                doc = ET.ElementTree(file = tmpfile)
+                eTime = [t.text for t in doc.getiterator() if t.tag=="End_DateTime"]
+                fe_time = parse(eTime[0])
+                
+                #t_diff = RunStop - fe_time
+                #t_diff_s = abs((t_diff.seconds*I3Units.s + (t_diff.microseconds*I3Units.microsecond) + t_diff.days*I3Units.day)/I3Units.s)
+                #EndCheck = int(t_diff_s < 1.0)
+            else:
+                self.logger.info('Check start time')
+                fs_time = self._get_start_time_of_file(InFiles[0])
+
+                self.logger.info('Check stop time')
+                fe_time = self._get_stop_time_of_file(InFiles[-1])
+ 
+            StartCheck = fs_time <= RunStart
             EndCheck = fe_time >= RunStop
+
+            if not StartCheck and showTimeMismatches:
+                self.logger.warning( "mismatch in start time reported by i3Live:%s and file metadata:%s"%(RunStart, fs_time)) 
+
             if not EndCheck and showTimeMismatches:
                 self.logger.warning( "mismatch in end time reported by i3Live:%s and file metadata:%s"%(RunStop, fe_time))        
-        
+
             if outdict is not None:
                 outdict[self.RunNumber]['metadata_start_time'] = fs_time
                 outdict[self.RunNumber]['metadata_stop_time'] = fe_time
-
+            
             return StartCheck * EndCheck
           
         except Exception, err:
             self.logger.error("FilesComplete Error: %s\n"%str(err))
             traceback.print_exc()
             return 0
+
+    def _get_start_time_of_file(self, f):
+        from icecube import dataio, dataclasses
+        i3file = dataio.I3File(f)
+
+        while i3file.more():
+            frame = i3file.pop_frame()
+
+            if 'I3EventHeader' in frame.keys():
+                t = frame['I3EventHeader'].start_time.date_time
+                i3file.close()
+                return t.replace(microsecond = 0)
+
+        i3file.close()
+
+        raise RuntimeError('Cannot determin start time of file.')
+
+    def _get_stop_time_of_file(self, f):
+        from icecube import dataio, dataclasses
+        i3file = dataio.I3File(f)
+
+        time = None
+        while i3file.more():
+            frame = i3file.pop_frame()
+
+            if 'I3EventHeader' in frame.keys():
+                time = frame['I3EventHeader'].start_time.date_time
+
+        i3file.close()
+
+        if time is None:
+            raise RuntimeError('Cannot determin start time of file.')
+        else:
+            return time.replace(microsecond = 0)
+
