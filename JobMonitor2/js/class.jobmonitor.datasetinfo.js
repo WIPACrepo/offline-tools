@@ -265,7 +265,22 @@ JobMonitorDatasetInformation.prototype._queryComplete = function(data) {
     content += '<div class="row">';
     content += '<div class="col-md-4"><canvas id="grid-chart"></canvas></div>';
     content += '<div class="col-md-4"><canvas id="status-chart"></canvas></div>';
-    content += '<div class="col-md-4"></div>';
+    content += '<div class="col-md-4">';
+
+    if(typeof data['data']['source_dataset_ids'] != 'undefined') {
+        if(data['data']['source_dataset_ids'].length > 0) {
+            content += '<strong>Source Datasets:</strong><ul>';
+
+            data['data']['source_dataset_ids'].forEach(function(dataset_id) {
+                content += '<li><a href="./?dataset=' + dataset_id + '" target="_blank">' + dataset_id + '</a></li>';
+            });
+
+            content += '</ul>';
+        }
+    }
+
+
+    content += '</div>';
     content += '</div>';
 
     this.getContent().html(content);

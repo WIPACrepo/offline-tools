@@ -370,27 +370,25 @@ JobMonitorDatasetStatistics.prototype._generateChartSourceDatasetDelay = functio
     values = values.filter(function(n) {return n >= 0}).map(function(n) {return n / 3600 / 24;});
 
     var min_val = Math.floor(Math.min(...values));
+    var max_val = Math.floor(Math.max(...values));
 
     var unit = 'Days';
 
     // Rescale if delay is large
-    if(min_val > 90) {
+    if(max_val > 90) {
         values = Object.values(o);
         values = values.filter(function(n) {return n >= 0}).map(function(n) {return n / 3600 / 24 / 30;});
 
-        min_val = Math.floor(Math.min(...values));
-
         unit = 'Months';
-    } else if(min_val > 30) {
+    } else if(max_val > 30) {
         values = Object.values(o);
         values = values.filter(function(n) {return n >= 0}).map(function(n) {return n / 3600 / 24 / 7;});
-
-        min_val = Math.floor(Math.min(...values));
 
         unit = 'Weeks';
     }
 
-    var max_val = Math.floor(Math.max(...values));
+    max_val = Math.floor(Math.max(...values));
+    min_val = Math.floor(Math.min(...values));
 
     var delay_chart_data = {'label': [], 'data': []};
 
