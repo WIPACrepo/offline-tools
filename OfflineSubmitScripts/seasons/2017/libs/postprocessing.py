@@ -58,6 +58,8 @@ def check_for_stream_errors(f, logger):
             return False
         else:
             raise e
+    finally:
+        i3file.close()
 
     # We should never reach this point
     raise RuntimeError('Unexpected behaviour')

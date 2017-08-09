@@ -666,7 +666,7 @@ class Run(object):
         """
         Checks if the bad dom audit was successful.
 
-         Args:
+        Args:
             force_reload (boolean): If `True`, no cached data will be used. The default is `False` and usally the value does not change within a script.
 
         Returns:
@@ -676,6 +676,40 @@ class Run(object):
         self._load_data(force_reload = force_reload)
 
         return bool(self._data['gcd_bad_doms_validated'])
+
+    def has_two_last_files_aggregated(self, force_reload = False):
+        """
+        Checks if the last two files have been processed within one job. This is only rarely done
+        when the last file is too short to contain an I3DSTHeader.
+
+        Args:
+            force_reload (boolean): If `True`, no cached data will be used. The default is `False` and usally the value does not change within a script.
+
+        Returns:
+            boolean: `True`, if the last two files have been processed within one job
+        """
+
+        self._load_data(force_reload = force_reload)
+
+        return bool(self._data['aggregated_two_last_files'])
+
+    def set_two_last_files_aggregated(self, value = True):
+        """
+        Sets the flag for `aggregated_two_last_files`. This means
+        that the last two files of this run have been processed within
+        the same job.
+
+        Args:
+            value(bool): The value that should be written into the DB. Usually one only sets it to `True`. That's also the default.
+        """
+        
+        sql = "UPDATE i3filter.runs SET aggregated_two_last_files = %(value)s WHERE run_id = {run_id} AND snapshot_id = {snapshot_id} AND production_version = {production_version} LIMIT 1"
+        sql = self.format(sql)
+
+        self.logger.debug('SQL: {}'.format(sql))
+
+        if not self.dryrun:
+            self._db.execute(sql, {'value': 1 if value else 0})
 
     def is_validated(self, dataset_id):
         """

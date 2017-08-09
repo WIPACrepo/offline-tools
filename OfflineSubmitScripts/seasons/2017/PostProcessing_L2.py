@@ -85,7 +85,7 @@ def validate_run(dataset_id, run, args, iceprod, logger, counter, checksumcache)
             meta_file_dest = run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER'))
 
         metafile = MetaXMLFile(meta_file_dest, run, 'L2', dataset_id, logger)
-        metafile.add_post_processing_info(__file__)
+        metafile.add_post_processing_info(__file__, args.no_svn)
     else:
         logger.info("No meta data files will be written")
 

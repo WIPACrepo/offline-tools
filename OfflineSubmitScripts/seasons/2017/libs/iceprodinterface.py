@@ -9,7 +9,7 @@ class IceProdInterface(object):
         self.dryrun = dryrun
 
     @abstractmethod
-    def submit_run(self, dataset_id, run, checksumcache, source_file_type, gcd_file = None, special_files = [], aggregate = 1):
+    def submit_run(self, dataset_id, run, checksumcache, source_file_type, gcd_file = None, special_files = [], aggregate = 1, aggregate_only_last_two_files = False):
         pass
 
     @abstractmethod
@@ -68,6 +68,6 @@ class IceProdInterface(object):
             run (runs.Run): The run
 
         Returns:
-            dict: Information about all jobs. The dict looks like: `{<sub_rub_id>: {'job_id': <>, 'input': [{'path': <>, 'md5': <>, 'sha512': <>}, ...], 'output': [{'path': <>, 'md5': <>, 'sha512': <>}, ...]}, ...}`
+            dict: Information about all jobs. The dict looks like: `{<sub_run_id>: {'job_id': <>, 'input': [{'path': <>, 'md5': <>, 'sha512': <>}, ...], 'output': [{'path': <>, 'md5': <>, 'sha512': <>}, ...]}, ...}`
         """
         pass

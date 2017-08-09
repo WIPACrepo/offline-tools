@@ -7,7 +7,7 @@ from libs.argparser import get_defaultparser
 from libs.iceprod1 import IceProd1
 from libs.config import get_config
 from libs.runs import Run, LoadRunDataException
-from libs.files import clean_datawarehouse, MetaXMLFile
+from libs.files import clean_datawarehouse, MetaXMLFile, has_subrun_dstheader_within_good_time_range
 from libs.path import make_relative_symlink, get_logdir, get_tmpdir
 from libs.databaseconnection import DatabaseConnection
 from libs.utils import Counter, DBChecksumCache
@@ -82,7 +82,7 @@ def main(args, run_ids, logger):
                 clean_datawarehouse(run, logger, args.dryrun, run_folder = run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER')))
 
             if args.remove_submitted_runs:
-                logger.warning(run.format('Run {run_id} has been removed. Please not that no folders were removed nor the good run list has been modified.'))
+                logger.warning(run.format('Run {run_id} has been removed. Please note that no folders were removed nor the good run list has been modified.'))
                 logger.warning(run.format('The IceProd DB has been modified ONLY!'))
                 continue
 
@@ -120,8 +120,15 @@ def main(args, run_ids, logger):
                 counter.count('error')
                 continue
 
+            # Check for short last file
+            short_last_file = not has_subrun_dstheader_within_good_time_range(input_files[-1], logger)
+
+            if short_last_file:
+                logger.warning('No I3DSTHeader in last file within good time range. Aggregate last two files.')
+                run.set_two_last_files_aggregated()
+
             # Submit run
-            iceprod.submit_run(dataset_id, run, checksumcache, 'PFFilt')
+            iceprod.submit_run(dataset_id, run, checksumcache, 'PFFilt', aggregate_only_last_two_files = short_last_file)
 
             # Write metadata
             if not args.nometadata:

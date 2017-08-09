@@ -75,7 +75,7 @@ class IceProd1(iceprodinterface.IceProdInterface):
             self._dbs4.execute(sql)
 
 
-    def submit_run(self, dataset_id, run, checksumcache, source_file_type, gcd_file = None, special_files = [], aggregate = 1):
+    def submit_run(self, dataset_id, run, checksumcache, source_file_type, gcd_file = None, special_files = [], aggregate = 1, aggregate_only_last_two_files = False):
         """
         Submits the run. It makes all the inserts to the database.
 
@@ -87,13 +87,18 @@ class IceProd1(iceprodinterface.IceProdInterface):
             gcd_file (files.File|str): GCD file. If `None`, the GCD file will be looked up from the datawarehouse
             special_files (list): List of paths or files.File that are input file for *each* job of this run. If `None` or the list is empty, this option is ignored
             aggregate (int): Needs to be >= 1. If > 1, more than one input file will be processed by one job
+            aggregate_only_last_two_files (bool): In certain circumstances we need to aggregate the last two files but not the other files.
         """
 
         self.logger.info(run.format('IceProd1: Submitting run {run_id}, snapshot_id = {snapshot_id}, production_version = {production_version}'))
 
         if aggregate <= 0 or aggregate > 500:
             self.logger.critical('Invalid value for `aggregate`: {0}'.format(aggregate))
-            raise Exception('Invalid value for `aggregate`')
+            raise RuntimeError('Invalid value for `aggregate`')
+
+        if aggregate > 1 and aggregate_only_last_two_files:
+            self.logger.critical('Invalid combination of parameters: you cannot enable `aggregate_only_last_two_files` and having `aggregate` > 1.')
+            raise RuntimeError('Invalid combination of parameters: you cannot enable `aggregate_only_last_two_files` and having `aggregate` > 1.')
 
         if aggregate > 1:
             self.logger.info('** You aggregate several files to one job: {0} **'.format(aggregate))
@@ -107,7 +112,7 @@ class IceProd1(iceprodinterface.IceProdInterface):
             input_files = run.get_level2_files()
         else:
             self.logger.critical('Unknown data source')
-            raise Exception('Unknown data source')
+            raise RuntimeError('Unknown data source')
 
         # Sort files by sub run id
         input_files = SubRun.sort_sub_runs(input_files)
@@ -130,11 +135,11 @@ class IceProd1(iceprodinterface.IceProdInterface):
 
         if gcd_file is None:
             self.logger.critical("No GCD file found.")
-            raise Exception('No GCD file found')
+            raise RuntimeError('No GCD file found')
 
         if not len(input_files):
             self.logger.critical('No {0} files have been found'.format(source_file_type))
-            raise Exception('No input files found')
+            raise RuntimeError('No input files found')
         else:
             queue_id = self._get_max_queue_id(dataset_id)
 
@@ -145,6 +150,9 @@ class IceProd1(iceprodinterface.IceProdInterface):
             # Calculate number of jobs. Files/jobs is `aggregate`
             # If input_files % aggregate > 0, we need an additional job that processes the leftover files
             number_of_jobs = int(len(input_files) / aggregate) + int(bool(len(input_files) % aggregate))
+
+            if aggregate_only_last_two_files:
+                number_of_jobs -= 1
 
             self.logger.debug('Number of jobs: {0}'.format(number_of_jobs))
 
@@ -166,6 +174,12 @@ class IceProd1(iceprodinterface.IceProdInterface):
                     if len(input_files) <= file_counter:
                         self.logger.debug('Reached last input file')
                         break
+
+                if aggregate_only_last_two_files and job_id == number_of_jobs - 1:
+                    # Add last file to the current job
+                    self.logger.debug('Aggregate last two files')
+
+                    job_input_files.append(input_files[file_counter])                    
 
                 self.logger.debug('Submit job #{1}, sub run ID {2}, with the following input files: {0}'.format(job_input_files, job_id, input_files[job_id].sub_run_id))
 
@@ -298,7 +312,7 @@ class IceProd1(iceprodinterface.IceProdInterface):
             elif job['type'] == 'PERMANENT':
                 filetype = 'output'
             else:
-                raise Exception('Type {0} is unexpected'.format(job['type']))
+                raise RuntimeError('Type {0} is unexpected'.format(job['type']))
 
             jresult[filetype].append({
                 'path': os.path.join(remove_path_prefix(job['path']), job['name']),

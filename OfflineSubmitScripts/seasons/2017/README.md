@@ -31,7 +31,8 @@ Several installed cron jobs are helping out. All of them are installed on cobalt
 
     1. `CacheChecksums.py`: Calculates the MD5 checksums of PFFilt files. The sums are required for run submission and the cache makes it way faster to submit runs.
     2. `GetRunInfo.py --check`: Checks if new run data is available. If so, an email will be sent
-    3. `PostProcessing_L2.py --cron`: Executes the post processing automatically.
+    3. `bin/svninfo.sh`: Writes a JSON file to cache the current SVN info. This is needed for jobs that run not on cobalt (e.g. post processing on NPX requires the option `--no-svn`).
+    4. `PostProcessing_L2.py --cron`: Executes the post processing automatically.
 
 
 Documentation

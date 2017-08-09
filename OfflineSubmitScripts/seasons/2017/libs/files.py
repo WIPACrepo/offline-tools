@@ -949,3 +949,49 @@ def insert_gaps_file_info_into_db(run, dryrun, logger):
 
     return gaps_files
 
+def has_subrun_dstheader_within_good_time_range(subrun, logger):
+    """
+    Checks if the file contains a I3DSTHeader that is within the good time range.
+    It happens sometimes to short files (usually the last file of a run) that it
+    has not enough frames in order to accomodate an I3DSTHeader. If so, we need
+    to detect it and process the file with the previous job.
+
+    Args:
+        subrun (runs.SubRun): The subrun/file
+        logger (Logger): The logger
+
+    Returns:
+        bool: `True` if the file is good.
+    """
+
+    from icecube import dataio, dataclasses
+
+    def is_frame_in_gtr(frame, run):
+        if frame['I3EventHeader'].start_time < run.get_good_start_time():
+            return -1
+        elif  frame['I3EventHeader'].end_time > run.get_good_stop_time():
+            return 1
+        else:
+            return 0
+
+    f = dataio.I3File(subrun.path)
+
+    found_dstheader = False
+
+    try:
+        while f.more():
+            frame = f.pop_frame()
+
+            if frame.Has('I3DSTHeader'):
+                found_dstheader = True
+                break
+
+            if frame.Has('I3EventHeader'):
+                good = is_frame_in_gtr(frame, subrun.run)
+                if good == 1:
+                    break
+    finally:
+        f.close()
+
+    return found_dstheader
+
