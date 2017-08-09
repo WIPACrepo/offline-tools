@@ -469,7 +469,7 @@ class MetaXMLFile(File):
             self.logger.debug("Write meta file: {0}".format(self.path))
             f.write(meta_file_content)
 
-    def add_post_processing_info(self, script_file):
+    def add_post_processing_info(self, script_file, svn_info_from_file = False):
         """
         Adds the post processing info to the xml meta file.
 
@@ -483,7 +483,10 @@ class MetaXMLFile(File):
         from libs.path import get_rootdir
         import datetime
 
-        svn = SVN(get_rootdir(), self.logger)
+        if svn_info_from_file:
+            svn = SVN(get_rootdir(), logger, os.path.join(get_tmpdir(), 'svninfo.txt'))
+        else:
+            svn = SVN(get_rootdir(), self.logger)
 
         # Since it is the post processing, there should already be a meta file
         # If there is no meta file, display a warning.

@@ -230,6 +230,7 @@ if __name__ == '__main__':
     parser.add_argument("--re-validate", action = "store_true", default = False, help = "Also validate runs that have already been validated")
     parser.add_argument("--create-grl-only", action = "store_true", default = False, help = "Do not validate runs. Just create the GRL for the current season")
     parser.add_argument("--not-already-trimmed", action = "store_true", default = False, help = "If the data files aren't already trimmed to the right size (is automatically done since V05-01-06) activate this option")
+    parser.add_argument("--no-svn", action = "store_true", default = False, help = "No SVN is available. No SVN information will be logged.")
     args = parser.parse_args()
 
     logfile = os.path.join(get_logdir(sublogpath = 'PostProcessing'), 'PostProcessing_')
@@ -240,7 +241,7 @@ if __name__ == '__main__':
     if args.logfile is not None:
         logfile = args.logfile
 
-    logger = get_logger(args.loglevel, logfile)
+    logger = get_logger(args.loglevel, logfile, svn_info_from_file = args.no_svn)
 
     config = get_config(logger)
 

@@ -48,16 +48,17 @@ class DummyLogger(object):
     def set_level(self, level):
         self.level = level
 
-def get_logger(loglevel, logfile, no_svn = False):
+def get_logger(loglevel, logfile, svn_info_from_file = False):
     """
     A root logger with a formatted output logging to stdout and a file
 
     Args:
         loglevel (int): 10,20,30,... the higher the less logging
         logfile (str): write logging to this file as well as stdout
+        svn_info_from_file (bool): Load SVN info from file (e.g. if SVN is not available on the machine)
     """
 
-    from path import get_rootdir
+    from path import get_rootdir, get_tmpdir
 
     # logformat = get_config(DummyLogger()).get('Logger', 'Format')
     logformat = '[%(asctime)s] %(levelname)s: %(module)s(%(lineno)d):   %(message)s'
@@ -102,9 +103,12 @@ def get_logger(loglevel, logfile, no_svn = False):
     logger.info("Starting " + firstlog)
     logger.info("Using Python {0}".format(sys.version.replace('\n', ' ')))
 
-    if not no_svn:
+    if svn_info_from_file:
+        svn = SVN(get_rootdir(), logger, os.path.join(get_tmpdir(), 'svninfo.txt'))
+    else:
         svn = SVN(get_rootdir(), logger)
-        logger.info("SVN Revision {0}".format(svn.get('Revision')))
+
+    logger.info("SVN Revision {0}".format(svn.get('Revision')))
 
     return logger
 

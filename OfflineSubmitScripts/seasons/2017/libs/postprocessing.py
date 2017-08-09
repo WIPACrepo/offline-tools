@@ -27,6 +27,41 @@ def _get_checksum(f):
 
     raise Exception('Did not find checksum')
 
+def check_for_stream_errors(f, logger):
+    """
+    Loops over all frames of the file in order to see if there is a stream error.
+
+    Args:
+        f (str|files.File): The file
+        logger (Logger): The logger
+
+    Returns:
+        bool: `True` if the files has no stream errors, `False` if it has.
+    """
+
+    try:
+        file_name = f.path
+    except AttributeError:
+        file_name = f
+
+    from icecube import dataio, dataclasses
+    i3file = dataio.I3File(file_name)
+
+    logger.debug('file_name = {}'.format(file_name))
+
+    try:
+        while i3file.more():
+            frame = i3file.pop_frame()
+        return True
+    except RuntimeError as e:
+        if 'ZSTD_decompressStream' in e:
+            return False
+        else:
+            raise e
+
+    # We should never reach this point
+    raise RuntimeError('Unexpected behaviour')
+
 def validate_GCD(jobs, run, logger):
     """
     Performes a couple of checks for the GCD file.
@@ -172,6 +207,7 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger):
     missing_files = []
     checksum_fails = []
     missing_l2_files = []
+    stream_errors = []
     l2_files = []
 
     for sub_run_id, job in jobs.items():
@@ -182,7 +218,7 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger):
         found_l2_output = False
         expected_l2_file_name = run.format(config.get_l2_path_pattern(run.get_season(), 'DATA'), sub_run_id = sub_run_id)
 
-        logger.info('Calculating checksums for sub run {0}'.format(sub_run_id))
+        logger.info('Calculating checksums and looking for stream errors for sub run {0}'.format(sub_run_id))
 
         for f in job['output']:
             if f['path'] == expected_l2_file_name:
@@ -199,8 +235,17 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger):
                 if current_checksum != checksum:
                     checksum_fails.append({'path': f['path'], 'current_checksum': current_checksum, 'iceprod_checksum': checksum})
                 else:
-                    # OK, let's cache this checksum
-                    checksumcache.set_checksum(f['path'], ctype, current_checksum)
+                    cache = True
+
+                    # Let's check for stream errors
+                    if '.i3' in os.path.basename(f['path']):
+                        if not check_for_stream_errors(f['path'], logger):
+                            stream_errors.append(f['path'])
+                            cache = False
+
+                    if cache:
+                        # OK, let's cache this checksum
+                        checksumcache.set_checksum(f['path'], ctype, current_checksum)
 
         if not found_l2_output:
             missing_l2_files.append(expected_l2_file_name)
@@ -220,7 +265,12 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger):
         for f in missing_l2_files:
             logger.error('Path {0}'.format(f))
 
-    if len(missing_files) or len(checksum_fails) or len(missing_l2_files):
+    if len(stream_errors):
+        logger.error('{0} stream errors found:'.format(len(stream_errors)))
+        for f in stream_errors:
+            logger.error('Path {}'.format(f))
+
+    if len(missing_files) or len(checksum_fails) or len(missing_l2_files) or len(stream_errors):
         return False
 
     logger.info('All output files exists and have the currect checksums and all expected L2 files exists')
