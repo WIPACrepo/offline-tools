@@ -484,7 +484,7 @@ class MetaXMLFile(File):
         import datetime
 
         if svn_info_from_file:
-            svn = SVN(get_rootdir(), logger, os.path.join(get_tmpdir(), 'svninfo.txt'))
+            svn = SVN(get_rootdir(), self.logger, os.path.join(get_tmpdir(), 'svninfo.txt'))
         else:
             svn = SVN(get_rootdir(), self.logger)
 
