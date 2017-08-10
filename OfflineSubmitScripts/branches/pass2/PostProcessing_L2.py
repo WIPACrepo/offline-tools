@@ -91,7 +91,7 @@ def remove_empty_files(run_folder, dataset_id, run_id, logger, dryrun):
 
     return True
 
-def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2_gcd_file = False, npx = False):
+def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2_gcd_file = False, npx = False, update_active_X_only = False, missing_output_files = None):
     sDay = r['tStart']
     sY = sDay.year
     sM = str(sDay.month).zfill(2)
@@ -113,104 +113,110 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
                 %(r['run_id'],str(r['production_version'])))
         return    
      
-    # check i/o files in data warehouse and Db
-    logger.info("Checking Files in Data warehouse and database records ...")
-    if CheckFiles(r, logger, dataset_id = dataset_id, season = season, dryrun = dryrun, no_pass2_gcd_file = no_pass2_gcd_file):
-        logger.error("FilesCheck failed: for Run=%s, production_version=%s"\
-        %(r['run_id'],str(r['production_version'])))
-        return
-    logger.info("File checks  .... passed")
+    if update_active_X_only:
+        logger.warning('*** Only the active strings, active doms and active in ice doms are updated. NO VALIDATION! ***')
+    else:
+        # check i/o files in data warehouse and Db
+        logger.info("Checking Files in Data warehouse and database records ...")
+        if CheckFiles(r, logger, dataset_id = dataset_id, season = season, dryrun = dryrun, no_pass2_gcd_file = no_pass2_gcd_file, missing_output_files = missing_output_files):
+            logger.error("FilesCheck failed: for Run=%s, production_version=%s"\
+            %(r['run_id'],str(r['production_version'])))
+            return
+        logger.info("File checks  .... passed")
 
-    # Remove empty files (they are outside of the good time range
-    if not remove_empty_files(run_folder, dataset_id, r['run_id'], logger, dryrun):
-        return
+        # Remove empty files (they are outside of the good time range
+        if not remove_empty_files(run_folder, dataset_id, r['run_id'], logger, dryrun):
+            return
 
-    # Check if files cover the period good start/end time (in case a file has been forgotten etc.)
-    l2files = [f for f in RunTools(r['run_id'], logger, passNumber = 2).GetRunFiles(r['tStart'], 'L') if f.endswith('_gaps.txt')]
-    first_gaps = GapsFile(l2files[0], logger)
-    last_gaps = GapsFile(l2files[-1], logger)
+        # Check if files cover the period good start/end time (in case a file has been forgotten etc.)
+        l2files = [f for f in RunTools(r['run_id'], logger, passNumber = 2).GetRunFiles(r['tStart'], 'L') if f.endswith('_gaps.txt')]
+        first_gaps = GapsFile(l2files[0], logger)
+        last_gaps = GapsFile(l2files[-1], logger)
 
-    first_gaps.read()
-    last_gaps.read()
+        first_gaps.read()
+        last_gaps.read()
 
-    first_event_of_first_file = first_gaps.get_first_event()
-    last_event_of_last_file = last_gaps.get_last_event()
+        first_event_of_first_file = first_gaps.get_first_event()
+        last_event_of_last_file = last_gaps.get_last_event()
 
-    first_event_of_first_file = dataclasses.I3Time(first_event_of_first_file['year'], first_event_of_first_file['frac']).date_time
-    last_event_of_last_file = dataclasses.I3Time(last_event_of_last_file['year'], last_event_of_last_file['frac']).date_time
+        first_event_of_first_file = dataclasses.I3Time(first_event_of_first_file['year'], first_event_of_first_file['frac']).date_time
+        last_event_of_last_file = dataclasses.I3Time(last_event_of_last_file['year'], last_event_of_last_file['frac']).date_time
 
-    logger.info('Checking good start/stop times')
-    # Check if the times deviate for more than 1 second
-    if (r['good_tstart'] - first_event_of_first_file).total_seconds() < -1:
-        logger.error('Probably missing a file or data:')
-        logger.error('  good start time:  {0}'.format(r['good_tstart']))
-        logger.error('  first file start: {0}'.format(first_event_of_first_file))
-        return
+        logger.info('Checking good start/stop times')
+        # Check if the times deviate for more than 1 second
+        if (r['good_tstart'] - first_event_of_first_file).total_seconds() < -1:
+            logger.error('Probably missing a file or data:')
+            logger.error('  good start time:  {0}'.format(r['good_tstart']))
+            logger.error('  first file start: {0}'.format(first_event_of_first_file))
+            return
 
-    if (r['good_tstop'] - last_event_of_last_file).total_seconds() > 1:
-        logger.error('Probably missing a file or data:')
-        logger.error('  good stop time:  {0}'.format(r['good_tstop']))
-        logger.error('  last file start: {0}'.format(last_event_of_last_file))
-        return
+        if (r['good_tstop'] - last_event_of_last_file).total_seconds() > 1:
+            logger.error('Probably missing a file or data:')
+            logger.error('  good stop time:  {0}'.format(r['good_tstop']))
+            logger.error('  last file start: {0}'.format(last_event_of_last_file))
+            return
 
-    logger.debug("--Attempting to tar _gaps.txt files ...")
-    MakeTarGapsTxtFile(dbs4_, r['tStart'], r['run_id'], datasetid = dataset_id, dryrun = dryrun, logger = logger)
-    logger.debug("MakeTarGapsFile              .... passed")
-    logger.info( "--Attempting to collect Active Strings/DOMs information from verified GCD file ...")
+        logger.debug("--Attempting to tar _gaps.txt files ...")
+        MakeTarGapsTxtFile(dbs4_, r['tStart'], r['run_id'], datasetid = dataset_id, dryrun = dryrun, logger = logger)
+        logger.debug("MakeTarGapsFile              .... passed")
+        logger.info( "--Attempting to collect Active Strings/DOMs information from verified GCD file ...")
 
     R = RunTools(r['run_id'], passNumber = 2)
     if 1 == R.GetActiveStringsAndDoms(season, UpdateDB = not dryrun):
         logger.error("GetActiveStringsAndDoms failed")
         return
 
-    if not dryrun: dbs4_.execute("""update i3filter.grl_snapshot_info_pass2 
-                         set validated=1
-                         where run_id=%s and production_version=%s"""%\
-                     (r['run_id'],str(r['production_version'])))
+    if not update_active_X_only:
+        if not dryrun: dbs4_.execute("""update i3filter.grl_snapshot_info_pass2 
+                             set validated=1
+                             where run_id=%s and production_version=%s"""%\
+                         (r['run_id'],str(r['production_version'])))
 
-    sql = """   INSERT INTO post_processing
-                    (run_id, dataset_id, validated, date_of_validation)
-                VALUES
-                    (%s, %s, %s, NOW())
-                ON DUPLICATE KEY UPDATE
-                    validated = %s,
-                    date_of_validation = NOW()
-                    """ % (r['run_id'], dataset_id, 1, 1)
+        sql = """   INSERT INTO post_processing
+                        (run_id, dataset_id, validated, date_of_validation)
+                    VALUES
+                        (%s, %s, %s, NOW())
+                    ON DUPLICATE KEY UPDATE
+                        validated = %s,
+                        date_of_validation = NOW()
+                        """ % (r['run_id'], dataset_id, 1, 1)
 
-    logger.debug("SQL: %s" % sql)
+        logger.debug("SQL: %s" % sql)
 
-    if not dryrun:
-        filter_db = DatabaseConnection.get_connection('filter-db', logger)
-        filter_db.execute(sql)
+        if not dryrun:
+            filter_db = DatabaseConnection.get_connection('filter-db', logger)
+            filter_db.execute(sql)
 
-    if not nometadata:
-        dest_folder = ''
-        if dryrun:
-            dest_folder = get_tmpdir()
+        if not nometadata:
+            dest_folder = ''
+            if dryrun:
+                dest_folder = get_tmpdir()
+            else:
+                dest_folder = run_folder
+
+            write_meta_xml_post_processing(dest_folder = dest_folder,
+                                           level = 'L2',
+                                           script_file = __file__,
+                                           logger = logger,
+                                           npx = npx)
         else:
-            dest_folder = run_folder
+            logger.info("No meta data files will be written")
 
-        write_meta_xml_post_processing(dest_folder = dest_folder,
-                                       level = 'L2',
-                                       script_file = __file__,
-                                       logger = logger,
-                                       npx = npx)
-    else:
-        logger.info("No meta data files will be written")
+        logger.debug('tar log files')
 
-    logger.debug('tar log files')
+        tar_log_files(run_path = run_folder, dryrun = dryrun, logger = logger)
 
-    tar_log_files(run_path = run_folder, dryrun = dryrun, logger = logger)
+        # Write gap file info into filter-db and get rid of the gaps files
+        insert_gap_file_info_and_delete_files(run_path = run_folder, dryrun = dryrun, logger = logger)
 
-    # Write gap file info into filter-db and get rid of the gaps files
-    insert_gap_file_info_and_delete_files(run_path = run_folder, dryrun = dryrun, logger = logger)
-
-    logger.info("Checks passed")
+        logger.info("Checks passed")
     logger.info("======= End Checking %i %i ======== " %(r['run_id'],r['production_version'])) 
     return
 
-def main(runinfo, logger, nometadata, dryrun = False, no_pass2_gcd_file = False, npx = False):
+def main(runinfo, logger, nometadata, dryrun = False, no_pass2_gcd_file = False, npx = False, update_active_X_only = False):
     datasets = set()
+
+    missing_output_files = []
 
     for run in runinfo:
         try:
@@ -222,7 +228,7 @@ def main(runinfo, logger, nometadata, dryrun = False, no_pass2_gcd_file = False,
             if dataset_id > 0:
                 datasets.add(dataset_id)
             
-            main_run(run, logger, dataset_id = dataset_id, season = season, nometadata = nometadata, dryrun = dryrun, no_pass2_gcd_file = no_pass2_gcd_file, npx = npx)
+            main_run(run, logger, dataset_id = dataset_id, season = season, nometadata = nometadata, dryrun = dryrun, no_pass2_gcd_file = no_pass2_gcd_file, npx = npx, update_active_X_only = update_active_X_only, missing_output_files = missing_output_files)
         except Exception as e:
             logger.exception("Exception %s thrown for: Run=%s, production_version=%s" %(e.__repr__(),run['run_id'],str(run['production_version'])))
    
@@ -234,6 +240,28 @@ def main(runinfo, logger, nometadata, dryrun = False, no_pass2_gcd_file = False,
         for dataset in datasets:
             MakeRunInfoFile(dbs4_, dataset_id = dataset, logger = logger, dryrun = dryrun) 
 
+    if missing_output_files is not None:
+        if len(missing_output_files):
+            # Creating a SQL in order to restart the jobs:
+            dqlist = []
+
+            logger.info('Missing output files: {}'.format(len(missing_output_files)))
+
+            for f in missing_output_files:
+                sql = 'SELECT queue_id FROM i3filter.urlpath WHERE dataset_id = {dataset_id} AND name = \'{name}\''.format(dataset_id = get_dataset_id_by_run(int(f['run_id'])), name = os.path.basename(f['input']))
+
+                queue_id = dbs4_.fetchall(sql, UseDict = True)
+
+                if len(queue_id) > 1:
+                    logger.error('Only one row expected: {}'.format(sql))
+                    return
+
+                dqlist.append({'queue_id': queue_id[0]['queue_id'], 'dataset_id': get_dataset_id_by_run(int(f['run_id']))})
+
+            # Create the SQL commands:
+            for e in dqlist:
+                logger.info('UPDATE i3filter.job SET status = \'WAITING\', failures = 0 WHERE dataset_id = {dataset_id} AND queue_id = {queue_id}'.format(**e))
+
 
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__,dryrun=True)
@@ -244,6 +272,7 @@ if __name__ == '__main__':
     parser.add_argument("--no-pass2-gcd-file", action="store_true", default=False, help="If there is no special pass2 GCD file for this runs or season, use this option. Then it looks at the pass1 folder for the verified GCDs.")
     parser.add_argument("--cron", action="store_true", default=False, dest="CRON", help="Use this option if you call this script via a cron")
     parser.add_argument("--npx", action="store_true", default=False, help="Use this option if you let run this script on NPX")
+    parser.add_argument("--update-active-X-only", action="store_true", default=False, help="Do only recalculate the active strings, active doms and active in ice doms and recreate the GRL")
     args = parser.parse_args()
     LOGFILE=os.path.join(get_logdir(sublogpath = 'PostProcessing'), 'PostProcessing_')
 
@@ -285,22 +314,22 @@ if __name__ == '__main__':
     if len(runs) > 0:
         RunInfo = dbs4_.fetchall("""SELECT r.tStart,g.* FROM i3filter.grl_snapshot_info_pass2 g
                                   JOIN i3filter.run_info_summary_pass2 r ON r.run_id=g.run_id
-                                  WHERE g.submitted AND (g.good_i3 OR g.good_it) AND NOT validated AND g.run_id IN (%s)
-                                  ORDER BY g.run_id""" % (', '.join([str(r) for r in runs])), UseDict=True)
+                                  WHERE g.submitted AND (g.good_i3 OR g.good_it) AND %s validated AND g.run_id IN (%s)
+                                  ORDER BY g.run_id""" % ('' if args.update_active_X_only else 'NOT', ', '.join([str(r) for r in runs])), UseDict=True)
     else: 
         RunInfo = dbs4_.fetchall("""SELECT r.tStart,g.* FROM i3filter.grl_snapshot_info_pass2 g
                                  JOIN i3filter.run_info_summary_pass2 r ON r.run_id=g.run_id
-                                 WHERE g.submitted AND (g.good_i3 OR g.good_it) AND NOT validated
-                                 ORDER BY g.run_id""", UseDict=True)
+                                 WHERE g.submitted AND (g.good_i3 OR g.good_it) AND %s validated
+                                 ORDER BY g.run_id""" % '' if args.update_active_X_only else 'NOT', UseDict=True)
 
     logger.debug("""SELECT r.tStart,g.* FROM i3filter.grl_snapshot_info_pass2 g
                                   JOIN i3filter.run_info_summary_pass2 r ON r.run_id=g.run_id
-                                  WHERE g.submitted AND (g.good_i3 OR g.good_it) AND NOT validated AND g.run_id IN (%s)
-                                  ORDER BY g.run_id""" % (', '.join([str(r) for r in runs])))
+                                  WHERE g.submitted AND (g.good_i3 OR g.good_it) AND %s validated AND g.run_id IN (%s)
+                                  ORDER BY g.run_id""" % ('' if args.update_active_X_only else 'NOT', ', '.join([str(r) for r in runs])))
 
     logger.debug("RunInfo = %s" % str(RunInfo))
 
-    main(RunInfo, logger, args.NOMETADATA, dryrun = args.dryrun, no_pass2_gcd_file = args.no_pass2_gcd_file, npx = args.npx)
+    main(RunInfo, logger, args.NOMETADATA, dryrun = args.dryrun, no_pass2_gcd_file = args.no_pass2_gcd_file, npx = args.npx, update_active_X_only = args.update_active_X_only)
 
     if args.CRON:
         lock.unlock()

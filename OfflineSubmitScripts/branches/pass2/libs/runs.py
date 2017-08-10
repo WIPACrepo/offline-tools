@@ -19,6 +19,8 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, checksumcache, dryrun, logg
         logger (logging.Logger): The logger
     """
 
+    from config import get_season_by_run
+
     path_prefix = 'gsiftp://gridftp.icecube.wisc.edu'
 
     logger.info("""Submitting Run = %s , Current Status = %s"""%(g['run_id'],status))
@@ -35,7 +37,11 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, checksumcache, dryrun, logg
 
     logger.debug('Get PFFilt files')
 
-    InFiles = R.GetRunFiles(g['tStart'],'P')        
+    season = get_season_by_run(g['run_id'])
+
+    logger.debug('Run %s is of season %s' % (g['run_id'], season))
+
+    InFiles = R.GetRunFiles(g['tStart'], 'P', season = season)
  
     excluded_files = [
         'PFDST_TestData_Unfiltered_Run00120516_Subrun00000000_0000019.tar.gz',

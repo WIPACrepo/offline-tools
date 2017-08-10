@@ -136,14 +136,24 @@ if __name__ == '__main__':
         StartDay = GRLInfo[r][0]
         PV = GRLInfo[r][1]
         SId = GRLInfo[r][2]
-        
-        Season = "IC86.%s_" % libs.config.get_season_by_run(int(r))
+       
+        run_season = libs.config.get_season_by_run(int(r))
+ 
+        detector_conf = '86'
+        if run_season == 2010:
+            detector_conf = '79'
+
+        Season = "IC%s.%s_" % (detector_conf, run_season)
 
         sY = str(StartDay.year)
         sM = str(StartDay.month).zfill(2)
         sD = str(StartDay.day).zfill(2)
-       
-        GCDDirPass1 = "/data/exp/IceCube/%s/filtered/level2/OfflinePreChecks/DataFiles/%s%s"%(sY, sM, sD)
+
+        if run_season == 2010:
+            GCDDirPass1 = "/data/exp/IceCube/%s/filtered/level2a/%s%s"%(sY, sM, sD)
+        else:
+            GCDDirPass1 = "/data/exp/IceCube/%s/filtered/level2/OfflinePreChecks/DataFiles/%s%s"%(sY, sM, sD)
+
         GCDDir = "/data/exp/IceCube/%s/filtered/level2pass2/OfflinePreChecks/DataFiles/%s%s"%(sY, sM, sD)
         GCDDirAll = "/data/exp/IceCube/%s/filtered/level2pass2/AllGCD/" % sY
         GCDDirVerified = "/data/exp/IceCube/%s/filtered/level2pass2/VerifiedGCD/" % sY
@@ -178,8 +188,11 @@ if __name__ == '__main__':
                     os.makedirs(GCDDirAll)
                 if not os.path.exists(GCDDirVerified):
                     os.makedirs(GCDDirVerified)
-      
-        GCDFilesPass1 = glob.glob(os.path.join(GCDDirPass1, "Level2_%sdata_Run00%s_*GCD.i3.gz" % (Season, r)))
+     
+        if run_season == 2010:
+            GCDFilesPass1 = glob.glob(os.path.join(GCDDirPass1, "Level2a_IC%s_data_Run00%s_GCD.i3.bz2" % (detector_conf, r)))
+        else: 
+            GCDFilesPass1 = glob.glob(os.path.join(GCDDirPass1, "Level2_%sdata_Run00%s_*GCD.i3.gz" % (Season, r)))
 
         logger.debug("GCDFilesPass1 glob expression: %s" % os.path.join(GCDDirPass1, "Level2_%sdata_Run00%s_*GCD.i3.gz" % (Season, r)))
         logger.debug("GCDFilesPass1 = %s" % GCDFilesPass1)

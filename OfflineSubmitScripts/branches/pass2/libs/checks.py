@@ -69,7 +69,7 @@ def runs_already_submitted(dbs4_, runs, logger, dryrun):
 
     return not Abort
 
-def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file = False):
+def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file = False, missing_output_files = None):
     """
     Check if there are as many L2 files as there are PFFilt files. 
     Check for GCD files and database consistency;
@@ -87,8 +87,8 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
         return 1
     
     R = RunTools(r['run_id'], passNumber = 2)
-    InFiles = R.GetRunFiles(r['tStart'],'P')
-    OutFiles = R.GetRunFiles(r['tStart'],'L')
+    InFiles = R.GetRunFiles(r['tStart'],'P', season = season)
+    OutFiles = R.GetRunFiles(r['tStart'],'L', season = season)
    
     # Remove all BadRuns from InFiles:
     bad_runs = dbtools.get_bad_sub_runs(dbs4 = dbs4_, dataset_id = dataset_id, run_id = r['run_id'], logger = logger)
@@ -129,9 +129,35 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
                    and ProdVersion in f]  
     L2Files.sort()
     
+    logger.debug('input files = %s' % InFiles)
+    logger.debug('l2 files = %s' % L2Files)
 
     if len(InFiles) != len(L2Files):
         logger.warning("No. of Input and Output files don't match for run=%s, production_version=%s" %(str(r['run_id']),str(r['production_version'])))
+
+        # Find missing pieces:
+        ifiles = {int(f.split('Subrun00000000_00')[1].split('.')[0]): f for f in InFiles}
+        ofiles = {int(f.split('Subrun00000000_00')[1].split('.')[0]): f for f in L2Files}
+
+        # Missing input files
+        mif = list(set(ofiles.keys()) - set(ifiles.keys()))
+
+        # Missing output files
+        mof = list(set(ifiles.keys()) - set(ofiles.keys()))
+
+        if len(mif):
+            logger.error('Missing input files:')
+            for i in mif:
+                logger.error('  %s: output file %s' % (i, ofiles[i]))
+
+        if len(mof):
+            logger.error('Missing output files:')
+            for i in mof:
+                logger.error('  %s: input file (%s) %s' % (i, 'exists' if os.path.exists(ifiles[i]) else 'missing', ifiles[i]))
+
+                if missing_output_files is not None:
+                    missing_output_files.append({'id': i, 'input': ifiles[i], 'input_exists': os.path.exists(ifiles[i]), 'run_id': r['run_id']})
+
         return 1
 
     for p in InFiles:
@@ -141,7 +167,8 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
                 .replace('PFDST_PhysicsTrig_PhysicsFiltering', 'Level2pass2_IC86.%s_data' % season)\
                 .replace('PFDST_TestData_PhysicsFiltering', 'Level2pass2_IC86.%s_data' % season)\
                 .replace('PFDST_PhysicsFiltering', 'Level2pass2_IC86.%s_data' % season)\
-                .replace('.gz', '.zst')
+                .replace('.gz', '.zst')\
+                .replace('.bz2', '.zst')
    
         logger.debug("looking for file %s" % l)
  
