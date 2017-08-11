@@ -215,10 +215,11 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
                     found = False
                     if sr == sRunInfo[-1] and aggregate > 1:
                         # Check if last sub run has been processed with previous batch. Only important if aggregate is > 1
+                        logger.debug('sr = %s' % sr)
+
                         for row in dRunInfo:
-                            logger.debug('sr = %s' % sr)
                             logger.debug('row = %s' % row)
-                            if row['run_id'] == sr['run_id'] and row['sub_run'] == sr['sub_run'] - aggregate and row['type'] == 'INPUT' and row['name'] == sr['name'].replace('_Part', '_Subrun'):
+                            if row['run_id'] == sr['run_id'] and row['sub_run'] == sr['sub_run'] - aggregate and row['type'] == 'INPUT' and row['name'].replace('_Part', '_Subrun') == sr['name'].replace('_Part', '_Subrun'):
                                 found = True
                                 break
 
