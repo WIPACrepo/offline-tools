@@ -222,6 +222,13 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
     for i, subrunInfo in enumerate(outputFileInfos):
         path = os.path.join(remove_path_prefix(subrunInfo['path']), subrunInfo['name'])
 
+        if path.endswith('.zst'):
+            try:
+                sub.check_output(['/cvmfs/icecube.opensciencegrid.org/py2-v3/RHEL_6_x86_64/bin/zstd', '--test', path])
+            except sub.CalledProcessError as e:
+                logger.error('File {0} is corrupted: {1}'.format(path, str(e)))
+                return 1
+
         logger.info('Validate checksum %s/%s' % (i + 1, len(outputFileInfos)))
 
         if path in OutFiles:
