@@ -158,6 +158,9 @@ class RunTools(object):
                                     str(nextDate.month).zfill(2),str(nextDate.day).zfill(2),\
                                     str(Type).upper(),self.RunNumber)))
                 
+                # Filter _UW_ files. Those were generate in Madison, not at the pole
+                Files = [f for f in Files if '_UW_' not in f]
+
             elif str(Type).upper() == "P" and self.passNumber == 1:
                 Files.extend(glob.glob("/data/exp/IceCube/%s/filtered/PFFilt/%s%s/%s*%s*"%(startDate.year,\
                                     str(startDate.month).zfill(2),str(startDate.day).zfill(2),\
