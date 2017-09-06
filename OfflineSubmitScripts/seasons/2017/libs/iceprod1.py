@@ -75,7 +75,7 @@ class IceProd1(iceprodinterface.IceProdInterface):
             self._dbs4.execute(sql)
 
 
-    def submit_run(self, dataset_id, run, checksumcache, source_file_type, gcd_file = None, special_files = [], aggregate = 1, aggregate_only_last_two_files = False):
+    def submit_run(self, dataset_id, run, checksumcache, source_file_type, gcd_file = None, special_files = [], aggregate = 1, aggregate_only_first_files = 0, aggregate_only_last_files = 0):
         """
         Submits the run. It makes all the inserts to the database.
 
@@ -87,7 +87,8 @@ class IceProd1(iceprodinterface.IceProdInterface):
             gcd_file (files.File|str): GCD file. If `None`, the GCD file will be looked up from the datawarehouse
             special_files (list): List of paths or files.File that are input file for *each* job of this run. If `None` or the list is empty, this option is ignored
             aggregate (int): Needs to be >= 1. If > 1, more than one input file will be processed by one job
-            aggregate_only_last_two_files (bool): In certain circumstances we need to aggregate the last two files but not the other files.
+            aggregate_only_last_files (int): In certain circumstances we need to aggregate the last files but not the other files. 0 or < 0 does nothing, if larger than 0, this is the number
+                                             of files that will be *added* to the last job in addition. E.g. if aggregate_only_last_files = 2, the last job will have 3 input files.
         """
 
         self.logger.info(run.format('IceProd1: Submitting run {run_id}, snapshot_id = {snapshot_id}, production_version = {production_version}'))
@@ -96,9 +97,13 @@ class IceProd1(iceprodinterface.IceProdInterface):
             self.logger.critical('Invalid value for `aggregate`: {0}'.format(aggregate))
             raise RuntimeError('Invalid value for `aggregate`')
 
-        if aggregate > 1 and aggregate_only_last_two_files:
-            self.logger.critical('Invalid combination of parameters: you cannot enable `aggregate_only_last_two_files` and having `aggregate` > 1.')
-            raise RuntimeError('Invalid combination of parameters: you cannot enable `aggregate_only_last_two_files` and having `aggregate` > 1.')
+        if aggregate > 1 and aggregate_only_last_files > 0:
+            self.logger.critical('Invalid combination of parameters: you cannot enable `aggregate_only_last_files` and having `aggregate` > 1.')
+            raise RuntimeError('Invalid combination of parameters: you cannot enable `aggregate_only_last_files` and having `aggregate` > 1.')
+
+        if aggregate > 1 and aggregate_only_first_files > 0:
+            self.logger.critical('Invalid combination of parameters: you cannot enable `aggregate_only_first_files` and having `aggregate` > 1.')
+            raise RuntimeError('Invalid combination of parameters: you cannot enable `aggregate_only_first_files` and having `aggregate` > 1.')
 
         if aggregate > 1:
             self.logger.info('** You aggregate several files to one job: {0} **'.format(aggregate))
@@ -151,8 +156,13 @@ class IceProd1(iceprodinterface.IceProdInterface):
             # If input_files % aggregate > 0, we need an additional job that processes the leftover files
             number_of_jobs = int(len(input_files) / aggregate) + int(bool(len(input_files) % aggregate))
 
-            if aggregate_only_last_two_files:
-                number_of_jobs -= 1
+            if aggregate_only_last_files > 0:
+                # add aggregate_only_last_files jobs to the last job... therefore, we have aggregate_only_last_files less.
+                number_of_jobs -= aggregate_only_last_files
+
+            if aggregate_only_first_files > 0:
+                # add aggregate_only_first_files jobs to the first job... therefore, we have aggregate_only_first_files less.
+                number_of_jobs -= aggregate_only_first_files
 
             self.logger.debug('Number of jobs: {0}'.format(number_of_jobs))
 
@@ -175,11 +185,20 @@ class IceProd1(iceprodinterface.IceProdInterface):
                         self.logger.debug('Reached last input file')
                         break
 
-                if aggregate_only_last_two_files and job_id == number_of_jobs - 1:
-                    # Add last file to the current job
-                    self.logger.debug('Aggregate last two files')
+                if aggregate_only_first_files > 0 and job_id == 0:
+                    # Add short first files to the first job. File 0 has already been added...
+                    self.logger.debug('Aggregate first {} files'.format(aggregate_only_first_files))
 
-                    job_input_files.append(input_files[file_counter])                    
+                    job_input_files.extend(input_files[file_counter : aggregate_only_first_files + 1])
+
+                    # Next file will be...
+                    file_counter = aggregate_only_first_files + 1
+
+                if aggregate_only_last_files > 0 and job_id == number_of_jobs - 1:
+                    # Add last file to the current job
+                    self.logger.debug('Aggregate last {} files'.format(aggregate_only_last_files))
+
+                    job_input_files.extend(input_files[file_counter :])
 
                 self.logger.debug('Submit job #{1}, sub run ID {2}, with the following input files: {0}'.format(job_input_files, job_id, input_files[job_id].sub_run_id))
 

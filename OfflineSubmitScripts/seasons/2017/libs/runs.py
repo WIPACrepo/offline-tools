@@ -677,39 +677,73 @@ class Run(object):
 
         return bool(self._data['gcd_bad_doms_validated'])
 
-    def has_two_last_files_aggregated(self, force_reload = False):
+    def get_first_files_aggregated(self, force_reload = False):
         """
-        Checks if the last two files have been processed within one job. This is only rarely done
-        when the last file is too short to contain an I3DSTHeader.
+        Checks if the first files have been processed within one job. This is only rarely done
+        when the first file(s) are too short to contain an I3DSTHeader. (Or if the good start time is set way later.)
 
         Args:
             force_reload (boolean): If `True`, no cached data will be used. The default is `False` and usally the value does not change within a script.
 
         Returns:
-            boolean: `True`, if the last two files have been processed within one job
+            int: The number of files that have been added to the first job.
         """
 
         self._load_data(force_reload = force_reload)
 
-        return bool(self._data['aggregated_two_last_files'])
+        return int(self._data['aggregated_first_files'])
 
-    def set_two_last_files_aggregated(self, value = True):
+    def set_first_files_aggregated(self, files = 1):
         """
-        Sets the flag for `aggregated_two_last_files`. This means
-        that the last two files of this run have been processed within
+        Sets the flag for `aggregated_first_files`. This means
+        that the first files of this run have been processed within
         the same job.
 
         Args:
-            value(bool): The value that should be written into the DB. Usually one only sets it to `True`. That's also the default.
+            value(bool): The value that should be written into the DB. Usually one only sets it to `1`. That's also the default.
         """
         
-        sql = "UPDATE i3filter.runs SET aggregated_two_last_files = %(value)s WHERE run_id = {run_id} AND snapshot_id = {snapshot_id} AND production_version = {production_version} LIMIT 1"
+        sql = "UPDATE i3filter.runs SET aggregated_fist_files = %(value)s WHERE run_id = {run_id} AND snapshot_id = {snapshot_id} AND production_version = {production_version} LIMIT 1"
         sql = self.format(sql)
 
         self.logger.debug('SQL: {}'.format(sql))
 
         if not self.dryrun:
-            self._db.execute(sql, {'value': 1 if value else 0})
+            self._db.execute(sql, {'value': files})
+
+    def get_last_files_aggregated(self, force_reload = False):
+        """
+        Checks if the last files have been processed within one job. This is only rarely done
+        when the last file(s) are too short to contain an I3DSTHeader. (Or if the good stop time is set way earlier.)
+
+        Args:
+            force_reload (boolean): If `True`, no cached data will be used. The default is `False` and usally the value does not change within a script.
+
+        Returns:
+            int: The number of files that have been added to the last job.
+        """
+
+        self._load_data(force_reload = force_reload)
+
+        return int(self._data['aggregated_last_files'])
+
+    def set_last_files_aggregated(self, files = 1):
+        """
+        Sets the flag for `aggregated_last_files`. This means
+        that the last files of this run have been processed within
+        the same job.
+
+        Args:
+            value(bool): The value that should be written into the DB. Usually one only sets it to `1`. That's also the default.
+        """
+        
+        sql = "UPDATE i3filter.runs SET aggregated_last_files = %(value)s WHERE run_id = {run_id} AND snapshot_id = {snapshot_id} AND production_version = {production_version} LIMIT 1"
+        sql = self.format(sql)
+
+        self.logger.debug('SQL: {}'.format(sql))
+
+        if not self.dryrun:
+            self._db.execute(sql, {'value': files})
 
     def is_validated(self, dataset_id):
         """

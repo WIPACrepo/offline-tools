@@ -120,15 +120,44 @@ def main(args, run_ids, logger):
                 counter.count('error')
                 continue
 
-            # Check for short last file
-            short_last_file = not has_subrun_dstheader_within_good_time_range(input_files[-1], logger)
+            # Check for short last files:
+            # Start from the last file until we find a DST header within the good time range. Aggregate all files that were out of time range/do not have a dst header
+            short_last_files = 0
+            for i in range(len(input_files)):
+                short_file = not has_subrun_dstheader_within_good_time_range(input_files[-(i + 1)], logger)
 
-            if short_last_file:
-                logger.warning('No I3DSTHeader in last file within good time range. Aggregate last two files.')
-                run.set_two_last_files_aggregated()
+                logger.debug('{0} in good time range = {1}'.format(input_files[-(i + 1)].get_name(), not short_file))
+
+                if not short_file:
+                    # We're in good time range!
+                    break
+
+                short_last_files += short_file
+
+            if short_last_files:
+                logger.warning('No I3DSTHeader in last file(s) within good time range. Aggregate last {} files.'.format(short_last_files))
+                run.set_last_files_aggregated(short_last_files)
+
+            # Same for the fist files (e.g. if the good start time has been set)
+            short_first_files = 0
+            for i in range(len(input_files)):
+                short_file = not has_subrun_dstheader_within_good_time_range(input_files[i], logger)
+
+                logger.debug('{0} in good time range = {1}'.format(input_files[i].get_name(), not short_file))
+
+                if not short_file:
+                    # We're in good time range!
+                    break
+
+                short_first_files += short_file
+
+            if short_first_files:
+                logger.warning('No I3DSTHeader in first file(s) within good time range. Aggregate first {} files.'.format(short_first_files))
+                run.set_first_files_aggregated(short_first_files)
+
 
             # Submit run
-            iceprod.submit_run(dataset_id, run, checksumcache, 'PFFilt', aggregate_only_last_two_files = short_last_file)
+            iceprod.submit_run(dataset_id, run, checksumcache, 'PFFilt', aggregate_only_first_files = short_first_files, aggregate_only_last_files = short_last_files)
 
             # Write metadata
             if not args.nometadata:

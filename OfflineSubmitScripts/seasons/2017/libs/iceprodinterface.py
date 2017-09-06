@@ -9,7 +9,7 @@ class IceProdInterface(object):
         self.dryrun = dryrun
 
     @abstractmethod
-    def submit_run(self, dataset_id, run, checksumcache, source_file_type, gcd_file = None, special_files = [], aggregate = 1, aggregate_only_last_two_files = False):
+    def submit_run(self, dataset_id, run, checksumcache, source_file_type, gcd_file = None, special_files = [], aggregate = 1, aggregate_only_first_files = 0, aggregate_only_last_files = 0):
         pass
 
     @abstractmethod
