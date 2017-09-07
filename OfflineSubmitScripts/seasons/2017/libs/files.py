@@ -615,7 +615,8 @@ def create_good_run_list(dataset_id, db, logger, dryrun):
     latest_snapshot_id = max([d['snapshot_id'] for d in runs], [0])
 
     # Querying all run comments that should be written into the GRL
-    run_comments_data = db.fetchall("SELECT * FROM i3filter.run_comments WHERE add_to_grl AND (run_id BETWEEN {first_run} AND {last_run} OR run_id IN ({test_runs})) ORDER BY run_id DESC, snapshot_id DESC".format(
+    # TODO: Make `pass` a parameter. Currently we only handle pass1 -> OK for now
+    run_comments_data = db.fetchall("SELECT * FROM i3filter.run_comments WHERE add_to_grl AND `pass` = 1 AND (run_id BETWEEN {first_run} AND {last_run} OR run_id IN ({test_runs})) ORDER BY run_id DESC, snapshot_id DESC".format(
         first_run = first_run,
         last_run = last_run,
         test_runs = ','.join([str(r) for r in test_runs])
