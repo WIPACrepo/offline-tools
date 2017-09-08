@@ -91,7 +91,10 @@ def remove_empty_files(run_folder, dataset_id, run_id, logger, dryrun):
 
     return True
 
-def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2_gcd_file = False, npx = False, update_active_X_only = False, missing_output_files = None):
+def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2_gcd_file = False, npx = False, update_active_X_only = False, missing_output_files = None, force = None):
+    force_m = force
+    force = not (force is None)
+
     sDay = r['tStart']
     sY = sDay.year
     sM = str(sDay.month).zfill(2)
@@ -111,7 +114,7 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
         logger.warning( """Processing of Run=%s, production_version=%s
                  may not be complete ... skipping"""\
                 %(r['run_id'],str(r['production_version'])))
-        return    
+        return
      
     if update_active_X_only:
         logger.warning('*** Only the active strings, active doms and active in ice doms are updated. NO VALIDATION! ***')
@@ -121,12 +124,19 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
         if CheckFiles(r, logger, dataset_id = dataset_id, season = season, dryrun = dryrun, no_pass2_gcd_file = no_pass2_gcd_file, missing_output_files = missing_output_files):
             logger.error("FilesCheck failed: for Run=%s, production_version=%s"\
             %(r['run_id'],str(r['production_version'])))
-            return
+
+            if not force:
+                return
+            else:
+                logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
         logger.info("File checks  .... passed")
 
         # Remove empty files (they are outside of the good time range
         if not remove_empty_files(run_folder, dataset_id, r['run_id'], logger, dryrun):
-            return
+            if not force:
+                return
+            else:
+                logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
 
         # Check if files cover the period good start/end time (in case a file has been forgotten etc.)
         l2files = [f for f in RunTools(r['run_id'], logger, passNumber = 2).GetRunFiles(r['tStart'], 'L') if f.endswith('_gaps.txt')]
@@ -148,13 +158,21 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
             logger.error('Probably missing a file or data:')
             logger.error('  good start time:  {0}'.format(r['good_tstart']))
             logger.error('  first file start: {0}'.format(first_event_of_first_file))
-            return
+
+            if not force:
+                return
+            else:
+                logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
 
         if (r['good_tstop'] - last_event_of_last_file).total_seconds() > 1:
             logger.error('Probably missing a file or data:')
             logger.error('  good stop time:  {0}'.format(r['good_tstop']))
             logger.error('  last file start: {0}'.format(last_event_of_last_file))
-            return
+
+            if not force:
+                return
+            else:
+                logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
 
         logger.debug("--Attempting to tar _gaps.txt files ...")
         MakeTarGapsTxtFile(dbs4_, r['tStart'], r['run_id'], datasetid = dataset_id, dryrun = dryrun, logger = logger)
@@ -183,8 +201,9 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
 
         logger.debug("SQL: %s" % sql)
 
+        filter_db = DatabaseConnection.get_connection('filter-db', logger)
+
         if not dryrun:
-            filter_db = DatabaseConnection.get_connection('filter-db', logger)
             filter_db.execute(sql)
 
         if not nometadata:
@@ -209,11 +228,20 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
         # Write gap file info into filter-db and get rid of the gaps files
         insert_gap_file_info_and_delete_files(run_path = run_folder, dryrun = dryrun, logger = logger)
 
+        if force:
+            sql = '''INSERT INTO i3filter.run_comments (run_id, snapshot_id, production_version, `pass`, `date`, add_to_grl, `comment`)
+                     VALUES (%(run_id)s, %(snapshot_id)s, %(production_version)s, 2, NOW(), 0, %(comment)s)'''
+
+            logger.debug('SQL: %s' % sql)
+
+            if not dryrun:
+                filter_db.execute(sql, params = {'comment': 'Validated manually. ' + force_m, 'run_id': r['run_id'], 'snapshot_id': r['snapshot_id'], 'production_version': r['production_version']})
+
         logger.info("Checks passed")
     logger.info("======= End Checking %i %i ======== " %(r['run_id'],r['production_version'])) 
     return
 
-def main(runinfo, logger, nometadata, dryrun = False, no_pass2_gcd_file = False, npx = False, update_active_X_only = False):
+def main(runinfo, logger, nometadata, dryrun = False, no_pass2_gcd_file = False, npx = False, update_active_X_only = False, force = None):
     datasets = set()
 
     missing_output_files = []
@@ -228,7 +256,7 @@ def main(runinfo, logger, nometadata, dryrun = False, no_pass2_gcd_file = False,
             if dataset_id > 0:
                 datasets.add(dataset_id)
             
-            main_run(run, logger, dataset_id = dataset_id, season = season, nometadata = nometadata, dryrun = dryrun, no_pass2_gcd_file = no_pass2_gcd_file, npx = npx, update_active_X_only = update_active_X_only, missing_output_files = missing_output_files)
+            main_run(run, logger, dataset_id = dataset_id, season = season, nometadata = nometadata, dryrun = dryrun, no_pass2_gcd_file = no_pass2_gcd_file, npx = npx, update_active_X_only = update_active_X_only, missing_output_files = missing_output_files, force = force)
         except Exception as e:
             logger.exception("Exception %s thrown for: Run=%s, production_version=%s" %(e.__repr__(),run['run_id'],str(run['production_version'])))
    
@@ -271,10 +299,16 @@ if __name__ == '__main__':
     parser.add_argument("--nometadata", action="store_true", default=False, dest="NOMETADATA", help="Don't write meta data files")
     parser.add_argument("--no-pass2-gcd-file", action="store_true", default=False, help="If there is no special pass2 GCD file for this runs or season, use this option. Then it looks at the pass1 folder for the verified GCDs.")
     parser.add_argument("--cron", action="store_true", default=False, dest="CRON", help="Use this option if you call this script via a cron")
+    parser.add_argument("--force-validation", nargs='+', default = False, required = None, type = str, help = "DO ONLY USE THIS IF YOU KNOW THAT THE ERRORS ARE WRONG. Validates the run(s) despite there are errors. Makes an entry into filter-db.run_comments. If you use this flag, the argument will be used as comment. E.g. '--force-validation \"run times are OK\"'. This will lead to a comment like: \"Validated manually. run times are OK\"")
     parser.add_argument("--npx", action="store_true", default=False, help="Use this option if you let run this script on NPX")
     parser.add_argument("--update-active-X-only", action="store_true", default=False, help="Do only recalculate the active strings, active doms and active in ice doms and recreate the GRL")
     args = parser.parse_args()
     LOGFILE=os.path.join(get_logdir(sublogpath = 'PostProcessing'), 'PostProcessing_')
+
+    if args.force_validation is not None:
+        args.force_validation = ' '.join(args.force_validation)
+
+    print 'message: %s' % args.force_validation
 
     if args.CRON:
         LOGFILE = LOGFILE + 'CRON_'
@@ -329,7 +363,7 @@ if __name__ == '__main__':
 
     logger.debug("RunInfo = %s" % str(RunInfo))
 
-    main(RunInfo, logger, args.NOMETADATA, dryrun = args.dryrun, no_pass2_gcd_file = args.no_pass2_gcd_file, npx = args.npx, update_active_X_only = args.update_active_X_only)
+    main(RunInfo, logger, args.NOMETADATA, dryrun = args.dryrun, no_pass2_gcd_file = args.no_pass2_gcd_file, npx = args.npx, update_active_X_only = args.update_active_X_only, force = args.force_validation)
 
     if args.CRON:
         lock.unlock()

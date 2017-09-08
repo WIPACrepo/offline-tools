@@ -16,12 +16,12 @@ class DatabaseConnection:
     def _connect(self):
         self.__connection = pymysql.connect(user = self._user, password = self._password, host = self._host, database = self._database)
 
-    def execute(self, sql, reconnect = True):
+    def execute(self, sql, reconnect = True, params = ()):
         ret = None
 
         try:
             with self.__connection.cursor() as cursor:
-                cursor.execute(sql)
+                cursor.execute(sql, params)
                 self.__connection.commit()
                 ret = cursor
         except pymysql.Error as e:
@@ -31,7 +31,7 @@ class DatabaseConnection:
                 self._connect()
 
                 # Try this only once. If it fails again, stop it.
-                self.execute(sql, reconnect = False)
+                self.execute(sql, reconnect = False, params = params)
             else:
                 raise e
 
