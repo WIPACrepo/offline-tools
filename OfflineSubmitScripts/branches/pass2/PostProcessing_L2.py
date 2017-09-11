@@ -299,7 +299,7 @@ if __name__ == '__main__':
     parser.add_argument("--nometadata", action="store_true", default=False, dest="NOMETADATA", help="Don't write meta data files")
     parser.add_argument("--no-pass2-gcd-file", action="store_true", default=False, help="If there is no special pass2 GCD file for this runs or season, use this option. Then it looks at the pass1 folder for the verified GCDs.")
     parser.add_argument("--cron", action="store_true", default=False, dest="CRON", help="Use this option if you call this script via a cron")
-    parser.add_argument("--force-validation", nargs='+', default = False, required = None, type = str, help = "DO ONLY USE THIS IF YOU KNOW THAT THE ERRORS ARE WRONG. Validates the run(s) despite there are errors. Makes an entry into filter-db.run_comments. If you use this flag, the argument will be used as comment. E.g. '--force-validation \"run times are OK\"'. This will lead to a comment like: \"Validated manually. run times are OK\"")
+    parser.add_argument("--force-validation", nargs='+', default = None, required = None, type = str, help = "DO ONLY USE THIS IF YOU KNOW THAT THE ERRORS ARE WRONG. Validates the run(s) despite there are errors. Makes an entry into filter-db.run_comments. If you use this flag, the argument will be used as comment. E.g. '--force-validation \"run times are OK\"'. This will lead to a comment like: \"Validated manually. run times are OK\"")
     parser.add_argument("--npx", action="store_true", default=False, help="Use this option if you let run this script on NPX")
     parser.add_argument("--update-active-X-only", action="store_true", default=False, help="Do only recalculate the active strings, active doms and active in ice doms and recreate the GRL")
     args = parser.parse_args()
