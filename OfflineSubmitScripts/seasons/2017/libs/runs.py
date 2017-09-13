@@ -1207,11 +1207,17 @@ def validate_file_integrity(run, files, logger, run_start_time = None, run_stop_
 
     # Check if we have all files. That means if there is a gap between the first and last file
     # Note: We should always start with part 0!
+
+    logger.debug('files = {}'.format(files))
+
     if len(files) != files[-1].sub_run_id + 1:
         logger.warning('We have missing files')
 
         # Ok, find missing parts
-        missing_files = list(set(range(files[0].sub_run_id, files[-1].sub_run_id + 1)) - set([sr.sub_run_id for sr in files])).sort()
+        missing_files = sorted(list(set(range(files[0].sub_run_id, files[-1].sub_run_id + 1)) - set([sr.sub_run_id for sr in files])))
+
+        logger.debug('missing_files = {}'.format(missing_files))
+
         logger.warning('{0} files are missing:'.format(len(missing_files)))
         for i, m in enumerate(missing_files):
             logger.warning('{index:>4}. Part {num}'.format(index = i + 1, num = m))
