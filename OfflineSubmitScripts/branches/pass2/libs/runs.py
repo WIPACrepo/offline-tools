@@ -256,14 +256,13 @@ def get_run_status(GRLInfo):
 
     return status
 
-def get_validated_runs_L2(dbs4, range_start, range_end):
+def get_validated_runs_L2(dbs4, runs):
     """
     Returns a list of runs that are validated at L2.
 
     Args:
         dbs4 (SQLClient_dbs4): The SQL client for dbs4
-        range_start (int): Run number start (included)
-        range_end (int): Run number end (included)
+        runs (list): List of runs
 
     Returns:
         list: List of validated runs within the given range
@@ -275,7 +274,7 @@ def get_validated_runs_L2(dbs4, range_start, range_end):
                 i3filter.grl_snapshot_info_pass2
             WHERE
                 submitted AND validated
-                    AND run_id BETWEEN %s AND %s""" % (range_start, range_end)
+                    AND run_id IN (%s)""" % (', '.join([str(r) for r in runs]))
 
     result = dbs4.fetchall(sql, UseDict = True)
     return [r['run_id'] for r in result]

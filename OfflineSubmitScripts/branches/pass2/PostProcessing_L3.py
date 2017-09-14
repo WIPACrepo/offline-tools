@@ -30,7 +30,7 @@ import subprocess as sub
 
 import traceback
 
-from libs.files import get_logdir, get_tmpdir, write_meta_xml_post_processing, tar_log_files
+from libs.files import get_logdir, get_tmpdir, write_meta_xml_post_processing, tar_log_files, remove_path_prefix
 import libs.config
 sys.path.append(libs.config.get_config().get('DEFAULT', 'SQLClientPath'))
 sys.path.append(libs.config.get_config().get('DEFAULT', 'ProductionToolsPath'))
@@ -141,7 +141,7 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
                 continue
 
             # Since there is a 'file:' at the beginning of the path...
-            outdir = outdir[5:]
+            outdir = remove_path_prefix(outdir)
 
             logger.debug("outdir: %s" % outdir)
 
@@ -196,7 +196,7 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
                     logger.error("DB record for in/output %s/%s dir. for run %s is %s" % (sr['name'], nName, RunId, nRecord['status']))
                     continue
 
-                L3Out = os.path.join(nRecord['path'][5:],nRecord['name'])
+                L3Out = os.path.join(remove_path_prefix(nRecord['path']),nRecord['name'])
                 if not os.path.isfile(L3Out):
                     verified = 0
                     logger.error("out L3 file %s does not exist in outdir. for run %s"%(L3Out,RunId))
@@ -220,13 +220,13 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
                                               and u.name like "%%hdf5%%"
                                               """%(DDatasetId,DDatasetId,DDatasetId,RunId),UseDict=True)
                 
-                hdf5Files = [h['path'][5:]+"/"+h['name'] for h in hInfo if "Merged" not in h['name']] # avoid previously meged hdf5 file if one exists
+                hdf5Files = [remove_path_prefix(h['path'])+"/"+h['name'] for h in hInfo if "Merged" not in h['name']] # avoid previously meged hdf5 file if one exists
 
                 if len(hdf5Files):
                     hdf5Files.sort()
                     hdf5Files = " ".join(hdf5Files)
                     
-                    hdf5Out = nRecord['path'][5:]+"/Level3_IC86.%s_data_Run00%s_Merged.hdf5"%(SEASON,RunId)
+                    hdf5Out = remove_path_prefix(nRecord['path'])+"/Level3_IC86.%s_data_Run00%s_Merged.hdf5"%(SEASON,RunId)
 
                     if not dryrun:
                         buildir = libs.config.get_config().get('L3', "I3_BUILD_%s" % DDatasetId)
@@ -276,6 +276,22 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
             
             if not dryrun:
                 set_post_processing_state(RunId, DDatasetId, verified, dbs4_, dryrun, logger)
+
+            sql = """   INSERT INTO post_processing
+                            (run_id, dataset_id, validated, date_of_validation)
+                        VALUES
+                            (%s, %s, %s, NOW())
+                        ON DUPLICATE KEY UPDATE
+                            validated = %s,
+                            date_of_validation = NOW()
+                            """ % (RunId, DDatasetId, 1, 1)
+
+            logger.debug("SQL: %s" % sql)
+
+            filter_db = DatabaseConnection.get_connection('filter-db', logger)
+
+            if not dryrun:
+                filter_db.execute(sql)
 
         except Exception,err:
             logger.exception(err)
