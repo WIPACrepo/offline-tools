@@ -91,9 +91,33 @@ def remove_empty_files(run_folder, dataset_id, run_id, logger, dryrun):
 
     return True
 
+def get_sub_run_info_pass1(runs, logger):
+    db = DatabaseConnection.get_connection('filter-db', logger)
+
+    if not isinstance(runs, list):
+        runs = [runs]
+    
+    sql = "SELECT * FROM sub_runs WHERE run_id IN (%s) ORDER BY run_id, sub_run" % ','.join([str(r) for r in runs])
+
+    dbdata = db.fetchall(sql, UseDict = True)
+
+    data = {}
+    for row in dbdata:
+        if row['run_id'] not in data:
+            data[row['run_id']] = {}
+
+        row['first_event'] = dataclasses.I3Time(row['first_event_year'], row['first_event_frac'])
+        row['last_event'] = dataclasses.I3Time(row['last_event_year'], row['last_event_frac'])
+
+        data[row['run_id']][row['sub_run']] = row 
+
+    return data
+
 def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2_gcd_file = False, npx = False, update_active_X_only = False, missing_output_files = None, force = None):
     force_m = force
     force = not (force is None)
+
+    logger.debug('force = {}'.format(force))
 
     sDay = r['tStart']
     sY = sDay.year
@@ -154,25 +178,39 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
 
         logger.info('Checking good start/stop times')
         # Check if the times deviate for more than 1 second
+
+        pass1_data = get_sub_run_info_pass1(r['run_id'], logger)[r['run_id']]
+        pass1_data_sub_runs = pass1_data.keys()
+
         if (r['good_tstart'] - first_event_of_first_file).total_seconds() < -1:
             logger.error('Probably missing a file or data:')
             logger.error('  good start time:  {0}'.format(r['good_tstart']))
             logger.error('  first file start: {0}'.format(first_event_of_first_file))
 
-            if not force:
-                return
+            if abs((first_event_of_first_file - pass1_data[pass1_data_sub_runs[0]]['first_event'].date_time).total_seconds()) <= 1:
+                logger.warning('The file time does not differ more than 1 second from the pass1 time: {}'.format(abs((first_event_of_first_file - pass1_data[pass1_data_sub_runs[0]]['first_event'].date_time).total_seconds())))
+                logger.warning('Pass1 file start time: {}'.format(pass1_data[pass1_data_sub_runs[0]]['first_event']))
+                logger.warning('This is OK and we keep on validating!')
             else:
-                logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
+                if not force:
+                    return
+                else:
+                    logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
 
         if (r['good_tstop'] - last_event_of_last_file).total_seconds() > 1:
             logger.error('Probably missing a file or data:')
             logger.error('  good stop time:  {0}'.format(r['good_tstop']))
             logger.error('  last file start: {0}'.format(last_event_of_last_file))
 
-            if not force:
-                return
+            if abs((last_event_of_last_file - pass1_data[pass1_data_sub_runs[-1]]['last_event'].date_time).total_seconds()) <= 1:
+                logger.warning('The file time does not differ more than 1 second from the pass1 time: {}'.format(abs((last_event_of_last_file - pass1_data[pass1_data_sub_runs[-1]]['last_event'].date_time).total_seconds())))
+                logger.warning('Pass1 file stop time: {}'.format(pass1_data[pass1_data_sub_runs[-1]]['last_event']))
+                logger.warning('This is OK and we keep on validating!')
             else:
-                logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
+                if not force:
+                    return
+                else:
+                    logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
 
         logger.debug("--Attempting to tar _gaps.txt files ...")
         MakeTarGapsTxtFile(dbs4_, r['tStart'], r['run_id'], datasetid = dataset_id, dryrun = dryrun, logger = logger)
@@ -276,7 +314,7 @@ def main(runinfo, logger, nometadata, dryrun = False, no_pass2_gcd_file = False,
             logger.info('Missing output files: {}'.format(len(missing_output_files)))
 
             for f in missing_output_files:
-                sql = 'SELECT queue_id FROM i3filter.urlpath WHERE dataset_id = {dataset_id} AND name = \'{name}\''.format(dataset_id = get_dataset_id_by_run(int(f['run_id'])), name = os.path.basename(f['input']))
+                sql = 'SELECT DISTINCT queue_id FROM i3filter.urlpath WHERE dataset_id = {dataset_id} AND name LIKE \'%{run_id}%\''.format(dataset_id = get_dataset_id_by_run(int(f['run_id'])), run_id = f['run_id'])
 
                 queue_id = dbs4_.fetchall(sql, UseDict = True)
 
