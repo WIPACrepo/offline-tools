@@ -231,7 +231,7 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
 
         logger.info('Validate checksum %s/%s' % (i + 1, len(outputFileInfos)))
 
-        if path in OutFiles:
+        if path in OutFiles or os.path.isfile(path):
             md5sum = FileTools(FileName = path, logger = logger).md5sum()
 
             # Check if checksum matches the checksum in DB
