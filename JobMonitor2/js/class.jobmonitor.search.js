@@ -330,7 +330,15 @@ JobMonitorSearch.prototype._searchCompleted = function(data) {
         html += '<strong>Sub Run</strong>';
         html += '</td>';
         html += '<td>';
-        html += (typeof data['data']['result']['sub_run'] !== 'undefined' ? data['data']['result']['sub_run'] : 'not found');
+        if(typeof data['data']['result']['sub_run'] !== 'undefined') {
+            Object.keys(data['data']['result']['sub_run']).forEach(function(p) {
+                if(p !== null) {
+                    html += data['data']['result']['sub_run'][p] + ' (' + p + ')<br/>';
+                }
+            });
+        } else {
+            html += 'not found';
+        }
         html += '</td>';
         html += '</tr>';
 

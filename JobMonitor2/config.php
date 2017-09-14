@@ -27,7 +27,7 @@ $CONFIG = array(
     'svn_url' => 'http://code.icecube.wisc.edu/svn/sandbox/jan/JobMonitor2',
     'data_warehouse' => 'http://icecube:skua@128.104.255.226',
     'path_prefixes' => array('file:', 'gsiftp://gridftp.icecube.wisc.edu'),
-    '_version' => 5
+    '_version' => 6
 );
 
 // Change svn value
@@ -44,6 +44,6 @@ function config_svn_parse(&$CONFIG) {
 
 config_svn_parse($CONFIG);
 
-require_once('./resources/class.Tools.php');
+require_once('resources/class.Tools.php');
 
 Tools::set_config($CONFIG);

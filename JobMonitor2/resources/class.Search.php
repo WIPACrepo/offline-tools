@@ -13,6 +13,8 @@ class Search {
 
     private $datawarehouse_prefix;
    
+    private $datasets;
+
     public static $result_pattern = array('api_version' => null,'error' => 0, 'error_msg' => '', 'error_trace' => '', 'data' => array('query' => array(), 'result' => null));
  
     public function __construct($host, $user, $password, $db, $datawarehouse_prefix, $api_version, $live_host, $live_user, $live_password, $live_db, $filter_db_host, $filter_db_user, $filter_db_password, $filter_db_db) {
@@ -25,6 +27,8 @@ class Search {
 
         $this->run_id = null;
         $this->event_id = null;
+
+        $this->datasets = null;
 
         $this->datawarehouse_prefix = $datawarehouse_prefix;
     }
@@ -93,33 +97,66 @@ class Search {
         $event_id = intval($event_id);
 
         $sql = "SELECT sub_run FROM sub_runs WHERE $event_id BETWEEN first_event AND last_event AND run_id = $run_id";
+        $sql_pass2 = "SELECT sub_run FROM sub_runs_pass2 WHERE $event_id BETWEEN first_event AND last_event AND run_id = $run_id";
 
         $query = $this->filter_db->query($sql);
+        $query_pass2 = $this->filter_db->query($sql_pass2);
 
-        if($query->num_rows !== 1) {
+        if($query->num_rows > 1 || $query_pass2->num_rows > 1) {
             throw new RuntimeException("Unexpected result");
         }
 
-        $sub_run = $query->fetch_assoc();
-        return intval($sub_run['sub_run']);
+        if($query->num_rows == 0) {
+            $sub_run = null;
+        } else {
+            $sub_run = $query->fetch_assoc();
+            $sub_run = $sub_run['sub_run'];
+        }
+
+        if($query_pass2->num_rows == 0) {
+            $sub_run_pass2 = null;
+        } else {
+            $sub_run_pass2 = $query_pass2->fetch_assoc();
+            $sub_run_pass2 = $sub_run_pass2['sub_run'];
+        }
+
+        return array('pass1' => $sub_run, 'pass2' => $sub_run_pass2);
+    }
+
+    private function get_datasets() {
+        $sql = 'SELECT * FROM datasets';
+        $query = $this->filter_db->query($sql);
+
+        $this->datasets = array('all' => array(), 'pass1' => array(), 'pass2' => array());
+
+        while($dataset = $query->fetch_assoc()) {
+            $this->datasets['all'][] = $dataset;
+            $this->datasets['pass' . $dataset['pass']][] = $dataset['dataset_id'];
+        }
     }
 
     private function get_files_for_subrun_and_run($run_id, $sub_run) {
+        $pass1_ds = implode(',', $this->datasets['pass1']);
+        $pass2_ds = implode(',', $this->datasets['pass2']);
+
         $sql = "SELECT r.dataset_id, path, name 
                 FROM run r 
                 JOIN urlpath u 
                     ON r.dataset_id = u.dataset_id 
                     AND r.queue_id = u.queue_id 
                 WHERE run_id = $run_id 
-                    AND sub_run = $sub_run 
+                    AND (
+                        (sub_run = {$sub_run['pass1']} AND r.dataset_id IN ($pass1_ds)) OR
+                        (sub_run = {$sub_run['pass2']} AND r.dataset_id IN ($pass2_ds))
+                    )
                     AND type = 'PERMANENT'";
 
         $result = array();
 
         $query = $this->mysql->query($sql);
         while($info = $query->fetch_assoc()) {
-            // Filter EHE and IT and other extensions files
-            if(is_numeric(substr($info['name'], -8, 1)) && substr($info['name'], -7) === '.i3.bz2') {
+            // Filter EHE and IT and other extensions files. Only i3 files
+            if(preg_match('/\d{8}\.i3.*$/', $info['name'])) {
                 $result[] = array('dataset_id' => $info['dataset_id'], 'file' => Tools::join_paths(Tools::remove_path_prefix($info['path']), $info['name']));
             }
         }
@@ -199,6 +236,8 @@ class Search {
             $paths[] = "/data/exp/IceCube/$year/filtered/level2/AllGCD/";
         }
 
+        $paths[] = "/data/exp/IceCube/$year/filtered/level2pass2/AllGCD/";
+
         $files = array();
 
         foreach($paths as $path) {
@@ -226,6 +265,7 @@ class Search {
             $this->result['data']['query']['event_id'] = $this->event_id;
         }
 
+        $this->get_datasets();
         $gr_info = $this->get_grl_info($this->run_id);
 
         if(count($gr_info) > 0) {
@@ -253,11 +293,14 @@ class Search {
             $this->result['data']['result']['successfully'] = false;
             $this->result['data']['result']['message'] = "Event {$this->event_id} was not found in run {$this->run_id}";
 
-            if(false !== $sub_run) {
+            if(!is_null($sub_run['pass1']) || !is_null($sub_run['pass2'])) {
                 $this->result['data']['result']['successfully'] = true;
 
                 $this->result['data']['result']['sub_run'] = $sub_run;
-                $this->result['data']['result']['message'] = "Event {$this->event_id} was successfully found in sub run {$this->result['data']['result']['sub_run']} of run {$this->run_id}";
+                $this->result['data']['result']['message'] = "Event {$this->event_id} was successfully found in sub run "
+                    . (!is_null($this->result['data']['result']['sub_run']['pass1']) ? "{$this->result['data']['result']['sub_run']['pass1']} (pass1) " : '')
+                    . (!is_null($this->result['data']['result']['sub_run']['pass2']) ? "{$this->result['data']['result']['sub_run']['pass2']} (pass2) " : '')
+                    . "of run {$this->run_id}";
 
                 $files = $this->get_files_for_subrun_and_run($this->run_id, $this->result['data']['result']['sub_run']);
                 $this->result['data']['result']['files'] = $files;
