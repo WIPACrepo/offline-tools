@@ -196,7 +196,7 @@ class ProcessingJobs {
 
     private function add_error_logs() {
         foreach($this->result['data']['runs'] as $run_id => &$run)  {
-            if($run['jobs_states']['ERROR'] + $run['jobs_states']['FAILED'] > 0) {
+            if((isset($run['jobs_states']['ERROR']) ? $run['jobs_states']['ERROR'] : 0) + (isset($run['jobs_states']['FAILED']) ? $run['jobs_states']['FAILED'] : 0) > 0) {
                 $run['error_message'] = $this->get_error_jobs_and_msgs($run_id);
             }
         }

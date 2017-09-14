@@ -1,5 +1,9 @@
 <?php
 
+// Debug?
+//error_reporting(-1);
+//ini_set('display_errors', 1);
+
 // Config
 
 $CONFIG = array(
@@ -25,7 +29,7 @@ $CONFIG = array(
     'api_version' => '1.2',
     'svn' => '$Id$',
     'svn_url' => 'http://code.icecube.wisc.edu/svn/sandbox/jan/JobMonitor2',
-    'data_warehouse' => 'http://icecube:skua@128.104.255.226',
+    'data_warehouse' => 'http://icecube:skua@convey.icecube.wisc.edu',
     'path_prefixes' => array('file:', 'gsiftp://gridftp.icecube.wisc.edu'),
     '_version' => 6
 );

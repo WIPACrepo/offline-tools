@@ -42,7 +42,7 @@ class Search {
 
     public function set_event_id($event_id) {
         $this->event_id = intval($event_id);
-        if($this->event < 0 || !is_numeric($event_id)) {
+        if($this->event_id < 0 || !is_numeric($event_id)) {
             throw new InvalidArgumentException("'$event_id' is not a valid event id"); 
         }
     }
@@ -139,6 +139,9 @@ class Search {
         $pass1_ds = implode(',', $this->datasets['pass1']);
         $pass2_ds = implode(',', $this->datasets['pass2']);
 
+        $sub_run_pass1 = is_null($sub_run['pass1']) ? -1 : $sub_run['pass1'];
+        $sub_run_pass2 = is_null($sub_run['pass2']) ? -1 : $sub_run['pass2'];
+
         $sql = "SELECT r.dataset_id, path, name 
                 FROM run r 
                 JOIN urlpath u 
@@ -146,8 +149,8 @@ class Search {
                     AND r.queue_id = u.queue_id 
                 WHERE run_id = $run_id 
                     AND (
-                        (sub_run = {$sub_run['pass1']} AND r.dataset_id IN ($pass1_ds)) OR
-                        (sub_run = {$sub_run['pass2']} AND r.dataset_id IN ($pass2_ds))
+                        (sub_run = {$sub_run_pass1} AND r.dataset_id IN ($pass1_ds)) OR
+                        (sub_run = {$sub_run_pass2} AND r.dataset_id IN ($pass2_ds))
                     )
                     AND type = 'PERMANENT'";
 

@@ -14,7 +14,7 @@ class TestRuns {
         $query = $this->filter_db->query($sql);
         while($set = $query->fetch_assoc()) {
             $result[$set['season']] = $set;
-            $tr = array_map(intval, explode(',', $set['test_runs']));
+            $tr = array_map('intval', explode(',', $set['test_runs']));
             $result[$set['season']]['test_runs'] = $tr;
             $result[$set['season']]['first_run'] = intval($result[$set['season']]['first_run']);
         }
