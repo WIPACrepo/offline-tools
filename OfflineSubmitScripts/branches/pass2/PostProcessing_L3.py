@@ -42,6 +42,7 @@ from libs.argparser import get_defaultparser
 from libs.runs import set_post_processing_state, get_validated_runs
 import libs.process
 
+from libs.databaseconnection import DatabaseConnection
 ##-----------------------------------------------------------------
 ## setup DB
 ##-----------------------------------------------------------------
@@ -166,11 +167,15 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
             
             sRunInfo = [s for s in sRunInfo if "EHE" not in s['name'] and "_IT" not in s['name'] and "SLOP" not in s['name'] and "i3.bz2" in s['name']]
             sRunInfo_sorted = sorted(sRunInfo, key=lambda k:['name'])
-            
+           
+            logger.debug('sRunInfo = {}'.format(sRunInfo))
+ 
             for sr in sRunInfo:
                 nName = sr['name'].replace("Level2pass2_","Level3pass2_").replace("Test_","")
                 nRecord = []
                 nRecord = [d for d in dRunInfo if d['name']==nName]
+
+                logger.debug('nRecord = {}'.format(nRecord))
 
                 if len(nRecord)!=1:
                     # may just be a subrun that is good in L2 but bad in L3 e.g. really small L2 output so no L3 events
@@ -260,7 +265,7 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
                     write_meta_xml_post_processing(dest_folder = dest_folder,
                                                    level = 'L3',
                                                    script_file = __file__,
-                                                   logger = logger)
+                                                   logger = logger, npx = False)
                     
                 else:
                     logger.info("No meta data files will be written")

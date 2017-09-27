@@ -256,7 +256,7 @@ def get_run_status(GRLInfo):
 
     return status
 
-def get_validated_runs_L2(dbs4, runs):
+def get_validated_runs_L2(dataset_id, logger):
     """
     Returns a list of runs that are validated at L2.
 
@@ -268,16 +268,12 @@ def get_validated_runs_L2(dbs4, runs):
         list: List of validated runs within the given range
     """
 
-    sql = """SELECT 
-                run_id
-            FROM
-                i3filter.grl_snapshot_info_pass2
-            WHERE
-                submitted AND validated
-                    AND run_id IN (%s)""" % (', '.join([str(r) for r in runs]))
+    from databaseconnection import DatabaseConnection
+    db = DatabaseConnection.get_connection('filter-db', logger)
 
-    result = dbs4.fetchall(sql, UseDict = True)
-    return [r['run_id'] for r in result]
+    sql = 'SELECT run_id FROM i3filter.post_processing WHERE dataset_id = {} AND validated'.format(dataset_id)
+    result = db.fetchall(sql, UseDict = True)
+    return [int(r['run_id']) for r in result]
 
 def get_validated_runs(dataset_id, dbs4, use_dict = True, logger = DummyLogger()):
     """

@@ -123,7 +123,7 @@ def main(params, logger, DryRun):
                 clean_run(dbs4_, dataset_id, Run,params.CLEANDW, g, logger, DryRun)
 
                 continue
-            except pymysql.err.OperationalError as e:
+            except MySQLdb.err.OperationalError as e:
                 logger.exception(e)
 
                 logger.warning('Cleaning run...')

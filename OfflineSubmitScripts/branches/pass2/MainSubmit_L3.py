@@ -213,7 +213,7 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
         logger.info("No meta data files will be written")
 
 def main(SDatasetId, DDatasetId, runs, AGGREGATE, CLEAN_DW, outdir, LINK_ONLY_GCD, NOMETADATA, RESUBMISSION, IGNORE_L2_VALIDATION, logger, DryRun):
-    validatedRuns = get_validated_runs_L2(dbs4_, runs)
+    validatedRuns = get_validated_runs_L2(SDatasetId, logger)
  
     runs_sql_str = ', '.join([str(r) for r in runs])
 
@@ -244,7 +244,7 @@ def main(SDatasetId, DDatasetId, runs, AGGREGATE, CLEAN_DW, outdir, LINK_ONLY_GC
     for s in sourceInfo:
         counter['all'] = counter['all'] + 1
 
-        if not IGNORE_L2_VALIDATION and s['run_id'] not in validatedRuns:
+        if not IGNORE_L2_VALIDATION and int(s['run_id']) not in validatedRuns:
             logger.info("Skipping run %s because L2 is not validated yet" % s['run_id'])
             counter['skipped'] = counter['skipped'] + 1
             continue
