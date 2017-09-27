@@ -93,9 +93,41 @@ def get_sub_run_id_from_path(path, pattern, logger):
     c = re.compile(regex)
     return int(c.search(path).groups()[0])
 
+def make_symlink(source, link_name, dryrun, logger, replace = False):
+    """
+    Creates a symlink if dryrun = True.
+
+    Args:
+        source (str): Source path
+        link_name (str): Target path
+        dryrun (boolean): If `False`, it doesn't really create the symlink
+        replace (boolean): If `False`: A exception will be raised if the link_name already exists. If `True`, `link_name` will be deleted if it already exists before it will be created again.
+    """
+
+    logger.debug('symlink: {0} -> {1}'.format(link_name, source))
+
+    if not dryrun:
+        if replace and os.path.exists(link_name):
+            logger.warning('Link name {0} already exists. Will replace it.'.format(link_name))
+            os.remove(link_name)
+
+        os.symlink(source, link_name)
+
 def make_relative_symlink(source, link_name, dryrun, logger, replace = False):
+    """
+    Creates a symlink if dryrun = True. It will not be used an absolut path for source. The relative path between `link_name` and `source` will be calculated first
+    and be used as source.
+
+    Args:
+        source (str): Source absolut path
+        link_name (str): Target path
+        dryrun (boolean): If `False`, it doesn't really create the symlink
+        replace (boolean): If `False`: A exception will be raised if the link_name already exists. If `True`, `link_name` will be deleted if it already exists before it will be created again.
+    """
+
     rel_source = os.path.relpath(source, os.path.dirname(link_name))
 
+    logger.debug('symlink: {0} -> {1}'.format(link_name, rel_source))
     logger.debug('rel_source = {0}'.format(rel_source))
     logger.debug('link_name = {0}'.format(link_name))
 

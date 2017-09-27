@@ -128,6 +128,8 @@ class IceProd1(iceprodinterface.IceProdInterface):
             for f in special_files:
                 if not f.exists():
                     self.logger.critical('Special file {0} does not exist'.format(f))
+        else:
+            special_files = []
 
         if gcd_file is None:
             self.logger.info('No GCD file has been specified. Find the correct on in datawarehouse')

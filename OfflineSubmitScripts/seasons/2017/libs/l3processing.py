@@ -4,7 +4,9 @@ from files import File
 def get_gcd_file(run, args, config, logger):
     if not args.cosmicray:
         # Just use the normal GCD file
-        return run.get_gcd_file()
+        # Note: We don't want to use the GCD file from the L2 run folder (just in case
+        # that the path will change or so).
+        return run.get_gcd_file(exclude_run_folder_gcd = True)
     else:
         # The cosmic ray WG uses special GCD files
         cr_gcd_file = File(run.format(config.get('Level3', 'CosmicRayGCD')))

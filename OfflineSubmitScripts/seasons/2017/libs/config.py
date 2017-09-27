@@ -315,7 +315,18 @@ class Config(ConfigParser.SafeConfigParser):
 
             self.logger.debug('Load data')
 
-            data = self.db.fetchall("SELECT * FROM i3filter.datasets ds JOIN i3filter.level3_outdir l3 ON ds.dataset_id = l3.dataset_id WHERE type = 'L3'")
+            data = self.db.fetchall("""SELECT 
+                ds.*,
+                l3.*,
+                wg.name AS `working_group_name`
+            FROM
+                i3filter.datasets ds
+                    JOIN
+                i3filter.level3_config l3 ON ds.dataset_id = l3.dataset_id
+                    JOIN
+                i3filter.working_groups wg ON ds.working_group = wg.working_group_id
+            WHERE
+                type = 'L3'""")
 
             datasets = {}
 

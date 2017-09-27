@@ -4,21 +4,21 @@ import os
 
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
-from libs.files import clean_datawarehouse, ChecksumCache
+from libs.files import clean_datawarehouse, MetaXMLFile
 from libs.process import Lock
 from libs.config import get_config
-from libs.utils import Counter
+from libs.utils import Counter, DBChecksumCache
 from libs.runs import Run, get_validated_runs, get_all_runs_of_season, LoadRunDataException
 from libs.iceprod1 import IceProd1
 from libs.l3processing import get_gcd_file, get_cosmicray_mc_gcd_file
-from libs.path import make_relative_symlink, get_logdir
+from libs.path import make_symlink, get_logdir, get_tmpdir
 
 from collections import OrderedDict
 
 def main(run_ids, config, args, logger):
     counter = Counter(['handled', 'submitted', 'resubmitted', 'skipped', 'error'])
     iceprod = IceProd1(logger, args.dryrun)
-    checksumcache = ChecksumCache(logger)
+    checksumcache = DBChecksumCache(logger, dryrun = args.dryrun)
 
     # Contains the get_dataset_info() + L3 info about the outdir
     dataset_info = config.get_level3_info()[args.destination_dataset_id]
@@ -154,7 +154,7 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, coun
             return
 
     # Find GCD file
-    gcd_file = get_gcd_file(run, args, config, logger) # TODO: Should we really use the GCD from the L2 run folder?
+    gcd_file = get_gcd_file(run, args, config, logger)
     eff_gcd_file = os.path.join(outdir, gcd_file.get_name())
 
     if gcd_file is None:
@@ -164,7 +164,7 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, coun
 
     logger.debug('GCD File: {0}'.format(gcd_file))
 
-    special_files = None
+    special_files = []
 
     if args.cosmicray:
         # We also need the CosmicRay MC GCD file
@@ -180,7 +180,7 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, coun
             counter.count('error')
             return
 
-        special_files = [mc_gcd_file]
+        special_files.append(mc_gcd_file)
 
         logger.debug('CosmicRay WG MC GCD: {0}'.format(mc_gcd_file))
 
@@ -190,19 +190,19 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, coun
         os.makedirs(outdir)
 
     logger.info('Add GCD file to run folder')
-    make_relative_symlink(gcd_file.path, eff_gcd_file, args.dryrun, logger, replace = True)
+    make_symlink(gcd_file.path, eff_gcd_file, args.dryrun, logger, replace = True)
 
     if args.cosmicray:
         logger.info('CosmicRay: Add MC GCD file to run folder')
-        make_relative_symlink(mc_gcd_file.path, eff_mc_gcd_file, args.dryrun, logger, replace = True)
+        make_symlink(mc_gcd_file.path, eff_mc_gcd_file, args.dryrun, logger, replace = True)
 
     if not args.link_only_gcd and args.cleandatawarehouse:
         clean_datawarehouse(run, logger, args.dryrun, run_folder = outdir)
 
-    iceprod.clean_run(dataset_id, run)
+    iceprod.clean_run(args.destination_dataset_id, run)
 
     try:
-        iceprod.submit_run(dataset_id, run, checksumcache, 'Level2', gcd_file = gcd_file, special_files = special_files)
+        iceprod.submit_run(args.destination_dataset_id, run, checksumcache, 'Level2', aggregate = args.aggregate, gcd_file = gcd_file, special_files = special_files)
 
         # Write metadata
         if not args.nometadata:
@@ -213,7 +213,7 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, coun
             else:
                 meta_file_dest = outdir
 
-            metafile = MetaXMLFile(meta_file_dest, run, 'L3', dataset_id, logger)
+            metafile = MetaXMLFile(meta_file_dest, run, 'L3', args.destination_dataset_id, logger)
             metafile.add_main_processing_info()
         else:
             logger.info("No meta data files will be written")
@@ -303,7 +303,7 @@ if __name__ == '__main__':
         lock = Lock(os.path.basename(__file__), logger)
         lock.lock()
 
-        # If it is a cron, delete the log of nothing happened
+        # If it is a cron, delete the log if nothing happened
         delete_log = True
 
     counter = main(runs, config, args, logger)

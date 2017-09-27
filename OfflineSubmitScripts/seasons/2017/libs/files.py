@@ -426,28 +426,19 @@ class MetaXMLFile(File):
         if self.level == 'L2':
             subcategory = 'level2'
             icerec_version = os.path.basename(self.config.get('Level2', 'I3_SRC'))
+            subcategory_capitalized = subcategory.title()
         elif self.level == 'L3':
             subcategory = 'level3'
-            l3_datasets = self.config.get_var_dict('Level3', 'I3_SRC_', keytype = int)
+            l3_datasets = self.config.get_level3_info()
             if self.dataset_id not in l3_datasets.keys():
-                logger.critical("Dataset {0} is not configured in config file.".format(self.dataset_id))
+                self.logger.critical("Dataset {0} is not configured in config file.".format(self.dataset_id))
                 raise Exception("Dataset {0} is not configured in config file.".format(self.dataset_id))
 
-            icerec_version = os.path.basename(l3_datasets[self.dataset_id])
-
-        subcategory_capitalized = subcategory.title()
-
-        if self.level == 'L3':
-            working_groups = self.config.get_var_dict('Level3', 'WG', keytype = int)
-
-            if working_groups[self.dataset_id] is None:
-                logger.critical("Working group name is not defined for dataset {0}. Check config file.".format(self.dataset_id))
-                raise Exception("Working group name is not defined for dataset {0}. Check config file.".format(self.dataset_id))
-
-            subcategory_capitalized = "{0} ({1})".format(subcategory_capitalized, working_groups[self.dataset_id])
+            icerec_version = os.path.basename(l3_datasets[self.dataset_id]['metaproject_src'])
+            subcategory_capitalized = "{0} ({1})".format(subcategory.title(), l3_datasets[self.dataset_id]['working_group_name'])
 
         if not os.path.isdir(self.get_dirname()):
-            logger.critical("Folder '{0}' does not exist".format(dest_folder))
+            self.logger.critical("Folder '{0}' does not exist".format(dest_folder))
             raise Exception("Folder '{0}' does not exist".format(dest_folder))
 
         # Fill the template
