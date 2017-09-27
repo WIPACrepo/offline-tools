@@ -279,6 +279,20 @@ JobMonitorDatasetInformation.prototype._queryComplete = function(data) {
         }
     }
 
+    console.log(data['data']['level3_information']);
+    console.log(data['data']['level3_information'].length);
+
+    if(typeof data['data']['level3_information'] !== 'undefined') {
+        if(data['data']['level3_information'] !== null && Object.keys(data['data']['level3_information']).length > 0) {
+            content += '<strong>Level3 Configurations:</strong><ul>';
+
+            $.each(data['data']['level3_information'], function(key, value) {
+                content += '<li><strong>' + key + ':</strong> ' + value + '</li>';
+            });
+
+            content += '</ul>';
+        }
+    }
 
     content += '</div>';
     content += '</div>';

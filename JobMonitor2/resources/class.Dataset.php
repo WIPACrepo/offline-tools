@@ -44,6 +44,8 @@ class Dataset {
     private $filter_db;
     private $include_statistics;
 
+    private $dataset_info;
+
     private static $node_regex = null;
 
     public static $result_pattern = array('api_version' => null,'error' => 0, 'error_msg' => '', 'error_trace' => '', 'data' => array());
@@ -57,6 +59,7 @@ class Dataset {
         $this->dataset_id = null;
         $this->source_dataset_id = null;
         $this->include_statistics = false;
+        $this->dataset_info = null;
 
         if(is_null(self::$node_regex)) {
             self::read_node_regex();
@@ -70,6 +73,32 @@ class Dataset {
     public function set_dataset_id($dataset) {
         $this->dataset_id = intval($dataset);
         $this->source_dataset_id = $this->get_parent_id($this->dataset_id);
+
+        $this->dataset_info = $this->get_dataset_info();
+    }
+
+    private function get_dataset_info() {
+        $sql = "SELECT * FROM i3filter.datasets WHERE dataset_id = {$this->dataset_id}";
+        $query = $this->filter_db->query($sql);
+
+        if($query->num_rows != 1) {
+            throw new Exception('Cannot query dataset information');
+        }
+
+        $data = $query->fetch_assoc();
+
+        if($data['type'] == 'L3') {
+            $sql = "SELECT * FROM i3filter.level3_config WHERE dataset_id = {$this->dataset_id}";
+            $query = $this->filter_db->query($sql);
+
+            if($query->num_rows == 1) {
+                $data['__level3'] = $query->fetch_assoc();
+            } else {
+                 $data['__level3'] = array();
+            }
+        }
+
+        return $data;
     }
 
     private function add_parents() {
@@ -86,6 +115,15 @@ class Dataset {
         }
 
         return $parents;
+    }
+
+    private function add_level3_information() {
+        if($this->dataset_info['type'] == 'L3') {
+            $this->result['data']['level3_information'] = $this->dataset_info['__level3'];
+            if(isset($this->result['data']['level3_information']['dataset_id'])) {
+                unset($this->result['data']['level3_information']['dataset_id']);
+            }
+        }
     }
 
     private function add_metaproject_information() {
@@ -317,6 +355,10 @@ GROUP BY run_id";
 #        $t->start();
         $this->add_total_number_of_jobs();
 #        $t->stop()->print_elapsed('Total Number of Jobs');
+
+#        $t->start();
+        $this->add_level3_information();
+#        $t->stop()->print_elapsed('Level3 Information');
 
         if($this->include_statistics) {
 #            $t->start();
