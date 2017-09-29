@@ -23,6 +23,15 @@ def main(run_ids, config, args, logger):
     # Contains the get_dataset_info() + L3 info about the outdir
     dataset_info = config.get_level3_info()[args.destination_dataset_id]
 
+    # Set aggregate if not overridden:
+    if args.aggregate is None:
+        args.aggregate = dataset_info['aggregate']
+
+        # Double check the config
+        if args.aggregate < 1 or args.aggregate > 200:
+            logger.critical('Unreasonable `aggregate` config for this datase. value: {0}'.format(args.aggregate))
+            exit(1)
+
     if args.source_dataset_id is not None:
         logger.info('Source dataset id has been explicitely set through the parameter!')
         source_dataset_ids = [args.source_dataset_id]
@@ -228,7 +237,7 @@ if __name__ == '__main__':
     parser = get_defaultparser(__doc__, dryrun = True)
     parser.add_argument("--source-dataset-id", type = int, required = False, default = None, help="Dataset ID to read from, usually L2 dataset. Use this option only if you want override the configuration.")
     parser.add_argument("--destination-dataset-id", type = int, required = True, default = None, help="Dataset ID to write to, usually L3 dataset")
-    parser.add_argument("--aggregate", type = int, default = 1, help = "number of subruns to aggregate to form one job, needed when processing 1 subrun is really short")
+    parser.add_argument("--aggregate", type = int, default = None, help = "USE THIS OPTION IF YOU WANT TO OVERRIDE THE DATASET CONFIGURATION ONLY. DO USE THIS OPTION ONLY IF YOU KNOW WHAT YOU ARE DOING. Number of subruns to aggregate to form one job, needed when processing 1 subrun is really short.")
     parser.add_argument("--link-only-gcd", action = "store_true", default = False, help = "No jobs will be submitted but the GCD file(s) will be linked. Useful if some links are missing")
     parser.add_argument("-s", "--startrun", type = int, required = False, default = None, help = "Start submitting from this run")
     parser.add_argument("-e", "--endrun", type = int, required = False, default= None, help = "End submitting at this run")
@@ -260,7 +269,7 @@ if __name__ == '__main__':
     config = get_config(logger)
 
     # Check arguments
-    if args.aggregate < 1 or args.aggregate > 200:
+    if args.aggregate is not None and (args.aggregate < 1 or args.aggregate > 200):
         logger.critical('Unreasonable --aggregate parameter value: {0}'.format(args.aggregate))
         exit(1)
 
