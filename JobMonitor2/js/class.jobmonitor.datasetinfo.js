@@ -279,9 +279,6 @@ JobMonitorDatasetInformation.prototype._queryComplete = function(data) {
         }
     }
 
-    console.log(data['data']['level3_information']);
-    console.log(data['data']['level3_information'].length);
-
     if(typeof data['data']['level3_information'] !== 'undefined') {
         if(data['data']['level3_information'] !== null && Object.keys(data['data']['level3_information']).length > 0) {
             content += '<strong>Level3 Configurations:</strong><ul>';
