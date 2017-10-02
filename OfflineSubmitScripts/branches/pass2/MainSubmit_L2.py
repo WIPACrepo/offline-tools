@@ -121,6 +121,7 @@ def main(params, logger, DryRun):
 
                 logger.warning('Cleaning run...')
                 clean_run(dbs4_, dataset_id, Run,params.CLEANDW, g, logger, DryRun)
+                logger.error('Could not submit run {}'.format(Run))
 
                 continue
             except MySQLdb.err.OperationalError as e:
@@ -129,11 +130,19 @@ def main(params, logger, DryRun):
                 logger.warning('Cleaning run...')
                 clean_run(dbs4_, dataset_id, Run,params.CLEANDW, g, logger, DryRun)
 
-                logger.warning('Try to submit a this run a second time')
+                logger.warning('Try to submit this run a second time')
 
                 # Try it a second time
-                submit_run(dbs4_, g, status, dataset_id, QId, checksumcache, DryRun, logger, use_std_gcds = args.USE_STD_GCDS, gcd = args.gcd, input = args.input, out = args.out)
-                continue
+                try:
+                    submit_run(dbs4_, g, status, dataset_id, QId, checksumcache, DryRun, logger, use_std_gcds = args.USE_STD_GCDS, gcd = args.gcd, input = args.input, out = args.out)
+                except Exception as e:
+                    logger.exception(e)
+
+                    logger.warning('Cleaning run...')
+                    clean_run(dbs4_, dataset_id, Run,params.CLEANDW, g, logger, DryRun)
+
+                    logger.error('Could not submit run {}'.format(Run))
+                    continue
         
             if not args.NOMETADATA and (g['good_i3'] or g['good_it']):
                 meta_file_dest = ''

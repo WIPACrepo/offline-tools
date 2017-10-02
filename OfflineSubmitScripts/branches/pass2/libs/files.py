@@ -599,7 +599,7 @@ def write_meta_xml_post_processing(dest_folder, level, script_file, logger, npx)
         logger.debug("Write meta file: %s" % path)
         file.write(formatted_xml)
 
-def write_meta_xml_main_processing(dest_folder, dataset_id, run_id, level, run_start_time, run_end_time, logger):
+def write_meta_xml_main_processing(dest_folder, dataset_id, run_id, level, run_start_time, run_end_time, logger, l3config = None):
     """
     Writes a meta XML file for a specific run.
 
@@ -654,24 +654,19 @@ def write_meta_xml_main_processing(dest_folder, dataset_id, run_id, level, run_s
         elif level == 'L3':
             subcategory = 'level3'
             
-            l3_datasets = config.get_var_dict('L3', 'I3_SRC_', keytype = int)
-            if dataset_id not in l3_datasets.keys():
+            if dataset_id not in l3config or 'metaproject_src' not in l3config[dataset_id]:
                 logger.critical("Dataset %s is not configured in config file." % dataset_id)
                 exit(1)
 
-            icerec_version = os.path.basename(l3_datasets[dataset_id])
+            icerec_version = os.path.basename(l3config[dataset_id]['metaproject_src'])
             file_name = conf.get('L3', 'MetaFileName')
 
     subcategory_capitalized = subcategory.title()
 
     if level == 'L3':
-        working_groups = config.get_var_dict('L3', 'WG', keytype = int)
+        working_group_name = l3config[dataset_id]['working_group_name']
 
-        if working_groups[dataset_id] is None:
-            logger.critical("Working group name is not defined for dataset %s. Check config file." % dataset_id)
-            exit(1)
-
-        subcategory_capitalized = "%s (%s)" % (subcategory_capitalized, working_groups[dataset_id])
+        subcategory_capitalized = "%s (%s)" % (subcategory_capitalized, working_group_name)
 
     if not os.path.isdir(dest_folder):
         logger.critical("Folder '%s' does not exist" % dest_folder)

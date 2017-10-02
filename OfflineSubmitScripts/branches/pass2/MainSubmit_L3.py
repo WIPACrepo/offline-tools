@@ -114,14 +114,18 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
                                 order by r.sub_run
                                 """%(SDatasetId,SDatasetId,SDatasetId,str(Run)),UseDict=True)
 
+    # Ensure that all paths are accessible via grid-ftp:
+    for run_data in runInfo:
+        run_data['path'] = 'gsiftp://gridftp.icecube.wisc.edu' + remove_path_prefix(run_data['path'])
 
     if not len(runInfo):
         logger.exception("No L2 files for this run %s!"%str(Run))
         exit(1)
         
     date_ = runInfo[0]['date']
-    date_ = str(date_.year)+ "/"+str(date_.month).zfill(2)+str(date_.day).zfill(2)
-    OutDir = os.path.join(OUTDIR,date_,"Run00"+str(Run))
+
+    OutDir = OUTDIR.format(year = date_.year, month = date_.month, day = date_.day, run_id = Run)
+
     if not os.path.exists(OutDir):
         if not dryrun or linkonlygcd:
             os.makedirs(OutDir)
@@ -208,7 +212,8 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
                                        level = 'L3',
                                        run_start_time = run_times['tStart'],
                                        run_end_time = run_times['tStop'],
-                                       logger = logger)
+                                       logger = logger,
+                                       l3config = l3config)
     else:
         logger.info("No meta data files will be written")
 
@@ -263,8 +268,34 @@ def main(SDatasetId, DDatasetId, runs, AGGREGATE, CLEAN_DW, outdir, LINK_ONLY_GC
         try:
             SubmitRunL3(DDatasetId, SDatasetId, s['run_id'], QId, outdir, AGGREGATE, logger, LINK_ONLY_GCD, nometadata = NOMETADATA, dryrun=DryRun)
         except TypeError as e:
-            print e
+            logger.exception(e)
             counter['skipped'] = counter['skipped'] + 1
+
+            logger.warning('Cleaning run...')
+            CleanRun(DDatasetId, s['run_id'], CLEAN_DW, logger, dryrun = DryRun)
+            logger.error('Could not submit run {}'.format(s['run_id']))
+            continue
+        except MySQLdb.err.OperationalError as e:
+            logger.exception(e)
+            logger.warning('Cleaning run...')
+            CleanRun(DDatasetId, s['run_id'], CLEAN_DW, logger, dryrun = DryRun)
+
+            logger.warning('Try to submit this run a second time')
+            try:
+                SubmitRunL3(DDatasetId, SDatasetId, s['run_id'], QId, outdir, AGGREGATE, logger, LINK_ONLY_GCD, nometadata = NOMETADATA, dryrun=DryRun)
+            except Exception as e:
+                logger.exception(e)
+                counter['skipped'] = counter['skipped'] + 1
+                logger.warning('Cleaning run...')
+                CleanRun(DDatasetId, s['run_id'], CLEAN_DW, logger, dryrun = DryRun)
+                logger.error('Could not submit run {}'.format(s['run_id']))
+                continue
+        except Exception as e:
+            logger.exception(e)
+            counter['skipped'] = counter['skipped'] + 1
+            logger.warning('Cleaning run...')
+            CleanRun(DDatasetId, s['run_id'], CLEAN_DW, logger, dryrun = DryRun)
+            logger.error('Could not submit run {}'.format(s['run_id']))
             continue
 
         counter['submitted'] = counter['submitted'] + 1
@@ -327,16 +358,18 @@ if __name__ == '__main__':
     if args.START_RUN and not args.END_RUN:
         logger.info( "Will only process run %i!" %args.START_RUN)
         args.END_RUN = args.START_RUN
-        
-    outdir_mapping = libs.config.get_var_dict('L3', 'DatasetOutputDirMapping', keytype = int)
-   
-    logger.debug("Output mapping: %s" % outdir_mapping);
 
-    if args.DDatasetId not in outdir_mapping:
+    sys.path.append('/mnt/lfs3/user/i3filter/IC86_OfflineProcessing/OfflineSubmitScripts_2017/libs')
+    from config import get_config
+
+    config = get_config(logger)
+    l3config = config.get_level3_info()
+ 
+    if args.DDatasetId not in l3config or 'path' not in l3config[args.DDatasetId]:
         logger.critical("No outdir mapped for destination dataset %s" % args.DDatasetId)
         exit(1)
 
-    logger.debug("Selected output dir: outdir_mapping[%s] = %s" % (args.DDatasetId, outdir_mapping[args.DDatasetId]))
+    logger.debug('Dataset info: {}'.format(l3config))
 
     main(SDatasetId = args.SDatasetId,
         DDatasetId = args.DDatasetId,
@@ -345,7 +378,7 @@ if __name__ == '__main__':
         CLEAN_DW = args.CLEAN_DW, 
         LINK_ONLY_GCD = args.LINK_ONLY_GCD, 
         NOMETADATA = args.NOMETADATA, 
-        outdir = outdir_mapping[args.DDatasetId], 
+        outdir = l3config[args.DDatasetId]['path'], 
         RESUBMISSION = args.RESUBMISSION,
         IGNORE_L2_VALIDATION = args.IGNORE_L2_VALIDATION,
         logger = logger, 
