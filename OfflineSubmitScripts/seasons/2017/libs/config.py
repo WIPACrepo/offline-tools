@@ -160,7 +160,7 @@ class Config(ConfigParser.SafeConfigParser):
                 else:
                     section = 'Level2'
             elif pass_number == 2:
-                if ftype == 'GCDPass2':
+                if ftype == 'GCD':
                     section = 'GCD'
                 else:
                     section = 'Level2pass2'

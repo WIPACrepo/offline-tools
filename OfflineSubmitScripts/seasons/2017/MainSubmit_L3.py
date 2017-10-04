@@ -23,6 +23,9 @@ def main(run_ids, config, args, logger):
     # Contains the get_dataset_info() + L3 info about the outdir
     dataset_info = config.get_level3_info()[args.destination_dataset_id]
 
+    if dataset_info['pass'] > 1:
+        logger.info('*** It is a pass {} dataset! ***'.format(dataset_info['pass']))
+
     # Set aggregate if not overridden:
     if args.aggregate is None:
         args.aggregate = dataset_info['aggregate']
@@ -211,7 +214,12 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, coun
     iceprod.clean_run(args.destination_dataset_id, run)
 
     try:
-        iceprod.submit_run(args.destination_dataset_id, run, checksumcache, 'Level2', aggregate = args.aggregate, gcd_file = gcd_file, special_files = special_files)
+        ftype = 'Level2'
+
+        if dataset_info['pass'] == 2:
+            ftype = 'Level2pass2'
+
+        iceprod.submit_run(args.destination_dataset_id, run, checksumcache, ftype, aggregate = args.aggregate, gcd_file = gcd_file, special_files = special_files)
 
         # Write metadata
         if not args.nometadata:
