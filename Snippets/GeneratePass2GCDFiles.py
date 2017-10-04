@@ -10,23 +10,27 @@ from icecube import icetray, dataclasses, dataio
 from icecube.phys_services import spe_fit_injector
 
 def get_gcd_file(path, run_id):
-    files = glob(os.path.join(path, "Level2*%s*GCD*.i3.gz" % run_id))
+    files = glob(os.path.join(path, "Level2*%s*GCD*.i3.*" % run_id))
 
     if len(files) != 1:
-        raise Exception('Did not finmd exactly one GCD file: %s' % files)
+        raise Exception('Did not find exactly one GCD file in %s: %s' % (os.path.join(path, "Level2*%s*GCD*.i3.*" % run_id), files))
 
     return files[0]
 
 def get_good_runs(season):
-    path = "/data/exp/IceCube/%s/filtered/level2/IC86_%s_GoodRunInfo.txt" % (season, season)
+    if season == 2010:
+        path = "/data/exp/IceCube/2010/filtered/level2/IC79_GRLists/IC79_GRL_NewFormat.txt"
+    else:
+        path = "/data/exp/IceCube/%s/filtered/level2/IC86_%s_GoodRunInfo.txt" % (season, season)
+
     grl = read_file(path)
 
     return grl
 
 def existing_gcd_files(season):
     path = "/data/exp/IceCube/%s/filtered/level2pass2/AllGCD"
-    existing_gcds = glob(os.path.join(path % season, 'Level2pass2_IC86.%s_data_Run00*GCD.i3.gz') % (season))
-    existing_gcds.extend(glob(os.path.join(path % (season + 1), 'Level2pass2_IC86.%s_data_Run00*GCD.i3.gz') % (season)))
+    existing_gcds = glob(os.path.join(path % season, 'Level2pass2_IC*.%s_data_Run00*GCD.i3.*') % (season))
+    existing_gcds.extend(glob(os.path.join(path % (season + 1), 'Level2pass2_IC*.%s_data_Run00*GCD.i3.*') % (season)))
 
     return list(set([f.split('Run00')[1].split('_')[0] for f in existing_gcds]))
 
@@ -69,8 +73,12 @@ if __name__ == "__main__":
 
         data = grl[run_id]
 
-        infile = get_gcd_file(data[7], run_id)
-        outfile = os.path.join(args.out, os.path.basename(infile)).replace("Level2_", "Level2pass2")
+        if args.season == 2010:
+            infile = get_gcd_file(data[4], run_id)
+        else:
+            infile = get_gcd_file(data[7], run_id)
+
+        outfile = os.path.join(args.out, os.path.splitext(os.path.basename(infile))[0] + '.gz').replace("Level2_", "Level2pass2_")
 
         if os.path.isfile(outfile):
             print "[%s / %s]\tRun %s: outfile already exists: %s" % (counter, len(to_do), run_id, outfile)

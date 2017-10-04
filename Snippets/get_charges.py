@@ -27,8 +27,6 @@ def qtot(frame):
         for pulse in pulseList:
             charge += pulse.charge
 
-    print charge
-
     frame["TotalCharge_split"] = dataclasses.I3Double(charge)
 
 def substreamfilter(frame):
@@ -43,10 +41,9 @@ tray.Add(substreamfilter, Streams = [icetray.I3Frame.Physics])
 tray.Add(filtermaskfilter, Streams = [icetray.I3Frame.Physics])
 tray.Add(qtot, Streams = [icetray.I3Frame.Physics])
 tray.Add('Keep', keys = ['TotalCharge_split', 'I3EventHeader'])
-tray.Add('Dump')
 tray.Add('I3Writer', FileName = args.out)
 tray.AddModule("TrashCan","trash")
-tray.Execute(1000)
+tray.Execute()
 tray.Finish()
 
 print('Done')

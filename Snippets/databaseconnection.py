@@ -69,6 +69,7 @@ class DatabaseConnection:
     def get_connection(cls, name, logger):
         installed_dbs = {
             'filter-db': {'user': 'i3filter_read', 'password': 'ce7f29816fd832', 'host': 'filter-db.icecube.wisc.edu', 'database': 'i3filter'},
+            'dbs4': {'user': 'i3filter_ro', 'password': 'Z&F7?Hu"', 'host': 'dbs4', 'database': 'i3filter'},
             'sdst': {'user': 'sdst', 'password': 'Arch2Store', 'host': 'pilchard.icecube.wisc.edu', 'database': 'sdstprocessing'}
         }
 
