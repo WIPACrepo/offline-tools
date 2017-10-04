@@ -17,7 +17,27 @@ from libs.path import get_tmpdir, get_env_python_path, get_logdir
 from libs.email import send_email
 from libs.files import File
 
-def main(run_ids, args, config, logger):
+def find_previous_run(run, db, logger, dryrun):
+    sql = run.format('SELECT * FROM i3filter.runs WHERE run_id < {run_id} AND (good_it OR good_i3) ORDER BY run_id DESC, snapshot_id DESC, production_version DESC LIMIT 1')
+    logger.debug('SQL: {}'.format(sql))
+
+    data = db.fetchall(sql)
+    if not len(data):
+        return None
+
+    if len(data) != 1:
+        raise RuntimeError('Expected exactly one row')
+
+    config = get_config(logger)
+    if run.get_season() != config.get_season_by_run(data[0]['run_id']):
+        logger.debug('Season for run {run_id}: {season}'.format(season = config.get_season_by_run(data[0]['run_id']), **data[0]))
+        logger.debug(run.format('Season for run {run_id}: {season}'))
+
+        return None
+
+    return Run(data[0]['run_id'], logger, dryrun = dryrun)
+
+def main(run_ids, args, config, db, logger):
     counter = Counter(['handled', 'skipped', 'error', 'validated'])
 
     logger.info('Start checking {0} runs'.format(len(run_ids)))
@@ -36,16 +56,18 @@ def main(run_ids, args, config, logger):
             counter.count('skipped')
 
     # Check runs
-    for i, run in enumerate(runs):
+    for run in runs:
         counter.count('handled')
 
-        if i == 0:
-            logger.warning(run.format('Run {run_id} is the first run in the given run list (might be the first run of season). Skip this run.'))
+        # Find previous/template GCD file
+        template_run = find_previous_run(run, db, logger, args.dryrun)
+
+        if template_run is None:
+            logger.warning(run.format('Could not find template run for run {run_id}. Skip this run.'))
             counter.count('skipped')
             continue
 
-        # Find previous/template GCD file
-        template_gcd = runs[i - 1].get_gcd_file()
+        template_gcd = template_run.get_gcd_file()
 
         # Find current GCD file
         current_gcd = run.get_gcd_file()
@@ -58,7 +80,7 @@ def main(run_ids, args, config, logger):
             continue
 
         if template_gcd is None:
-            logger.warning(runs[i - 1].format('Run {run_id} (template run) has no north GCD file in the datawarehouse. Skip this run.'))
+            logger.warning(template_run.format('Run {run_id} (template run) has no north GCD file in the datawarehouse. Skip this run.'))
             counter.count('skipped')
             continue
 
@@ -205,7 +227,7 @@ if __name__ == '__main__':
     lock = Lock(os.path.basename(__file__), logger)
     lock.lock()
 
-    main(runs, args, config, logger)
+    main(runs, args, config, db, logger)
 
     lock.unlock()
 
