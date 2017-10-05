@@ -90,7 +90,7 @@ def read_grl_file(f):
     fh.close()
     return r
     
-def main(config, logger,dryrun = False, check = False, updates_only = False):
+def main(config, logger,dryrun = False, check = False, updates_only = False, runs = []):
     if check:
         logger.info('Only in check mode. Just checking if an update is available.')
 
@@ -288,8 +288,8 @@ def main(config, logger,dryrun = False, check = False, updates_only = False):
                 logger.info("halting processig due to user intervention ...")
                 exit (0)
    
-    # Hack for seaosn 2011: Getting start/stop times from pass1 L2 files
-    if current_season == 2011:
+    # Hack for season 2010, 2011: Getting start/stop times from pass1 L2 files
+    if current_season in (2010, 2011):
         filter_db = DatabaseConnection.get_connection('filter-db', logger)
         gaps_data = get_gaps_file_data(filter_db, RunNums_)
  
@@ -310,6 +310,10 @@ def main(config, logger,dryrun = False, check = False, updates_only = False):
     for r in RunNums_:
         is_good_run = RunInfo_[r]['good_it'] or RunInfo_[r]['good_i3']
         logger.debug("Is run %s a good run? = %s" % (r, is_good_run))
+
+        if len(runs) and r not in runs:
+            logger.info('Skipping run {} since only specific runs will be reported (see --runs)'.format(r))
+            continue
 
        # if not is_good_run:
        #     logger.info("Skip run %s because it is a bad run" % r)
@@ -336,7 +340,7 @@ def main(config, logger,dryrun = False, check = False, updates_only = False):
             InFiles = R.GetRunFiles(RunTimes['tStart'],'P', season = current_season)
 
             detailed_check_information = {}
-            CheckFiles = R.FilesComplete(InFiles, RunTimes, get_tmpdir(), showTimeMismatches = is_good_run, outdict = detailed_check_information, no_xml_bundle = current_season in (2015, 2016))
+            CheckFiles = R.FilesComplete(InFiles, RunTimes, get_tmpdir(), showTimeMismatches = is_good_run, outdict = detailed_check_information, no_xml_bundle = current_season in (2010, 2015, 2016))
 
             logger.debug("Check files returned %s" % CheckFiles)
 
@@ -447,12 +451,13 @@ if __name__ == "__main__":
 
     parser = get_defaultparser(__doc__,dryrun=True)
 
+    parser.add_argument("--runs", type = int, nargs = '*', default = [], required = False, help = "Importing only specific runs")
     parser.add_argument('--check', help="Only check for updates. Do nothing else",dest="check",action="store_true",default=False)  
     parser.add_argument('--updates-only', help="Do only execute updates. Do not insert new entries.",dest="updates_only",action="store_true",default=False)  
 
     args = parser.parse_args()
     LOGFILE=os.path.join(get_logdir(sublogpath = 'PreProcessing'), 'GetRunInfo_')
     logger = get_logger(args.loglevel,LOGFILE)
-    main(logger = logger, dryrun=args.dryrun, check = args.check, config = config, updates_only = args.updates_only)    
+    main(logger = logger, dryrun=args.dryrun, check = args.check, config = config, updates_only = args.updates_only, runs = args.runs)
 
 
