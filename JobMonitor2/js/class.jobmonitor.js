@@ -59,10 +59,77 @@ function JobMonitor(params) {
         'feedback': $('#jm-dialog-feedback'),
         'version': $('#jm-dialog-version'),
         'search': $('#jm-dialog-search'),
-        'testruns': $('#jm-dialog-24h-test-runs')
+        'testruns': $('#jm-dialog-24h-test-runs'),
+        'pass2-lost-files': $('#jm-dialog-pass2-lolf')
     };
 
     this._staticContent();
+
+    this._initPass2ListOfLostFiles();
+}
+
+JobMonitor.prototype._initPass2ListOfLostFiles = function() {
+    var pass2lolf = $('#jm-dialog-pass2-lolf-table').DataTable({
+        "ajax": "pass2-lost-files.php?datatables=true",
+        "columns": [
+            {"data": "run_id"},
+            {"data": "sub_run"},
+            {"data": "season"},
+            {"data": "type"},
+            {"data": "path", "className": "jm-shorten-text cursor"},
+            {"data": "help_ticket"},
+            {"data": "last_change"},
+            {"data": "comment"},
+            {"data": "resolved"}
+        ],
+        "columnDefs": [
+            {
+                "targets": [8],
+                "visible": false,
+                "searchable": false
+            },
+            {
+                "targets": 5,
+                "render": function(data, type, row, meta) {
+                    if(data !== null && data != '') {
+                        return '<a href="https://tracker.icecube.wisc.edu/Ticket/Display.html?id=' + data + '" target="_blank">#' + data + '</a>';
+                    } else {
+                        return '';
+                    }
+                }
+            }
+        ],
+        "createdRow": function(row, data, index) {
+            if(data['resolved'] == '1') {
+                $(row).addClass('jm-pass2-lolf-resolved');
+            }
+        }
+    });
+
+    pass2lolf.on('draw', function() {
+        $('#jm-dialog-pass2-lolf-table tbody td.jm-shorten-text').each(function() {
+            $(this).popover({
+                'trigger': 'click',
+                'container': 'body',
+                'placement': 'bottom',
+                'html': true,
+                'title': 'File path',
+                'content': function() {
+                    var path = $(this).html();
+                    return '<pre class="jm-path-display">' + path + '</pre>';
+                }
+            });
+        });
+
+        // Close popover on click outside of popover
+        $('body').on('click', function(e) {
+            $('#jm-dialog-pass2-lolf-table tbody td.jm-shorten-text').each(function () {
+                if (!$(this).is(e.target) && $(this).has(e.target).length === 0 && $('.popover').has(e.target).length === 0) {
+                    $(this).popover('hide');
+                }
+            });
+        });
+    });
 }
 
 JobMonitor.prototype.getPersonnelData = function(key) {

@@ -16,3 +16,24 @@ body {
     display: none;
 }
 
+.cursor {
+    cursor: pointer;
+}
+
+.jm-shorten-text {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    max-width: 90px;
+}
+
+@media (min-width: 768px) {
+  .modal-xl {
+   width: 90%;
+   max-width: 1200px;
+  }
+}
+
+tr.jm-pass2-lolf-resolved td {
+    background-color: #bdf6bd;
+}

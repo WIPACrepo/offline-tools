@@ -82,6 +82,7 @@ $test_run_data = $test_runs->get_list();
           </ul>
           <ul class="nav navbar-nav navbar-right">
             <li><a href="#" data-toggle="modal" data-target="#jm-dialog-24h-test-runs">24h Test Runs</span></a></li>
+            <li><a href="#" data-toggle="modal" data-target="#jm-dialog-pass2-lolf">Pass2: Lost Files</span></a></li>
             <li><a href="#" data-toggle="modal" data-target="#jm-dialog-search">Search <span class="glyphicon glyphicon-search" aria-hidden="true"></span></a></li>
             <li class="dropdown" id="jm-view-dropdown">
               <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">View <span class="caret"></span></a>
@@ -224,6 +225,59 @@ $test_run_data = $test_runs->get_list();
             </ul>
 
             <p>Write me an <a href="mailto:<?php print($CONFIG['offline_processing_personnel']['email']); ?>">email</a> or on Slack in <a href="https://icecube-spno.slack.com/messages/<?php print(substr($CONFIG['offline_processing_personnel']['slack']['channel'], 1)); ?>/" target="_blank"><?php print($CONFIG['offline_processing_personnel']['slack']['channel']); ?></a> or <a href="https://icecube-spno.slack.com/messages/<?php print($CONFIG['offline_processing_personnel']['slack']['user']); ?>/"><?php print($CONFIG['offline_processing_personnel']['slack']['user']); ?></a>.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="jm-dialog-pass2-lolf" tabindex="-1" role="dialog" aria-labelledby="jm-dialog-label">
+      <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Pass2: List of lost files</h4>
+          </div>
+          <div class="modal-body">
+            <p>
+                This is the list of lost files in pass2. See also the pass2 wiki page: <a href="https://wiki.icecube.wisc.edu/index.php/Pass2_Re-Processing#Lost_Files" target="_blank">Pass2_Re-Processing#Lost_Files</a>.
+            </p>
+
+            <ul>
+                <li>A green row indicate a restored file</li>
+                <li>Click on the path cell to get the full path</li>
+                <li>Use the search in order to check a certain run</li>
+                <li>Do you want a script readable format? Look at this: <a href="pass2-lost-files.php" target="_blank">JSON</a></li>
+            </ul>
+
+            <table id="jm-dialog-pass2-lolf-table" class="display table" cellspacing="0" width="100%">
+                <thead>
+                    <tr>
+                        <th>Run Id</th>
+                        <th>File (aka subrun)</th>
+                        <th>Season</th>
+                        <th>Type</th>
+                        <th>path</th>
+                        <th>Help Ticket</th>
+                        <th>Last Change</th>
+                        <th>Comment</th>
+                        <th>Resolved</th>
+                    </tr>
+                </thead>
+                <tfoot>
+                    <tr>
+                        <th>Run Id</th>
+                        <th>File (aka subrun)</th>
+                        <th>Season</th>
+                        <th>Type</th>
+                        <th>path</th>
+                        <th>Help Ticket</th>
+                        <th>Last Change</th>
+                        <th>Comment</th>
+                        <th>Resolved</th>
+                    </tr>
+                </tfoot>
+            </table>
+
           </div>
         </div>
       </div>
