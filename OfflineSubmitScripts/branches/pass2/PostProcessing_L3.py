@@ -169,9 +169,14 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
             sRunInfo_sorted = sorted(sRunInfo, key=lambda k:['name'])
            
             logger.debug('sRunInfo = {}'.format(sRunInfo))
+
+            if not len(sRunInfo):
+                logger.error('Could not find source info for run {}'.format(RunId))
+                counter['errors'] = counter['errors'] + 1
+                continue
  
             for sr in sRunInfo:
-                nName = sr['name'].replace("Level2pass2_","Level3pass2_").replace("Test_","").replace('.zst', '.bz2')
+                nName = sr['name'].replace("Level2pass2_","Level3pass2_").replace("Test_","")
                 nRecord = []
                 nRecord = [d for d in dRunInfo if d['name']==nName]
 
