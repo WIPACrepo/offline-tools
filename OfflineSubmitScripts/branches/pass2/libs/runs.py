@@ -275,14 +275,13 @@ def get_validated_runs_L2(dataset_id, logger):
     result = db.fetchall(sql, UseDict = True)
     return [int(r['run_id']) for r in result]
 
-def get_validated_runs(dataset_id, dbs4, use_dict = True, logger = DummyLogger()):
+def get_validated_runs(dataset_id, use_dict = True, logger = DummyLogger()):
     """
     Returns all validated runs of the given dataset. In addition, it returns also the
     date of validation.
 
     Args:
         dataset_id (int): The dataset id
-        dbs4 (SQLClient_dbs4): The SQL client for dbs4
         use_dict(bool): If `True` (default), the db result is returned as list of dicts
         logger (logging.Logger): The logger. Default is the DummyLogger that just prints the messages.
 
@@ -290,11 +289,14 @@ def get_validated_runs(dataset_id, dbs4, use_dict = True, logger = DummyLogger()
         list: The SQL result
     """
 
-    sql = "SELECT * FROM offline_postprocessing WHERE dataset_id = %s AND validated = 1" % int(dataset_id)
+    from databaseconnection import DatabaseConnection
+    db = DatabaseConnection.get_connection('filter-db', logger)
+
+    sql = "SELECT * FROM i3filter.post_processing WHERE dataset_id = %s AND validated = 1" % int(dataset_id)
 
     logger.debug("SQL: %s" % sql)
 
-    return dbs4.fetchall(sql, UseDict = use_dict)
+    return db.fetchall(sql, UseDict = use_dict)
 
 
 def set_post_processing_state(run_id, dataset_id, validated, dbs4, dryrun, logger = DummyLogger()):

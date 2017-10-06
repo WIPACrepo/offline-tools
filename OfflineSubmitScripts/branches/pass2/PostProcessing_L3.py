@@ -88,7 +88,7 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
 
     # Get validated runs in order to avoid validating them another time
     validated_runs = {}
-    for run in get_validated_runs(DDatasetId, dbs4_, True, logger):
+    for run in get_validated_runs(DDatasetId, True, logger):
         validated_runs[int(run['run_id'])] = run
 
     for s in sourceRunInfo:
@@ -165,13 +165,13 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
                 logger.info("GCD check passed")
             # End: GCD check
             
-            sRunInfo = [s for s in sRunInfo if "EHE" not in s['name'] and "_IT" not in s['name'] and "SLOP" not in s['name'] and "i3.bz2" in s['name']]
+            sRunInfo = [s for s in sRunInfo if "EHE" not in s['name'] and "_IT" not in s['name'] and "SLOP" not in s['name'] and "GCD" not in s['name'] and "i3.zst" in s['name']]
             sRunInfo_sorted = sorted(sRunInfo, key=lambda k:['name'])
            
             logger.debug('sRunInfo = {}'.format(sRunInfo))
  
             for sr in sRunInfo:
-                nName = sr['name'].replace("Level2pass2_","Level3pass2_").replace("Test_","")
+                nName = sr['name'].replace("Level2pass2_","Level3pass2_").replace("Test_","").replace('.zst', '.bz2')
                 nRecord = []
                 nRecord = [d for d in dRunInfo if d['name']==nName]
 
@@ -289,7 +289,7 @@ def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryr
                         ON DUPLICATE KEY UPDATE
                             validated = %s,
                             date_of_validation = NOW()
-                            """ % (RunId, DDatasetId, 1, 1)
+                            """ % (RunId, DDatasetId, verified, verified)
 
             logger.debug("SQL: %s" % sql)
 
