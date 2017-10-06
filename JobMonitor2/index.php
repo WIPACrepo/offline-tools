@@ -249,7 +249,7 @@ $test_run_data = $test_runs->get_list();
                 <li>Do you want a script readable format? Look at this: <a href="pass2-lost-files.php" target="_blank">JSON</a></li>
             </ul>
 
-            <table id="jm-dialog-pass2-lolf-table" class="display table" cellspacing="0" width="100%">
+            <table id="jm-dialog-pass2-lolf-table" class="table" cellspacing="0" width="100%">
                 <thead>
                     <tr>
                         <th>Run Id</th>
@@ -277,7 +277,6 @@ $test_run_data = $test_runs->get_list();
                     </tr>
                 </tfoot>
             </table>
-
           </div>
         </div>
       </div>

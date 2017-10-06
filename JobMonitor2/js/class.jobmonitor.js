@@ -55,17 +55,15 @@ function JobMonitor(params) {
     };
 
     this.staticPages = {
-        'api': $('#jm-dialog-api'),
-        'feedback': $('#jm-dialog-feedback'),
-        'version': $('#jm-dialog-version'),
-        'search': $('#jm-dialog-search'),
-        'testruns': $('#jm-dialog-24h-test-runs'),
-        'pass2-lost-files': $('#jm-dialog-pass2-lolf')
+        'api': '#jm-dialog-api',
+        'feedback': '#jm-dialog-feedback',
+        'version': '#jm-dialog-version',
+        'search': '#jm-dialog-search',
+        'testruns': '#jm-dialog-24h-test-runs',
+        'pass2-lost-files': {'modal': '#jm-dialog-pass2-lolf', 'onopen': function() {iam._initPass2ListOfLostFiles();}}
     };
 
     this._staticContent();
-
-    this._initPass2ListOfLostFiles();
 }
 
 JobMonitor.prototype._initPass2ListOfLostFiles = function() {
@@ -286,9 +284,27 @@ JobMonitor.prototype._staticContent = function() {
     var iam = this;
 
     $.each(this.staticPages, function(name, obj) {
+        var onopen = undefined;
+
+        if(typeof obj.modal !== 'undefined') {
+            if(typeof obj.onopen !== 'undefined') {
+                onopen = obj.onopen;
+            }
+
+            obj = $(obj.modal);
+        } else if(typeof obj === 'string') {
+            obj = $(obj);
+        } else {
+            alert('Misconfigured static page: ' + name);
+        }
+
         obj.on('shown.bs.modal', function (e) {
             iam.url.setState('static', name);
             iam.url.pushState();
+
+            if(typeof onopen !== 'undefined') {
+                onopen();
+            }
         });
 
         obj.on('hidden.bs.modal', function (e) {
@@ -301,7 +317,13 @@ JobMonitor.prototype._staticContent = function() {
         var page = this.url.getState('static');
 
         if($.inArray(page, Object.keys(this.staticPages)) !== -1) {
-            this.staticPages[page].modal();
+            if(typeof this.staticPages[page] == 'string') {
+                $(this.staticPages[page]).modal();
+            } else if(typeof this.staticPages[page].modal !== 'undefined') {
+                $(this.staticPages[page].modal).modal();
+            } else {
+                alert('Misconfigured static page: ' + page);
+            }
         } else {
             this.url.removeState('static');
             this.url.pushState();
