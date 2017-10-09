@@ -66,7 +66,13 @@ function JobMonitor(params) {
     this._staticContent();
 }
 
+JobMonitor.prototype.formatNumber = function(n, ) {
+    return n.toLocaleString('en-US',  {maximumFractionDigits: 0});
+}
+
 JobMonitor.prototype._initPass2ListOfLostFiles = function() {
+    var iam = this;
+
     if($.fn.DataTable.isDataTable('#jm-dialog-pass2-lolf-table')) {
         $('#jm-dialog-pass2-lolf-table').DataTable().destroy();
     }
@@ -104,7 +110,7 @@ JobMonitor.prototype._initPass2ListOfLostFiles = function() {
                 "targets": 5,
                 "render": function(data, type, row, meta) {
                     if(data !== null) {
-                        return data;
+                        return '' + data + 's';
                     } else {
                         return 'N/A';
                     }
@@ -115,6 +121,68 @@ JobMonitor.prototype._initPass2ListOfLostFiles = function() {
             if(data['resolved'] == '1') {
                 $(row).addClass('jm-pass2-lolf-resolved');
             }
+        },
+        "footerCallback": function(row, data, start, end, display) {
+            var api = this.api(), data;
+
+            var count_total = 0;
+            var count_total_page = 0;
+            var count_not_available = 0;
+            var count_not_available_page = 0;
+ 
+            var intVal = function(i) {
+                return typeof i === 'string' ?
+                    i.replace(/[\$,]/g, '')*1 :
+                    typeof i === 'number' ?
+                        i : 0;
+            };
+ 
+            total = api
+                .column(5)
+                .data()
+                .reduce( function (a, b) {
+                    ++count_total;
+                    var ia = intVal(a);
+                    var ib = intVal(b);
+
+                    if(ia == 0) {
+                        ++count_not_available;
+                    }
+
+                    if(ib == 0) {
+                        ++count_not_available;
+                    }
+
+                    return ia + ib;
+                }, 0);
+ 
+            pageTotal = api
+                .column(5, {page: 'current'})
+                .data()
+                .reduce( function (a, b) {
+                    ++count_total_page;
+
+                    var ia = intVal(a);
+                    var ib = intVal(b);
+
+                    if(a == null) {
+                        ++count_not_available_page;
+                    }
+
+                    if(b == null) {
+                        ++count_not_available_page;
+                    }
+
+                    return ia + ib;
+                }, 0);
+ 
+            var approxPage = count_not_available_page > 0 ? total / (count_total - count_not_available) * count_not_available_page : 0;
+            var approxTotal = count_not_available > 0 ? total / (count_total - count_not_available) * count_not_available : 0;
+
+            $(api.column(5).footer()).html(
+                '' + iam.formatNumber(pageTotal) +'s ' + (approxPage > 0 ? ' + &asymp;' + iam.formatNumber(approxPage) + 's' : '') + '<br>' +
+                '('+ iam.formatNumber(total) +'s' + (approxTotal > 0 ? ' + &asymp;' + iam.formatNumber(approxTotal) + 's' : '') + ' total)'
+            );
         }
     });
 
