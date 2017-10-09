@@ -67,6 +67,10 @@ function JobMonitor(params) {
 }
 
 JobMonitor.prototype._initPass2ListOfLostFiles = function() {
+    if($.fn.DataTable.isDataTable('#jm-dialog-pass2-lolf-table')) {
+        $('#jm-dialog-pass2-lolf-table').DataTable().destroy();
+    }
+
     var pass2lolf = $('#jm-dialog-pass2-lolf-table').DataTable({
         "ajax": "pass2-lost-files.php?datatables=true",
         "columns": [
@@ -91,6 +95,16 @@ JobMonitor.prototype._initPass2ListOfLostFiles = function() {
                 "render": function(data, type, row, meta) {
                     if(data !== null && data != '') {
                         return '<a href="https://tracker.icecube.wisc.edu/Ticket/Display.html?id=' + data + '" target="_blank">#' + data + '</a>';
+                    } else {
+                        return '';
+                    }
+                }
+            },
+            {
+                "targets": 7,
+                "render": function(data, type, row, meta) {
+                    if(data !== null) {
+                        return data;
                     } else {
                         return '';
                     }
