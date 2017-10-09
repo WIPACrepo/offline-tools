@@ -81,9 +81,14 @@ $test_run_data = $test_runs->get_list();
             <li><a href="#" id="force-update"><i class="fa fa-refresh fa-lg fa-fw margin-bottom"></i></a></li>
           </ul>
           <ul class="nav navbar-nav navbar-right">
-            <li><a href="#" data-toggle="modal" data-target="#jm-dialog-24h-test-runs">24h Test Runs</span></a></li>
-            <li><a href="#" data-toggle="modal" data-target="#jm-dialog-pass2-lolf">Pass2: Lost Files</span></a></li>
             <li><a href="#" data-toggle="modal" data-target="#jm-dialog-search">Search <span class="glyphicon glyphicon-search" aria-hidden="true"></span></a></li>
+            <li>
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Tools <span class="caret"></span></a>
+              <ul class="dropdown-menu">
+                <li><a href="#" data-toggle="modal" data-target="#jm-dialog-24h-test-runs">24h Test Runs</span></a></li>
+                <li><a href="#" data-toggle="modal" data-target="#jm-dialog-pass2-lolf">Pass2: Lost Files</span></a></li>
+              </ul>
+            </li>
             <li class="dropdown" id="jm-view-dropdown">
               <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">View <span class="caret"></span></a>
               <ul class="dropdown-menu">
