@@ -255,7 +255,7 @@ $test_run_data = $test_runs->get_list();
                 <li>Do you want a script readable format? Look at this: <a href="pass2-lost-files.php" target="_blank">JSON</a></li>
             </ul>
 
-            <p>Special thanks goes to J. Bellinger who is working on recovering the files and provides the raw data of this very helpful list!</p>
+            <p>Special thanks to J. Bellinger who is working on recovering the files and provides the raw data of this very helpful list!</p>
 
             <table id="jm-dialog-pass2-lolf-table" class="table" cellspacing="0" width="100%">
                 <thead>
