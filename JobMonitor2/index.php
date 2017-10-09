@@ -254,6 +254,8 @@ $test_run_data = $test_runs->get_list();
                 <li>Do you want a script readable format? Look at this: <a href="pass2-lost-files.php" target="_blank">JSON</a></li>
             </ul>
 
+            <p>Special thanks goes to Jim Bellinger who is working on recovering the files and provides the raw data of this very helpful list!</p>
+
             <table id="jm-dialog-pass2-lolf-table" class="table" cellspacing="0" width="100%">
                 <thead>
                     <tr>
@@ -262,7 +264,7 @@ $test_run_data = $test_runs->get_list();
                         <th>Season</th>
                         <th>Type</th>
                         <th>path</th>
-                        <th>Help Ticket</th>
+                        <th>livetime</th>
                         <th>Last Change</th>
                         <th>Comment</th>
                         <th>Resolved</th>
@@ -275,7 +277,7 @@ $test_run_data = $test_runs->get_list();
                         <th>Season</th>
                         <th>Type</th>
                         <th>path</th>
-                        <th>Help Ticket</th>
+                        <th>livetime</th>
                         <th>Last Change</th>
                         <th>Comment</th>
                         <th>Resolved</th>

@@ -79,7 +79,7 @@ JobMonitor.prototype._initPass2ListOfLostFiles = function() {
             {"data": "season"},
             {"data": "type"},
             {"data": "path", "className": "jm-shorten-text cursor"},
-            {"data": "help_ticket"},
+            {"data": "livetime"},
             {"data": "last_change"},
             {"data": "comment"},
             {"data": "resolved"}
@@ -91,22 +91,22 @@ JobMonitor.prototype._initPass2ListOfLostFiles = function() {
                 "searchable": false
             },
             {
-                "targets": 5,
+                "targets": 7,
                 "render": function(data, type, row, meta) {
                     if(data !== null && data != '') {
-                        return '<a href="https://tracker.icecube.wisc.edu/Ticket/Display.html?id=' + data + '" target="_blank">#' + data + '</a>';
+                        return data.replace(/\#(\d+)/g, '<a href="https://tracker.icecube.wisc.edu/Ticket/Display.html?id=$1" target="_blank">#$1</a>');
                     } else {
                         return '';
                     }
                 }
             },
             {
-                "targets": 7,
+                "targets": 5,
                 "render": function(data, type, row, meta) {
                     if(data !== null) {
                         return data;
                     } else {
-                        return '';
+                        return 'N/A';
                     }
                 }
             }
