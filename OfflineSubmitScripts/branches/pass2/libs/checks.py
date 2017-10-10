@@ -69,7 +69,7 @@ def runs_already_submitted(dbs4_, runs, logger, dryrun):
 
     return not Abort
 
-def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file = False, missing_output_files = None):
+def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file = False, missing_output_files = None, force = False, accelerate = False, pass2_lost_files = []):
     """
     Check if there are as many L2 files as there are PFFilt files. 
     Check for GCD files and database consistency;
@@ -84,7 +84,10 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
 
     if not r['GCDCheck'] or not r['BadDOMsCheck']:
         logger.info("GCDCheck or BadDOMsCheck failed for run=%s, production_version%s" %(str(r['run_id']),str(r['production_version'])))
-        return 1
+        if not force:
+            return 1
+        else:
+            logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
     
     R = RunTools(r['run_id'], passNumber = 2)
     InFiles = R.GetRunFiles(r['tStart'],'P', season = season)
@@ -107,7 +110,10 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
 
     if len(GCDName)!=1:
         logger.warning("Either None or more than 1 GCD file in output dir for run=%s"%str(r['run_id']))
-        return 1
+        if not force:
+            return 1
+        else:
+            logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
     
     GCDName = GCDName[0]
     GCDName = os.path.join(ICECUBE_GCDDIR(r['tStart'].year),os.path.basename(GCDName))
@@ -118,7 +124,10 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
     if not os.path.isfile(GCDName):
         logger.warning("No Verified GCD file for run=%s, production_version%s"%\
                (str(r['run_id']),str(r['production_version'])))
-        return 1
+        if not force:
+            return 1
+        else:
+            logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
     
     Files2Check.append(GCDName)    
     
@@ -158,7 +167,10 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
                 if missing_output_files is not None:
                     missing_output_files.append({'id': i, 'input': ifiles[i], 'input_exists': os.path.exists(ifiles[i]), 'run_id': r['run_id']})
 
-        return 1
+        if not force:
+            return 1
+        else:
+            logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
 
     for p in InFiles:
         l = os.path.join(os.path.dirname(L2Files[0]),
@@ -174,7 +186,10 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
  
         if not os.path.isfile(l):
             logger.warning("At least one output file %s does not exist for input file %s"%(l,p))
-            return 1
+            if not force:
+                return 1
+            else:
+                logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
 
         Files2Check.append(p)
         Files2Check.append(l)
@@ -205,7 +220,10 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
     if len(Files2Check) != len(FilesInDb):
         logger.warning("Some file records don't exist for run=%s, production_version=%s" %(str(r['run_id']),str(r['production_version'])))
         PrintVerboseDifference(Files2Check,FilesInDb,logger)
-        return 1
+        if not force:
+            return 1
+        else:
+            logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
 
     # Check MD5 sums
     outputFileInfos = dbs4_.fetchall("""SELECT sub_run, name, path, size, md5sum
@@ -222,7 +240,7 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
     for i, subrunInfo in enumerate(outputFileInfos):
         path = os.path.join(remove_path_prefix(subrunInfo['path']), subrunInfo['name'])
 
-        if path.endswith('.zst'):
+        if path.endswith('.zst') and not accelerate:
             try:
                 sub.check_output(['/cvmfs/icecube.opensciencegrid.org/py2-v3/RHEL_6_x86_64/bin/zstd', '--test', path])
             except sub.CalledProcessError as e:
@@ -232,14 +250,15 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
         logger.info('Validate checksum %s/%s' % (i + 1, len(outputFileInfos)))
 
         if path in OutFiles or os.path.isfile(path):
-            md5sum = FileTools(FileName = path, logger = logger).md5sum()
+            if not accelerate:
+                md5sum = FileTools(FileName = path, logger = logger).md5sum()
 
-            # Check if checksum matches the checksum in DB
-            if md5sum == subrunInfo['md5sum']:
-                logger.debug("MD5 check sums match for %s" % path)
-            else:
-                logger.warning("MD5 check sum mismatch for %s" % path)
-                return 1
+                # Check if checksum matches the checksum in DB
+                if md5sum == subrunInfo['md5sum']:
+                    logger.debug("MD5 check sums match for %s" % path)
+                else:
+                    logger.warning("MD5 check sum mismatch for %s" % path)
+                    return 1
         else:
             logger.warning("File %s is listed in the database as PERMANENT but doesn not exist" % path)
             return 1

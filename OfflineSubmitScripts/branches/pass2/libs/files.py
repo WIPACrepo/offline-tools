@@ -873,6 +873,27 @@ def insert_gap_file_info_and_delete_files(run_path, dryrun, logger, do_not_delet
             for file in gaps_files:
                 logger.debug("Deleting %s" % file)
                 os.remove(file)
+
+#############################################
+
+def lost_file_info(run_folder_path, lol_files_data, logger, dryrun):
+    if not len(lol_files_data):
+        return
+
+    path = os.path.join(run_folder_path if not dryrun else get_tmpdir(), 'lost_files_info.txt')
+
+    logger.info('Write lost files info file: {}'.format(path))
+
+    with open(path, 'w') as f:
+        f.write('Run {run_id} has {num_of_lost_files} lost files:\n'.format(num_of_lost_files = len(lol_files_data), **lol_files_data[0]))
+        f.write('\n')
+        f.write('file#/subrun   livetime\n')
+
+        for lolf in lol_files_data:
+            f.write('  {sub_run:>10}   {livetime}s\n'.format(**lolf))
+
+        f.write('\n')
+        f.write('For further information see https://wiki.icecube.wisc.edu/index.php/Pass2_Re-Processing#Lost_Files')
     
 #############################################
 

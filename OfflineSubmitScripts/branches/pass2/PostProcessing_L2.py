@@ -21,7 +21,7 @@ from RunTools import RunTools
 from FileTools import *
 from DbTools import *
 
-from libs.files import get_tmpdir, get_logdir, MakeTarGapsTxtFile, MakeRunInfoFile, write_meta_xml_post_processing, tar_log_files, insert_gap_file_info_and_delete_files, GapsFile
+from libs.files import get_tmpdir, get_logdir, MakeTarGapsTxtFile, MakeRunInfoFile, write_meta_xml_post_processing, tar_log_files, insert_gap_file_info_and_delete_files, GapsFile, lost_file_info
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
 from libs.checks import CheckFiles
@@ -113,11 +113,14 @@ def get_sub_run_info_pass1(runs, logger):
 
     return data
 
-def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2_gcd_file = False, npx = False, update_active_X_only = False, missing_output_files = None, force = None):
+def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2_gcd_file = False, npx = False, update_active_X_only = False, missing_output_files = None, force = None, accelerate = False):
     force_m = force
     force = not (force is None)
 
     logger.debug('force = {}'.format(force))
+
+    # Lost files
+    pass2_lost_files = DatabaseConnection.get_connection('filter-db', logger).fetchall('SELECT * FROM i3filter.missing_files_pass2 WHERE run_id = {0} AND NOT resolved ORDER BY sub_run'.format(r['run_id']), UseDict = True)
 
     sDay = r['tStart']
     sY = sDay.year
@@ -134,6 +137,11 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
     else:
         logger.info("Dataset id was determined to %s" % dataset_id)
 
+    if len(pass2_lost_files):
+        logger.warning('We have lost files in run {0}: {1} lost files'.format(r['run_id'], len(pass2_lost_files)))
+        for f in pass2_lost_files:
+            logger.warning('  {sub_run}: {path}'.format(**f))
+
     if DbTools(r['run_id'], dataset_id).AllOk():
         logger.warning( """Processing of Run=%s, production_version=%s
                  may not be complete ... skipping"""\
@@ -145,7 +153,7 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
     else:
         # check i/o files in data warehouse and Db
         logger.info("Checking Files in Data warehouse and database records ...")
-        if CheckFiles(r, logger, dataset_id = dataset_id, season = season, dryrun = dryrun, no_pass2_gcd_file = no_pass2_gcd_file, missing_output_files = missing_output_files):
+        if CheckFiles(r, logger, dataset_id = dataset_id, season = season, dryrun = dryrun, no_pass2_gcd_file = no_pass2_gcd_file, missing_output_files = missing_output_files, force = force, accelerate = accelerate, pass2_lost_files = pass2_lost_files):
             logger.error("FilesCheck failed: for Run=%s, production_version=%s"\
             %(r['run_id'],str(r['production_version'])))
 
@@ -179,15 +187,34 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
         logger.info('Checking good start/stop times')
         # Check if the times deviate for more than 1 second
 
+        # Lost files?
+        last_sub_run_id = int(last_gaps.get_sub_run_id())
+        appending_lost_files = [f for f in pass2_lost_files if int(f['sub_run']) > last_sub_run_id]
+        appending_livetime = float(sum([f['livetime'] for f in appending_lost_files]))
+
+        first_sub_run_id = int(first_gaps.get_sub_run_id())
+        prepending_lost_files = [f for f in pass2_lost_files if int(f['sub_run']) < first_sub_run_id]
+        prepending_livetime = float(sum([f['livetime'] for f in prepending_lost_files]))
+
+        if len(prepending_lost_files):
+            logger.warning('We have lost files at the start of the run:')
+            for f in prepending_lost_files:
+                logger.warning('  {sub_run}: livetime {livetime}s'.format(**f))
+
+        if len(appending_lost_files):
+            logger.warning('We have lost files at the end of the run:')
+            for f in appending_lost_files:
+                logger.warning('  {sub_run}: livetime {livetime}s'.format(**f))
+
         pass1_data = get_sub_run_info_pass1(r['run_id'], logger)[r['run_id']]
         pass1_data_sub_runs = pass1_data.keys()
 
-        if (r['good_tstart'] - first_event_of_first_file).total_seconds() < -1:
+        if (r['good_tstart'] - first_event_of_first_file).total_seconds() - prepending_livetime < -1:
             logger.error('Probably missing a file or data:')
             logger.error('  good start time:  {0}'.format(r['good_tstart']))
-            logger.error('  first file start: {0}'.format(first_event_of_first_file))
+            logger.error('  first file start: {0} - {1}s (lost data)'.format(first_event_of_first_file, prepending_livetime))
 
-            if abs((first_event_of_first_file - pass1_data[pass1_data_sub_runs[0]]['first_event'].date_time).total_seconds()) <= 1:
+            if abs((first_event_of_first_file - pass1_data[pass1_data_sub_runs[0]]['first_event'].date_time).total_seconds() + prepending_livetime) <= 1:
                 logger.warning('The file time does not differ more than 1 second from the pass1 time: {}'.format(abs((first_event_of_first_file - pass1_data[pass1_data_sub_runs[0]]['first_event'].date_time).total_seconds())))
                 logger.warning('Pass1 file start time: {}'.format(pass1_data[pass1_data_sub_runs[0]]['first_event']))
                 logger.warning('This is OK and we keep on validating!')
@@ -197,12 +224,13 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
                 else:
                     logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
 
-        if (r['good_tstop'] - last_event_of_last_file).total_seconds() > 1:
+        if (r['good_tstop'] - last_event_of_last_file).total_seconds() - appending_livetime > 1:
             logger.error('Probably missing a file or data:')
-            logger.error('  good stop time:  {0}'.format(r['good_tstop']))
-            logger.error('  last file start: {0}'.format(last_event_of_last_file))
+            logger.error('  good stop time:       {0}'.format(r['good_tstop']))
+            logger.error('  last file stop:       {0} + {1}s (lost data)'.format(last_event_of_last_file, appending_livetime))
+            logger.error('  Pass1 file stop time: {}'.format(pass1_data[pass1_data_sub_runs[-1]]['last_event']))
 
-            if abs((last_event_of_last_file - pass1_data[pass1_data_sub_runs[-1]]['last_event'].date_time).total_seconds()) <= 1:
+            if abs((last_event_of_last_file - pass1_data[pass1_data_sub_runs[-1]]['last_event'].date_time).total_seconds() + appending_livetime) <= 1:
                 logger.warning('The file time does not differ more than 1 second from the pass1 time: {}'.format(abs((last_event_of_last_file - pass1_data[pass1_data_sub_runs[-1]]['last_event'].date_time).total_seconds())))
                 logger.warning('Pass1 file stop time: {}'.format(pass1_data[pass1_data_sub_runs[-1]]['last_event']))
                 logger.warning('This is OK and we keep on validating!')
@@ -266,6 +294,9 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
         # Write gap file info into filter-db and get rid of the gaps files
         insert_gap_file_info_and_delete_files(run_path = run_folder, dryrun = dryrun, logger = logger)
 
+        # Write lost file info
+        lost_file_info(run_folder, pass2_lost_files, logger, dryrun)
+
         if force:
             sql = '''INSERT INTO i3filter.run_comments (run_id, snapshot_id, production_version, `pass`, `date`, add_to_grl, `comment`)
                      VALUES (%(run_id)s, %(snapshot_id)s, %(production_version)s, 2, NOW(), 0, %(comment)s)'''
@@ -279,7 +310,7 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
     logger.info("======= End Checking %i %i ======== " %(r['run_id'],r['production_version'])) 
     return
 
-def main(runinfo, logger, nometadata, dryrun = False, no_pass2_gcd_file = False, npx = False, update_active_X_only = False, force = None):
+def main(runinfo, logger, nometadata, dryrun = False, no_pass2_gcd_file = False, npx = False, update_active_X_only = False, force = None, accelerate = False):
     datasets = set()
 
     missing_output_files = []
@@ -294,7 +325,7 @@ def main(runinfo, logger, nometadata, dryrun = False, no_pass2_gcd_file = False,
             if dataset_id > 0:
                 datasets.add(dataset_id)
             
-            main_run(run, logger, dataset_id = dataset_id, season = season, nometadata = nometadata, dryrun = dryrun, no_pass2_gcd_file = no_pass2_gcd_file, npx = npx, update_active_X_only = update_active_X_only, missing_output_files = missing_output_files, force = force)
+            main_run(run, logger, dataset_id = dataset_id, season = season, nometadata = nometadata, dryrun = dryrun, no_pass2_gcd_file = no_pass2_gcd_file, npx = npx, update_active_X_only = update_active_X_only, missing_output_files = missing_output_files, force = force, accelerate = accelerate)
         except Exception as e:
             logger.exception("Exception %s thrown for: Run=%s, production_version=%s" %(e.__repr__(),run['run_id'],str(run['production_version'])))
    
@@ -339,6 +370,7 @@ if __name__ == '__main__':
     parser.add_argument("--cron", action="store_true", default=False, dest="CRON", help="Use this option if you call this script via a cron")
     parser.add_argument("--force-validation", nargs='+', default = None, required = None, type = str, help = "DO ONLY USE THIS IF YOU KNOW THAT THE ERRORS ARE WRONG. Validates the run(s) despite there are errors. Makes an entry into filter-db.run_comments. If you use this flag, the argument will be used as comment. E.g. '--force-validation \"run times are OK\"'. This will lead to a comment like: \"Validated manually. run times are OK\"")
     parser.add_argument("--npx", action="store_true", default=False, help="Use this option if you let run this script on NPX")
+    parser.add_argument("--skip-checksumcheck-and-stream-error-check", action="store_true", default=False, help="Use this option if you want to accelerate the Post Processing. Usfull in combination with --dryrun")
     parser.add_argument("--update-active-X-only", action="store_true", default=False, help="Do only recalculate the active strings, active doms and active in ice doms and recreate the GRL")
     args = parser.parse_args()
     LOGFILE=os.path.join(get_logdir(sublogpath = 'PostProcessing'), 'PostProcessing_')
@@ -401,7 +433,7 @@ if __name__ == '__main__':
 
     logger.debug("RunInfo = %s" % str(RunInfo))
 
-    main(RunInfo, logger, args.NOMETADATA, dryrun = args.dryrun, no_pass2_gcd_file = args.no_pass2_gcd_file, npx = args.npx, update_active_X_only = args.update_active_X_only, force = args.force_validation)
+    main(RunInfo, logger, args.NOMETADATA, dryrun = args.dryrun, no_pass2_gcd_file = args.no_pass2_gcd_file, npx = args.npx, update_active_X_only = args.update_active_X_only, force = args.force_validation, accelerate = args.skip_checksumcheck_and_stream_error_check)
 
     if args.CRON:
         lock.unlock()
