@@ -72,7 +72,8 @@ def main(run_ids, config, args, logger):
                     run_dataset_mapping[r] = sd_id
 
         if len(run_ids) != len(run_dataset_mapping):
-            self.logger.warning('For some runs the source run has not been found: {0}'.format(list(set(run_ids) - set(run_dataset_mapping.keys()))))
+            logger.warning('For some runs the source run has not been found: {0}'.format(list(set(run_ids) - set(run_dataset_mapping.keys()))))
+            logger.warning('Usually this only applies to bad runs.')
 
     run_ids = run_dataset_mapping.keys()
 
