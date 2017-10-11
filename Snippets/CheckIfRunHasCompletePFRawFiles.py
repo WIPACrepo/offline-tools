@@ -7,6 +7,7 @@ from libs.logger import DummyLogger
 from dateutil.relativedelta import *
 import glob
 import datetime
+import json
 
 from get_sub_run_info import get_sub_run_info
 
@@ -16,6 +17,8 @@ def check_run(run_id):
     db = DatabaseConnection.get_connection('filter-db', DummyLogger())
 
     result = db.fetchall("SELECT * FROM i3filter.runs WHERE run_id = %s" % run_id, UseDict = True)
+
+    data = {'result': False}
 
     if len(result):
         sDay = result[0]['tstart']      # run start date
@@ -39,17 +42,22 @@ def check_run(run_id):
 
         if min_file_id != 0:
             print 'Missing file 0'
-            return False
+
+            data['missing'] = [0]
+            return data
 
         if len(files) != max_file_id + 1:
             print 'Missing files:'
+
+            data['missing'] = []
 
             # It's dave to iterate until max_file_id - 1 since max_file_id has been found...
             for i in range(max_file_id):
                 if i not in ids:
                     print i
+                    data['missing'].append(i)
 
-            return False
+            return data
 
         # check end date
         pass1 = get_sub_run_info(run_id, db, True)
@@ -65,12 +73,22 @@ def check_run(run_id):
             print 'File time: %s' % file_time
             print 'tstop:     %s' % result[0]['tstop']
             print 'pass1:     %s' % pass1_last_time
-            return False
 
-        return True
+            data['endtime'] = {
+                'missing': (file_time - result[0]['tstop']).total_seconds(),
+                'file_time': str(file_time),
+                'tstop': str(result[0]['tstop']),
+                'pass1': str(pass1_last_time)
+            }
+
+            return data
+
+        data['result'] = True
+        return data
     else:
         print "No run info for %s" % run_id
-        return False
+        data['message'] = "No run info for %s" % run_id
+        return data
 
 def enddate_of_file(f):
     i3f = dataio.I3File(f)
@@ -109,6 +127,7 @@ if __name__ == '__main__':
 
     parser.add_argument("--run", nargs = '+', type = int, required = True, help = "Run number(s) to process")
     parser.add_argument("--season", type = int, default = None, required = False, help = "Season")
+    parser.add_argument("--output", type = str, required = True, help = "File where detailed information about failed runs will be stored")
     parser.add_argument("--datasets", nargs = '+', type = int, default = None, required = False, help = "Filter submitted runs: datasets")
 
     args = parser.parse_args()
@@ -128,14 +147,18 @@ if __name__ == '__main__':
 
     print 'Run candidates: {all_runs}\tchecking: {checking}\tsubmitted: {submitted}'.format(all_runs = len(args.run), checking = len(args.run) - len(submitted), submitted = len(submitted))
 
+    data = {}
+
     for run_id in args.run:
         if run_id in submitted:
             print 'Skip run {} because it has alreadby been submitted'.format(run_id)
             continue
 
-        answer = check_run(run_id)
+        answer_raw = check_run(run_id)
 
-        if answer:
+        data[run_id] = answer_raw
+
+        if answer_raw['result']:
             ok_run_list.append(run_id)
             answer = 'OK'
         else:
@@ -143,6 +166,8 @@ if __name__ == '__main__':
 
         print "Check run %s: %s" % (run_id, answer)
 
+    with open(args.output, 'w') as f:
+        json.dump(data, f)
 
     print "BAD runs {1}: {0}".format(' '.join([str(e) for e in list(set(args.run) - set(ok_run_list))]), len(list(set(args.run) - set(ok_run_list))))
     print "OK runs {1}: {0}".format(' '.join([str(r) for r in ok_run_list]), len(ok_run_list))

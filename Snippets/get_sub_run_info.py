@@ -29,7 +29,7 @@ def get_sub_run_info(runs, db = None, nice_times = False):
             print "At least one run is required."
             return
     
-        sql = "SELECT * FROM sub_runs WHERE run_id IN (%s) ORDER BY run_id, sub_run" % ','.join([str(r) for r in runs])
+        sql = "SELECT * FROM sub_runs WHERE run_id IN (%s) AND NOT bad ORDER BY run_id, sub_run" % ','.join([str(r) for r in runs])
 
     dbdata = db.fetchall(sql, UseDict = True)
 
