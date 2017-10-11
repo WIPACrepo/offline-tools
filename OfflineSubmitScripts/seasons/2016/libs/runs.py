@@ -140,17 +140,24 @@ def clean_run(dbs4_,DatasetId,Run,CLEAN_DW,g, logger, dryrun, ignore_production_
     else:
         tmp  = dbs4_.fetchall(""" select j.queue_id from i3filter.job j
                               join i3filter.run r on j.queue_id=r.queue_id
-                              join i3filter.grl_snapshot_info g on r.run_id=g.run_id
                               where r.dataset_id=%s and j.dataset_id=%s
                               and r.run_id=%s"""\
                               %(DatasetId,DatasetId,Run) )
+
+    logger.debug('Clean DB SQL: {}'.format(""" select j.queue_id from i3filter.job j
+                              join i3filter.run r on j.queue_id=r.queue_id
+                              join i3filter.grl_snapshot_info g on r.run_id=g.run_id
+                              where r.dataset_id=%s and j.dataset_id=%s
+                              and r.run_id=%s""" % (DatasetId,DatasetId,Run)))
 
     if len(tmp):
         CleanListStr=""
         for t in tmp:
             CleanListStr+=(str(t[0])+",")
         CleanListStr = CleanListStr[:-1]
-    
+   
+        logger.debug('CleanListStr = {}'.format(CleanListStr))
+ 
         #optional: also delete exisitng output files in data warehouse
         if CLEAN_DW and not dryrun:
             logger.info('Clean data warehouse')

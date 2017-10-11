@@ -16,7 +16,7 @@ from RunTools import *
 from FileTools import *
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
-from libs.files import get_logdir, get_tmpdir, get_existing_check_sums, write_meta_xml_main_processing
+from libs.files import get_logdir, get_tmpdir, get_existing_check_sums, write_meta_xml_main_processing, remove_path_prefix
 from libs.checks import runs_already_submitted
 from libs.runs import get_run_status, clean_run
 from libs.dbtools import max_queue_id 
@@ -42,7 +42,7 @@ def get_submitted_runs(dataset_id, db, logger):
     return list(set(submitted_runs))
 
 def is_good_run(run_id, db, logger):
-    sql = "SELECT run_id, good_it, good_i3 FROM i3filter.grl_snapshot_info WHERE run_id = %s ORDER BY snapshot_id DESC LIMIT 1" % run_id
+    sql = "SELECT run_id, good_it, good_i3 FROM i3filter.runs WHERE run_id = %s ORDER BY snapshot_id DESC LIMIT 1" % run_id
 
     result = db.fetchall(sql, UseDict = True)
 
@@ -53,7 +53,7 @@ def is_good_run(run_id, db, logger):
     else:
         return False
 
-def submit_run(checksumcache, db, run_id, status, DatasetId, QueueId, dryrun, logger):
+def submit_run(checksumcache, db, gcd, run_id, status, DatasetId, QueueId, dryrun, add, logger):
     # Using grid or NPX?
     grid = db.fetchall("SELECT * FROM i3filter.grid_statistics WHERE dataset_id = %s;" % DatasetId, UseDict = True)
 
@@ -92,6 +92,32 @@ def submit_run(checksumcache, db, run_id, status, DatasetId, QueueId, dryrun, lo
 
     logger.info("Found %s PFRaw files for this run" % len(InFiles))
 
+    if add:
+        sql = '''SELECT 
+    path, name
+FROM
+    i3filter.run r
+        JOIN
+    i3filter.urlpath u ON r.dataset_id = u.dataset_id
+        AND r.queue_id = u.queue_id
+WHERE
+    r.dataset_id = {dataset_id} AND run_id = {run_id}
+        AND `type` = 'INPUT'
+        AND name NOT LIKE '%GCD%'
+ORDER BY name'''.format(dataset_id = DatasetId, run_id = run_id)
+
+        submitted_files = db.fetchall(sql, UseDict = True)
+
+        submitted_files = [os.path.join(remove_path_prefix(f['path']), f['name']) for f in submitted_files]
+
+        InFiles = [f for f in InFiles if f not in submitted_files]
+
+        logger.warning('The --add option has been activated. Only {} files will be submitted in addition to the already submitted ones.'.format(len(InFiles)))
+
+        logger.debug('Already submitted files:')
+        for f in submitted_files:
+            logger.debug('  ' + f)
+
     season = get_season_by_run(run_id)
 
     logger.debug('Season = %s' % season)
@@ -112,18 +138,22 @@ def submit_run(checksumcache, db, run_id, status, DatasetId, QueueId, dryrun, lo
     logger.debug('Find GCD file')
 
     GCDFileName = []
-    if season == 2010:
-        gcd_glob_str = "/data/exp/IceCube/%s/filtered/level2a/%s%s/Level2a_IC79_data_Run00%s_GCD.i3.bz2" % (sY, sM, sD, g['run_id'])
 
-        logger.debug('gcd_glob_str = %s' % gcd_glob_str)
+    if gcd is None:
+        if season == 2010:
+            gcd_glob_str = "/data/exp/IceCube/%s/filtered/level2a/%s%s/Level2a_IC79_data_Run00%s_GCD.i3.bz2" % (sY, sM, sD, g['run_id'])
 
-        GCDFileName = glob.glob(gcd_glob_str)
+            logger.debug('gcd_glob_str = %s' % gcd_glob_str)
+
+            GCDFileName = glob.glob(gcd_glob_str)
+        else:
+            GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2/VerifiedGCD/*Run00%s*%s_%s*"%(sY,g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
+
+        if not len(GCDFileName):
+            GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2/AllGCD/*Run00%s*%s_%s*"%(sY,g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
     else:
-        GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2/VerifiedGCD/*Run00%s*%s_%s*"%(sY,g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
-
-    if not len(GCDFileName):
-        GCDFileName = glob.glob("/data/exp/IceCube/%s/filtered/level2/AllGCD/*Run00%s*%s_%s*"%(sY,g['run_id'],str(g['production_version']),str(g['snapshot_id'])))
-    
+        GCDFileName.append(gcd)
+ 
     logger.debug("GCD files = %s" % GCDFileName)
     
     if len(GCDFileName):
@@ -142,6 +172,7 @@ def submit_run(checksumcache, db, run_id, status, DatasetId, QueueId, dryrun, lo
     else:
         GCDFileName = ""
         logger.critical("No GCD file found.")
+        exit(1)
     
     if not len(InFiles):
         logger.info("No PFRaw will be submitted for run %s"%g['run_id'])
@@ -178,21 +209,28 @@ def submit_run(checksumcache, db, run_id, status, DatasetId, QueueId, dryrun, lo
 
 def main(args, logger):
     db = DatabaseConnection.get_connection('dbs4', logger)
+    filter_db = DatabaseConnection.get_connection('filter-db', logger)
 
     submitted_runs = get_submitted_runs(args.datasetid, db, logger)
     checksumcache = DBChecksumCache(logger, args.dryrun)
 
+    if args.gcd is not None and len(args.run) != 1:
+        logger.critical('You defined a certain GCD file. If you do this you are allowed to submit exactly one run. {} runs found.'.format(len(args.run)))
+        exit(1)
+
     for run_id in args.run:
         logger.info("********* Run %s *********" % run_id)
 
-        if not is_good_run(run_id, db, logger) and not args.force_submission:
+        if not is_good_run(run_id, filter_db, logger) and not args.force_submission:
             logger.error("Run %s is not a good run. Run will be skipped." % run_id)
             continue
         elif args.force_submission:
             logger.warning('Run %s is marked as bad or no good run information is available. This run has been forced to get submitted.' % run_id)
 
         if run_id in submitted_runs:
-            if args.resubmission:
+            if args.add:
+                logger.info("Try to add some files to run %s" % run_id)
+            elif args.resubmission:
                 logger.info("Run %s will be resubmitted" % run_id)
             else:
                 logger.info("Run %s will be skipped" % run_id)
@@ -200,23 +238,26 @@ def main(args, logger):
         else:
             logger.info("Run %s will be submitted" % run_id)
 
-        
-        clean_run(db, args.datasetid, run_id, args.cleandatawarehouse, None, logger, args.dryrun, ignore_production_version = True)
+        if not args.add:
+            clean_run(db, args.datasetid, run_id, args.cleandatawarehouse, None, logger, args.dryrun, ignore_production_version = True)
+        else:
+            logger.info('Do not clean the DB since we want to add some files...')
         
         qId = max_queue_id(db, args.datasetid)
             
-        submit_run(checksumcache, db, run_id, 'WAITING', args.datasetid, qId, args.dryrun, logger)
+        submit_run(checksumcache, db, args.gcd, run_id, 'WAITING', args.datasetid, qId, args.dryrun, args.add, logger)
 
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__, dryrun = True)
 
     parser.add_argument("--datasetid", type = int, required = True, help = "The dataset id")
-
+    parser.add_argument("--gcd", type = str, required = False, default = None, help = "Specify a GCD file. Use this option if this script does not automatically find the (correct) GCD file. Only allowed if just one run is submitted")
 
     parser.add_argument("--run", nargs = '+', type = int, required = True, help = "Run number(s) to process")
 
     parser.add_argument("--cleandatawarehouse", action = "store_true", default = False, help = "Clean output files in datawarehouse as part of (re)submission process.")
     parser.add_argument("--force-submission", action = "store_true", default = False, help = "Ignore if the run is marked as bad (or if no good run information is available).")
+    parser.add_argument("--add", action = "store_true", default = False, help = "Use this option if already some files ahve been processed but accidentally some files weren't submitted. It submits only the missing files.")
 
     parser.add_argument("--resubmission", action = "store_true", default = False,
               help = "If a run has already been submitted, resubmit it. If this option is not set, alrady submitted runs are skipped.")

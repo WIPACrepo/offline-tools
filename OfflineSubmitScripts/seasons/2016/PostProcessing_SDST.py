@@ -54,7 +54,7 @@ def remove_path_prefix(path):
     return path
 
 def get_in_files(run_id, start_date):
-    return get_x_files(run_id, start_date, '/data/exp/IceCube/{year}/unbiased/PFRaw/{month:0>2}{day:0>2}/*PFRaw_PhysicsFiltering_Run{run_id:0>8}_Subrun00000000_00000*.tar.gz')
+    return get_x_files(run_id, start_date, '/data/exp/IceCube/{year}/unbiased/PFRaw/{month:0>2}{day:0>2}/*PFRaw_*PhysicsFiltering_Run{run_id:0>8}_Subrun00000000_00000*.tar.gz')
 
 def get_out_files(run_id, start_date, season):
     dst_folder = 'PFDST'
@@ -82,14 +82,19 @@ def get_x_files(run_id, start_date, folder_pattern):
 
     return files
 
-ICECUBE_GCDDIR = lambda x : "/data/exp/IceCube/%s/filtered/level2/VerifiedGCD" %str(x)
-def CheckFiles(r, logger, dataset_id, season, run_id, dryrun, checksumcache):
-    if not r['GCDCheck'] or not r['BadDOMsCheck']:
-        logger.info("GCDCheck or BadDOMsCheck failed for run=%s, production_version%s" %(str(r['run_id']),str(r['production_version'])))
+def ICECUBE_GCDDIR(date, run_id):
+    if get_season_by_run(run_id) != 2010:
+        return "/data/exp/IceCube/%s/filtered/level2/VerifiedGCD" % str(date.year)
+    else:
+        return "/data/exp/IceCube/{year}/filtered/level2a/{month:0>2}{day:0>2}".format(year = date.year, month = date.month, day = date.day)
+
+def CheckFiles(r, logger, dataset_id, season, run_id, dryrun, checksumcache, force):
+    if not r['gcd_generated'] or not r['gcd_bad_doms_validated']:
+        logger.info("gcd_generated or gcd_bad_doms_validated failed for run=%s, production_version%s" %(str(r['run_id']),str(r['production_version'])))
         return 1
     
-    InFiles = get_in_files(run_id, r['tStart'])
-    OutFiles = get_out_files(run_id, r['tStart'], season)
+    InFiles = get_in_files(run_id, r['tstart'])
+    OutFiles = get_out_files(run_id, r['tstart'], season)
   
     #logger.debug('OutFiles: %s' % OutFiles)
  
@@ -112,11 +117,15 @@ def CheckFiles(r, logger, dataset_id, season, run_id, dryrun, checksumcache):
 
     if len(GCDName)!=1:
         logger.warning("Either None or more than 1 GCD file in output dir for run=%s"%str(r['run_id']))
-        return 1
+
+        if not force:
+            return 1
+        else:
+            logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
     
     GCDName = GCDName[0]
-    GCDName = os.path.join(ICECUBE_GCDDIR(r['tStart'].year),os.path.basename(GCDName))
-    Files2Check.append(GCDName)    
+    GCDName = os.path.join(ICECUBE_GCDDIR(r['tstart'], r['run_id']),os.path.basename(GCDName))
+    Files2Check.append(GCDName)
     
     L2Files = [f for f in OutFiles if "GCD" not in f \
                    and "txt" not in f and "root" not in f\
@@ -129,20 +138,36 @@ def CheckFiles(r, logger, dataset_id, season, run_id, dryrun, checksumcache):
 
     if len(InFiles) != len(L2Files):
         logger.warning("No. of Input and Output files don't match for run=%s, production_version=%s" %(str(r['run_id']),str(r['production_version'])))
-        return 1
+        logger.warning('Input files ({0}), Output files ({1})'.format(len(InFiles), len(L2Files)))
+
+        if not force:
+            return 1
+        else:
+            logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
 
     for p in InFiles:
         l = os.path.join(
             os.path.dirname(L2Files[0]),
-            'PFDST_' + os.path.basename(p).split('PFRaw_')[1].replace(".tar",".i3").replace('.gz', '.bz2')
+            #'PFDST_' + os.path.basename(p).split('PFRaw_')[1].replace(".tar",".i3").replace('.gz', '.bz2')
+            'PFDST_PhysicsFiltering_Run{run_id:0>8}_Subrun00000000_{sub_run:0>8}.i3.bz2'.format(run_id = r['run_id'], sub_run = int(p.split('.')[0].split('_00')[-1]))
+        )
+   
+        # IC 79 configuration bug: accidently configured too many zeros before the run id 
+        l2 = os.path.join(
+            os.path.dirname(L2Files[0]),
+            'PFDST_PhysicsFiltering_Run{run_id:0>10}_Subrun00000000_{sub_run:0>8}.i3.bz2'.format(run_id = r['run_id'], sub_run = int(p.split('.')[0].split('_00')[-1]))
         )
     
-        if not os.path.isfile(l):
+        if not os.path.isfile(l) and not os.path.isfile(l2):
             logger.warning("At least one output file %s does not exist for input file %s"%(l,p))
-            return 1
+
+            if not force:
+                return 1
+            else:
+                logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
 
         Files2Check.append(p)
-        Files2Check.append(l)
+        Files2Check.append(l if os.path.isfile(l) else l2)
     
     Files2CheckS = """'""" + """','""".join(Files2Check) + """'"""
     
@@ -167,7 +192,11 @@ def CheckFiles(r, logger, dataset_id, season, run_id, dryrun, checksumcache):
     if len(Files2Check) != len(FilesInDb):
         logger.warning("Some file records don't exist for run=%s, production_version=%s" %(str(r['run_id']),str(r['production_version'])))
         PrintVerboseDifference(Files2Check,FilesInDb,logger) 
-        return 1
+
+        if not force:
+            return 1
+        else:
+            logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
    
     # Check MD5 sums
     outputFileInfos = dbs4_.fetchall("""SELECT sub_run, name, path, size, md5sum
@@ -198,7 +227,11 @@ def CheckFiles(r, logger, dataset_id, season, run_id, dryrun, checksumcache):
                 return 1
         else:
             logger.warning("File %s is listed in the database as PERMANENT but doesn not exist" % path)
-            return 1
+
+            if not force:
+                return 1
+            else:
+                logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
  
     # all checks passed
     return 0
@@ -213,14 +246,23 @@ def main_run(r, logger, season, args, checksumcache):
         logger.warning( """Processing of Run=%s, production_version=%s
                  may not be complete ... skipping"""\
                 %(r['run_id'],str(r['production_version'])))
-        return    
+
+        if not args.force_validation:
+            return
+        else:
+            logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
      
     # check i/o files in data warehouse and Db
     logger.info("Checking Files in Data warehouse and database records ...")
-    if CheckFiles(r, logger, dataset_id = dataset_id, season = season, run_id = r['run_id'], dryrun = dryrun, checksumcache = checksumcache):
+    if CheckFiles(r, logger, dataset_id = dataset_id, season = season, run_id = r['run_id'], dryrun = dryrun, checksumcache = checksumcache, force = args.force_validation):
         logger.error("FilesCheck failed: for Run=%s, production_version=%s"\
         %(r['run_id'],str(r['production_version'])))
-        return
+
+        if not args.force_validation:
+            return
+        else:
+            logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
+     
     logger.info("File checks  .... passed")
 
     sql = """   INSERT INTO post_processing
@@ -238,7 +280,7 @@ def main_run(r, logger, season, args, checksumcache):
         filter_db = DatabaseConnection.get_connection('filter-db', logger)
         filter_db.execute(sql)
 
-    sDay = r['tStart']
+    sDay = r['tstart']
     sY = sDay.year
     sM = str(sDay.month).zfill(2)
     sD = str(sDay.day).zfill(2)
@@ -280,7 +322,11 @@ if __name__ == '__main__':
     parser.add_argument('-r',nargs="?", help="run to postprocess",dest="run",type=int)
     parser.add_argument('--season', nargs="?", default = None, help="Validate a specific season. If not specified (and not -r) the season that has been set in the confog file will be chosen", type=int)
     parser.add_argument('--dataset-id', required = True, help="The dataset id", type=int)
+    parser.add_argument("--force-validation", nargs='+', default = None, required = None, type = str, help = "DO ONLY USE THIS IF YOU KNOW THAT THE ERRORS ARE WRONG. Validates the run(s) despite there are errors. Makes an entry into filter-db.run_comments. If you use this flag, the argument will be used as comment. E.g. '--force-validation \"run times are OK\"'. This will lead to a comment like: \"Validated manually. run times are OK\"")
     args = parser.parse_args()
+
+    if args.force_validation is not None:
+        args.force_validation = ' '.join(args.force_validation)
 
     LOGFILE=os.path.join(get_logdir(), 'SDST_PostProcessing_')
 
@@ -306,9 +352,10 @@ if __name__ == '__main__':
 
     RunInfo = None
 
+    fdb = DatabaseConnection.get_connection('filter-db', logger)
+
     if args.run is not None:
-        RunInfo = dbs4_.fetchall("""SELECT r.tStart,g.* FROM i3filter.grl_snapshot_info g
-                                  JOIN i3filter.run_info_summary r ON r.run_id=g.run_id
+        RunInfo = fdb.fetchall("""SELECT * FROM i3filter.runs g
                                   WHERE (g.good_i3 OR g.good_it or g.run_id IN (%s)) AND g.run_id = %i
                                   ORDER BY g.run_id""" % (','.join([str(r) for r in seasons_info[season]['test']]), args.run), UseDict=True)
     else: 
@@ -316,12 +363,7 @@ if __name__ == '__main__':
 SELECT 
     *
 FROM
-    i3filter.grl_snapshot_info g
-        JOIN
-    i3filter.run r ON r.run_id = g.run_id
-        AND r.dataset_id = {dataset_id}
-        JOIN
-    i3filter.run_info_summary i ON i.run_id = g.run_id
+    i3filter.runs g
 WHERE
     (g.run_id BETWEEN {first_run} AND {last_run}
         OR g.run_id IN ({test_runs},-1))
@@ -339,9 +381,12 @@ ORDER BY g.run_id
 
         logger.debug('SQL: {0}'.format(sql))
 
-        RunInfo = dbs4_.fetchall(sql, UseDict=True)
+        RunInfo = fdb.fetchall(sql, UseDict=True)
 
 #    logger.debug("RunInfo = %s" % str(RunInfo))
+
+    if args.force_validation is not None:
+        logger.info('--force-validation enabled: {}'.format(args.force_validation))
 
     main(RunInfo, logger, season, args)
 
