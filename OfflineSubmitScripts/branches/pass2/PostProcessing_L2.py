@@ -97,7 +97,7 @@ def get_sub_run_info_pass1(runs, logger):
     if not isinstance(runs, list):
         runs = [runs]
     
-    sql = "SELECT * FROM sub_runs WHERE run_id IN (%s) ORDER BY run_id, sub_run" % ','.join([str(r) for r in runs])
+    sql = "SELECT * FROM sub_runs WHERE run_id IN (%s) AND NOT bad ORDER BY run_id, sub_run" % ','.join([str(r) for r in runs])
 
     dbdata = db.fetchall(sql, UseDict = True)
 
@@ -190,11 +190,11 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
         # Lost files?
         last_sub_run_id = int(last_gaps.get_sub_run_id())
         appending_lost_files = [f for f in pass2_lost_files if int(f['sub_run']) > last_sub_run_id]
-        appending_livetime = float(sum([f['livetime'] for f in appending_lost_files]))
+        appending_livetime = float(sum([f['livetime'] for f in appending_lost_files if f['livetime'] is not None]))
 
         first_sub_run_id = int(first_gaps.get_sub_run_id())
         prepending_lost_files = [f for f in pass2_lost_files if int(f['sub_run']) < first_sub_run_id]
-        prepending_livetime = float(sum([f['livetime'] for f in prepending_lost_files]))
+        prepending_livetime = float(sum([f['livetime'] for f in prepending_lost_files if f['livetime'] is not None]))
 
         if len(prepending_lost_files):
             logger.warning('We have lost files at the start of the run:')
@@ -297,14 +297,27 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
         # Write lost file info
         lost_file_info(run_folder, pass2_lost_files, logger, dryrun)
 
-        if force:
+        if force or len(pass2_lost_files):
             sql = '''INSERT INTO i3filter.run_comments (run_id, snapshot_id, production_version, `pass`, `date`, add_to_grl, `comment`)
-                     VALUES (%(run_id)s, %(snapshot_id)s, %(production_version)s, 2, NOW(), 0, %(comment)s)'''
+                     VALUES (%(run_id)s, %(snapshot_id)s, %(production_version)s, 2, NOW(), %(add_to_grl)s, %(comment)s)'''
 
             logger.debug('SQL: %s' % sql)
 
+            if force_m is None:
+                force_m = ''
+            else:
+                force_m += ' '
+
+            force_m += 'Has lost files.'
+
             if not dryrun:
-                filter_db.execute(sql, params = {'comment': 'Validated manually. ' + force_m, 'run_id': r['run_id'], 'snapshot_id': r['snapshot_id'], 'production_version': r['production_version']})
+                filter_db.execute(sql, params = {
+                    'comment': 'Validated manually. ' + force_m,
+                    'run_id': r['run_id'],
+                    'snapshot_id': r['snapshot_id'],
+                    'production_version': r['production_version'],
+                    'add_to_grl': 1 if len(pass2_lost_files) else 0
+                })
 
         logger.info("Checks passed")
     logger.info("======= End Checking %i %i ======== " %(r['run_id'],r['production_version'])) 
