@@ -94,7 +94,7 @@ def main(params, logger, DryRun):
         if not args.out:
             GRLInfo = dbs4_.fetchall("""select g.*,r.tStart, r.tStop, r.FilesComplete from i3filter.grl_snapshot_info_pass2 g
                                     join i3filter.run_info_summary_pass2 r on r.run_id=g.run_id
-                                    where g.run_id=%s and not submitted"""%(Run),UseDict=True)
+                                    where g.run_id=%s %s"""%(Run, ' and not submitted' if not DryRun or (DryRun and not Resubmission) else ''),UseDict=True)
         else:
             GRLInfo = dbs4_.fetchall("""select g.*,r.tStart, r.tStop, r.FilesComplete from i3filter.grl_snapshot_info_pass2 g
                                     join i3filter.run_info_summary_pass2 r on r.run_id=g.run_id
