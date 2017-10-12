@@ -90,7 +90,7 @@ def read_grl_file(f):
     fh.close()
     return r
     
-def main(config, logger,dryrun = False, check = False, updates_only = False, runs = []):
+def main(config, logger,dryrun = False, check = False, updates_only = False, runs = [], ignore_time_mismatch = False):
     if check:
         logger.info('Only in check mode. Just checking if an update is available.')
 
@@ -312,7 +312,7 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
         logger.debug("Is run %s a good run? = %s" % (r, is_good_run))
 
         if len(runs) and r not in runs:
-            logger.info('Skipping run {} since only specific runs will be reported (see --runs)'.format(r))
+            logger.debug('Skipping run {} since only specific runs will be reported (see --runs)'.format(r))
             continue
 
        # if not is_good_run:
@@ -361,6 +361,12 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
                 elif current_season in (2010, 2011):
                     logger.warning("*** You are currently import runs of season 2011. We agreed to ignore time mismatches and process the entire file. ***")
   
+            if ignore_time_mismatch and not CheckFiles:
+                if len(detailed_check_information[detailed_check_information.keys()[0]]['missing_files']) == 0:
+                    # OK, the only error is a mismatch in start or stop time. We will igore that:
+                    CheckFiles = 1
+                    logger.warning('You enabled the option --ignore-time-mismatch. The time mis match will be ignored.')
+
             #  fill new runs from live in run_info_summary_pass2 
             if not dryrun and (CheckFiles or not is_good_run):
                 logger.debug("Insert run into run_info_summary_pass2")
@@ -456,11 +462,17 @@ if __name__ == "__main__":
 
     parser.add_argument("--runs", type = int, nargs = '*', default = [], required = False, help = "Importing only specific runs")
     parser.add_argument('--check', help="Only check for updates. Do nothing else",dest="check",action="store_true",default=False)  
+    parser.add_argument('--ignore-time-mismatch', help="ONLY USE THIS OPTION IF YOU KNOW WHAT YOU ARE DOING!11!111. Sometimes the pass2 times (PFDST) do not match the PFFilt times of pass1. We want to match the pass1 times. Use this option, if the pass2 data is OUTSIDE!!!! of the pass1 range. If it is inside, check for missing data/files.",action="store_true",default=False)  
     parser.add_argument('--updates-only', help="Do only execute updates. Do not insert new entries.",dest="updates_only",action="store_true",default=False)  
 
     args = parser.parse_args()
     LOGFILE=os.path.join(get_logdir(sublogpath = 'PreProcessing'), 'GetRunInfo_')
     logger = get_logger(args.loglevel,LOGFILE)
-    main(logger = logger, dryrun=args.dryrun, check = args.check, config = config, updates_only = args.updates_only, runs = args.runs)
+
+    if args.ignore_time_mismatch and len(args.runs) != 1:
+        logger.critical('You can only use --ignore-time-mismatch if you specify exactly one run with --runs! That\'s a safety restriction in orde rto prevent a batch of wrong data.')
+        exit(1)
+
+    main(logger = logger, dryrun=args.dryrun, check = args.check, config = config, updates_only = args.updates_only, runs = args.runs, ignore_time_mismatch = args.ignore_time_mismatch)
 
 
