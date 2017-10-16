@@ -89,7 +89,20 @@ def read_grl_file(f):
         r[int(s[0])] = s 
     fh.close()
     return r
-    
+
+def get_lost_file_information(run_id, logger):
+    db = DatabaseConnection.get_connection('filter-db', logger)
+
+    lost_files = db.fetchall('SELECT * FROM i3filter.missing_files_pass2 WHERE run_id = {0} AND NOT resolved ORDER BY sub_run'.format(run_id), UseDict = True)
+
+    data = {}
+
+    for f in lost_files:
+        data[f['sub_run']] = f
+
+    return data
+
+
 def main(config, logger,dryrun = False, check = False, updates_only = False, runs = [], ignore_time_mismatch = False):
     if check:
         logger.info('Only in check mode. Just checking if an update is available.')
@@ -344,6 +357,31 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
 
             detailed_check_information = {}
             CheckFiles = R.FilesComplete(InFiles, RunTimes, get_tmpdir(), showTimeMismatches = is_good_run, outdict = detailed_check_information, no_xml_bundle = current_season in (2010, 2015, 2016))
+
+            lost_files = get_lost_file_information(r, logger)
+            if len(lost_files):
+                logger.warning('For this run {} files has been marked as lost. We will ignore warnings for those lost files. Enable --debug if you would like to see the detailed information.'.format(len(lost_files)))
+
+                logger.debug('The following files are lost:')
+                for sub_run in sorted(lost_files):
+                    logger.debug(lost_files[sub_run])
+
+                # If a missing file parted matches, remove it from the "missing file list":
+                for sub_run in detailed_check_information[r]['missing_files']:
+                    if sub_run in lost_files:
+                        logger.info('File #{} has been marked as lost. We will ignore this missing file.'.format(sub_run))
+                    else:
+                        logger.error('File #{} has NOT been marked as lost! This is an error!'.format(sub_run))
+
+                detailed_check_information[r]['missing_files'] = [s for s in detailed_check_information[r]['missing_files'] if s not in lost_files]
+
+                logger.info('Finally, there are {} files missing!'.format(len(detailed_check_information[r]['missing_files'])))
+
+                if not len(detailed_check_information[r]['missing_files']) and \
+                  detailed_check_information[r]['metadata_start_time'] is None and \
+                  detailed_check_information[r]['metadata_stop_time'] is None and \
+                  len(detailed_check_information[r]) == 3:
+                    CheckFiles = 1
 
             logger.debug("Check files returned %s" % CheckFiles)
 
