@@ -105,7 +105,13 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
         None
     """
     assert AGGREGATE > 0
-        
+
+    season = libs.config.get_season_by_run(Run)
+    ic86_season = str(season)[-1]
+
+    logger.debug('season = {}'.format(season))
+    logger.debug('ic86_season = {}'.format(ic86_season))
+
     runInfo = dbs4_.fetchall("""select r.date,r.sub_run,u.* from i3filter.job j
                                 join i3filter.run r on r.queue_id=j.queue_id
                                 join i3filter.urlpath u on u.queue_id=j.queue_id
@@ -124,7 +130,7 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
         
     date_ = runInfo[0]['date']
 
-    OutDir = OUTDIR.format(year = date_.year, month = date_.month, day = date_.day, run_id = Run)
+    OutDir = OUTDIR.format(year = date_.year, month = date_.month, day = date_.day, run_id = Run, season = season, ic86_season = ic86_season)
 
     if not os.path.exists(OutDir):
         if not dryrun or linkonlygcd:
