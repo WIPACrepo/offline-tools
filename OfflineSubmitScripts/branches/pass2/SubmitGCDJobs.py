@@ -192,13 +192,19 @@ if __name__ == '__main__':
                     os.makedirs(GCDDirAll)
                 if not os.path.exists(GCDDirVerified):
                     os.makedirs(GCDDirVerified)
-     
+    
+        GCDFilesPass1_glob = None
+ 
         if run_season == 2010:
-            GCDFilesPass1 = glob.glob(os.path.join(GCDDirPass1, "Level2a_IC%s_data_Run00%s_GCD.i3.bz2" % (detector_conf, r)))
-        else: 
-            GCDFilesPass1 = glob.glob(os.path.join(GCDDirPass1, "Level2_%sdata_Run00%s_*%s*GCD.i3.gz" % (Season, r, SId)))
+            GCDFilesPass1_glob = os.path.join(GCDDirPass1, "Level2a_IC%s_data_Run00%s_GCD.i3.bz2" % (detector_conf, r))
+        elif run_season < 2013:
+            GCDFilesPass1_glob = os.path.join(GCDDirPass1, "Level2_%sdata_Run00%s_*GCD.i3.gz" % (Season, r))
+        else:
+            GCDFilesPass1_glob = os.path.join(GCDDirPass1, "Level2_%sdata_Run00%s_*%s*GCD.i3.gz" % (Season, r, SId))
 
-        logger.debug("GCDFilesPass1 glob expression: %s" % os.path.join(GCDDirPass1, "Level2_%sdata_Run00%s_*%s*GCD.i3.gz" % (Season, r, SId)))
+        GCDFilesPass1 = glob.glob(GCDFilesPass1_glob)
+
+        logger.debug("GCDFilesPass1 glob expression: %s" % GCDFilesPass1_glob)
         logger.debug("GCDFilesPass1 = %s" % GCDFilesPass1)
 
         # Check for multiple GCD files

@@ -109,6 +109,7 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
     GCDName = [f for f in OutFiles if "GCD" in f and ProdVersion in f]
 
     if len(GCDName)!=1:
+        logger.debug('GCDs: {}'.format(GCDName))
         logger.warning("Either None or more than 1 GCD file in output dir for run=%s"%str(r['run_id']))
         if not force:
             return 1
