@@ -44,6 +44,32 @@ def get_gaps_file_data(db, runs):
 
     return data
 
+def get_first_last_event(infiles, logger):
+    from icecube import dataio
+
+    infiles = sorted(infiles)
+    first = infiles[0]
+    last = infiles[-1]
+
+    logger.warning('First file: {}'.format(first))
+    logger.warning('Last file: {}'.format(last))
+
+    firsti3 = dataio.I3File(first)
+    first_header = None
+    while first_header is None and firsti3.more():
+        frame = firsti3.pop_frame()
+        if 'I3EventHeader' in frame:
+            first_header = frame['I3EventHeader']
+
+    lasti3 = dataio.I3File(last)
+    last_header = None
+    while lasti3.more():
+        frame = lasti3.pop_frame()
+        if 'I3EventHeader' in frame:
+            last_header = frame['I3EventHeader']
+
+    return first_header, last_header
+
 def send_check_notification(logger, dryrun, config, new_records, changed_records):
     sys.path.append(config.get('DEFAULT', 'ProductionToolsPath'))
     import SendNotification as SN
@@ -378,8 +404,8 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
                 logger.info('Finally, there are {} files missing!'.format(len(detailed_check_information[r]['missing_files'])))
 
                 if not len(detailed_check_information[r]['missing_files']) and \
-                  detailed_check_information[r]['metadata_start_time'] is None and \
-                  detailed_check_information[r]['metadata_stop_time'] is None and \
+                  not detailed_check_information[r]['metadata_start_time_error'] and \
+                  not detailed_check_information[r]['metadata_stop_time_error'] and \
                   len(detailed_check_information[r]) == 3:
                     CheckFiles = 1
 
@@ -442,14 +468,22 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
         # Hack for season 2011: Use as good start/stop times the PFDS start/end time
         if current_season in (2010, 2011) and is_good_run:
             if r not in gaps_data:
-                logger.fatal('*** Run %s of season %s does not have proper start/stop meta information. ***' % (r, current_season))
-                exit(-1)
+                # If the run does not appear in pass1, we need to find the start/stop info in the files
+                if  detailed_check_information[r]['metadata_start_time'] is None or  detailed_check_information[r]['metadata_stop_time'] is None:
+                    logger.fatal('*** Run %s of season %s does not have proper start/stop meta information. ***' % (r, current_season))
+                    exit(-1)
+                else:
+                    logger.warning('No pass1 metadata available. going through the first and last file to find the first and last event header...')
+                    first_header, last_header = get_first_last_event(InFiles, logger)
 
-            first_sr = min(gaps_data[r].keys())
-            last_sr = max(gaps_data[r].keys())
+                    gaps_data_first_sr = first_header.start_time
+                    gaps_data_last_sr = last_header.end_time
+            else:
+                first_sr = min(gaps_data[r].keys())
+                last_sr = max(gaps_data[r].keys())
 
-            gaps_data_first_sr = I3Time(gaps_data[r][first_sr]['first_event_year'], gaps_data[r][first_sr]['first_event_frac'])
-            gaps_data_last_sr = I3Time(gaps_data[r][last_sr]['last_event_year'], gaps_data[r][last_sr]['last_event_frac'])
+                gaps_data_first_sr = I3Time(gaps_data[r][first_sr]['first_event_year'], gaps_data[r][first_sr]['first_event_frac'])
+                gaps_data_last_sr = I3Time(gaps_data[r][last_sr]['last_event_year'], gaps_data[r][last_sr]['last_event_frac'])
 
             logger.warning('*** Old start/stop time information: good_tstart = %s, good_tstart_frac = %s, good_tstop = %s, good_tstop_frac = %s ***' % (goodStart, goodStart_frac, goodStop, goodStop_frac))
 
@@ -488,6 +522,8 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
                             """%(ss_ref,r,RunInfo_[r]['snapshot_id'],RunInfo_[r]['good_i3'],RunInfo_[r]['good_it'],
                             reason_i3,reason_it,CurrentProductionVersion,0,UpdateComment,
                             goodStart,goodStart_frac,goodStop,goodStop_frac))
+        elif not dryrun or not (CheckFiles or not is_good_run):
+            logger.error('Run as not been inserted into DB. Check other errors and warnings.')
         
         ss_ref+=1
     return 0

@@ -219,6 +219,9 @@ if __name__ == '__main__':
         GCDLinkName = "Level2pass2_%sdata_Run00%s_%s%s_%s_%s_GCD.i3.zst"%(Season, r, sM, sD, PV, SId)
 
         if not dryrun and not options.out:
+            logger.info('Create symlink: {}'.format("ln -sf %s %s/%s"%(os.path.relpath(GCDName, GCDDirVerified), GCDDirVerified, GCDLinkName)))
+            logger.info('Create symlink: {}'.format("ln -sf %s %s/%s"%(os.path.relpath(GCDName, GCDDirAll), GCDDirAll, GCDLinkName)))
+
             os.system("ln -sf %s %s/%s"%(os.path.relpath(GCDName, GCDDirVerified), GCDDirVerified, GCDLinkName))
             os.system("ln -sf %s %s/%s"%(os.path.relpath(GCDName, GCDDirAll), GCDDirAll, GCDLinkName))
 
