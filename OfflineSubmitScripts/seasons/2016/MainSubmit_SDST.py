@@ -81,14 +81,27 @@ def submit_run(checksumcache, db, gcd, run_id, status, DatasetId, QueueId, dryru
     logger.debug('Get PFFilt files')
 
     InFiles = glob.glob("/data/exp/IceCube/%s/unbiased/PFRaw/%s%s/*PFRaw_*_Run00%s_Subrun00000000_00000*.tar.gz" % (sY, sM, sD, run_id))
+    InFiles.extend(glob.glob("/data/exp/IceCube/%s/unbiased/PFRaw/%s%s/*PFRaw_*_Run00%s_Subrun00000000_00000*.tar.zst" % (sY, sM, sD, run_id)))
 
     nextDate = sDay + relativedelta(days = 1)
 
     InFiles.extend(glob.glob("/data/exp/IceCube/%s/unbiased/PFRaw/%s%s/*PFRaw_*_Run00%s_Subrun00000000_00000*.tar.gz" % (nextDate.year, str(nextDate.month).zfill(2), str(nextDate.day).zfill(2), run_id)))       
+    InFiles.extend(glob.glob("/data/exp/IceCube/%s/unbiased/PFRaw/%s%s/*PFRaw_*_Run00%s_Subrun00000000_00000*.tar.zst" % (nextDate.year, str(nextDate.month).zfill(2), str(nextDate.day).zfill(2), run_id)))       
    
     InFiles.sort()
 
     logger.debug("InFiles = %s" % InFiles)
+
+    # Check for "recovered-data_*" files. If such files are present, remove same file w/o prefix
+    recovered_data_files = [f for f in InFiles if os.path.basename(f).startswith('recovered-data_')]
+
+    for rf in recovered_data_files:
+        orig_name = os.path.join(os.path.dirname(rf), os.path.basename(rf).split('recovered-data_')[1])
+        if orig_name in InFiles:
+            InFiles.remove(orig_name)
+            logger.warning('Found a file with recovered data: {}'.format(rf))
+            logger.warning('Also the original file has been found: {}'.format(orig_name))
+            logger.warning('The original file will be ignored.')
 
     logger.info("Found %s PFRaw files for this run" % len(InFiles))
 
