@@ -24,7 +24,7 @@ from libs.databaseconnection import DatabaseConnection
 from RunTools import RunTools
 from icecube.dataclasses import I3Time
 
-import sys
+import json
 
 dbs4_ = dbs4.MySQL()
 m_live = live.MySQL()
@@ -129,7 +129,7 @@ def get_lost_file_information(run_id, logger):
     return data
 
 
-def main(config, logger,dryrun = False, check = False, updates_only = False, runs = [], ignore_time_mismatch = False):
+def main(config, logger,dryrun = False, check = False, updates_only = False, runs = [], ignore_time_mismatch = False, errorfile = None):
     if check:
         logger.info('Only in check mode. Just checking if an update is available.')
 
@@ -345,6 +345,8 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
         logger.info("New records available. This was only a check. Do nothing. Exit.")
         send_check_notification(logger, dryrun, config, NewRecords_, ChangedRecords_)
         exit(0)
+
+    detailed_check_information = {}
     
     for r in RunNums_:
         is_good_run = RunInfo_[r]['good_it'] or RunInfo_[r]['good_i3']
@@ -381,7 +383,6 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
             # Exclude log files etc
             InFiles = [f for f in InFiles if '.log' not in f and 'xml' not in f]
 
-            detailed_check_information = {}
             CheckFiles = R.FilesComplete(InFiles, RunTimes, get_tmpdir(), showTimeMismatches = is_good_run, outdict = detailed_check_information, no_xml_bundle = current_season in (2010, 2015, 2016))
 
             lost_files = get_lost_file_information(r, logger)
@@ -416,7 +417,7 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
             if current_season in [2010, 2011, 2012] and not CheckFiles:
                 # Check why the CheckFiles went wrong
                 # If it is only the tstart/tstop time, we'll ignore it
-                if len(detailed_check_information[detailed_check_information.keys()[0]]['missing_files']) == 0:
+                if len(detailed_check_information[r]['missing_files']) == 0:
                     # OK, the only error is a mismatch in start or stop time. We will igore that:
                     CheckFiles = 1
 
@@ -426,7 +427,7 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
                     logger.warning("*** You are currently import runs of season 2011. We agreed to ignore time mismatches and process the entire file. ***")
   
             if ignore_time_mismatch and not CheckFiles:
-                if len(detailed_check_information[detailed_check_information.keys()[0]]['missing_files']) == 0:
+                if len(detailed_check_information[r]['missing_files']) == 0:
                     # OK, the only error is a mismatch in start or stop time. We will igore that:
                     CheckFiles = 1
                     logger.warning('You enabled the option --ignore-time-mismatch. The time mis match will be ignored.')
@@ -526,8 +527,11 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
             logger.error('Run as not been inserted into DB. Check other errors and warnings.')
         
         ss_ref+=1
-    return 0
 
+    if errorfile is not None:
+        logger.info('Write errors into JSON file: {}'.format(errorfile))
+        with open(errorfile, 'w') as f:
+            json.dump(detailed_check_information, f, default = lambda o: str(o), sort_keys = True, indent = 2)
 
 if __name__ == "__main__":
     config = libs.config.get_config()
@@ -538,6 +542,7 @@ if __name__ == "__main__":
     parser.add_argument('--check', help="Only check for updates. Do nothing else",dest="check",action="store_true",default=False)  
     parser.add_argument('--ignore-time-mismatch', help="ONLY USE THIS OPTION IF YOU KNOW WHAT YOU ARE DOING!11!111. Sometimes the pass2 times (PFDST) do not match the PFFilt times of pass1. We want to match the pass1 times. Use this option, if the pass2 data is OUTSIDE!!!! of the pass1 range. If it is inside, check for missing data/files.",action="store_true",default=False)  
     parser.add_argument('--updates-only', help="Do only execute updates. Do not insert new entries.",dest="updates_only",action="store_true",default=False)  
+    parser.add_argument("--errorfile", type = str, default = None, required = False, help = "Write errors into a json file")
 
     args = parser.parse_args()
     LOGFILE=os.path.join(get_logdir(sublogpath = 'PreProcessing'), 'GetRunInfo_')
@@ -547,6 +552,6 @@ if __name__ == "__main__":
         logger.critical('You can only use --ignore-time-mismatch if you specify exactly one run with --runs! That\'s a safety restriction in orde rto prevent a batch of wrong data.')
         exit(1)
 
-    main(logger = logger, dryrun=args.dryrun, check = args.check, config = config, updates_only = args.updates_only, runs = args.runs, ignore_time_mismatch = args.ignore_time_mismatch)
+    main(logger = logger, dryrun=args.dryrun, check = args.check, config = config, updates_only = args.updates_only, runs = args.runs, ignore_time_mismatch = args.ignore_time_mismatch, errorfile = args.errorfile)
 
 

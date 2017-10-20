@@ -88,13 +88,13 @@ def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
 
         LiveTime = round(get_run_lifetime(k, logger)['livetime'], 2)
 
-        Comments = ""
+        all_comments = []
         if config.is_test_run(int(k)):
-            Comments = "IC86_%s 24hr test run" % ProductionYear
+            all_comments.append("IC86_%s 24hr test run" % ProductionYear)
         
         add_comment = fdb.fetchall('SELECT * FROM i3filter.run_comments WHERE `pass` = 2 AND add_to_grl AND run_id = {run_id} AND snapshot_id = {snapshot_id} AND production_version = {production_version} ORDER BY date'.format(**RunInfoDict[k]), UseDict = True)
 
-        all_comments = [Comments] + [c['comment'] for c in add_comment]
+        all_comments = all_comments + [c['comment'] for c in add_comment]
 
         Comments = '; '.join(all_comments)
 
@@ -904,7 +904,7 @@ def lost_file_info(run_folder_path, lol_files_data, logger, dryrun):
             if lolf['livetime'] is None:
                 lt = 'N/A'
 
-            f.write('  {sub_run:>10}   {livetime}\n'.format(sub_run = str(lolf['sub_run']) + 's', livetime = lt))
+            f.write('  {sub_run:>10}   {livetime}s\n'.format(sub_run = str(lolf['sub_run']), livetime = lt))
 
         f.write('\n')
         f.write('For further information see https://wiki.icecube.wisc.edu/index.php/Pass2_Re-Processing#Lost_Files')
