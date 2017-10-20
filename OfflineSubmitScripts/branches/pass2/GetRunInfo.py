@@ -381,7 +381,7 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
             InFiles = R.GetRunFiles(RunTimes['tStart'],'P', season = current_season)
 
             # Exclude log files etc
-            InFiles = [f for f in InFiles if '.log' not in f and 'xml' not in f]
+            InFiles = [f for f in InFiles if '.log' not in f and not f.endswith('xml') and not f.endswith('bad') and not f.endswith('error') and not f.endswith('errors')]
 
             CheckFiles = R.FilesComplete(InFiles, RunTimes, get_tmpdir(), showTimeMismatches = is_good_run, outdict = detailed_check_information, no_xml_bundle = current_season in (2010, 2015, 2016))
 
