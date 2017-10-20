@@ -95,6 +95,17 @@ def CheckFiles(r, logger, dataset_id, season, run_id, dryrun, checksumcache, for
     
     InFiles = get_in_files(run_id, r['tstart'])
     OutFiles = get_out_files(run_id, r['tstart'], season)
+
+    # Check for "recovered-data_*" files. If such files are present, remove same file w/o prefix
+    recovered_data_files = [f for f in InFiles if os.path.basename(f).startswith('recovered-data_')]
+
+    for rf in recovered_data_files:
+        orig_name = os.path.join(os.path.dirname(rf), os.path.basename(rf).split('recovered-data_')[1])
+        if orig_name in InFiles:
+            InFiles.remove(orig_name)
+            logger.warning('Found a file with recovered data: {}'.format(rf))
+            logger.warning('Also the original file has been found: {}'.format(orig_name))
+            logger.warning('The original file will be ignored.')
   
     #logger.debug('OutFiles: %s' % OutFiles)
  
