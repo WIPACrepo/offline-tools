@@ -199,27 +199,31 @@ class RunTools(object):
 
 
     def FilesComplete(self, InFiles, RunTimes, tmppath = '', showTimeMismatches = True, outdict = None, no_xml_bundle = False):
+        error = False
+
+        def get_file_part(f):
+            if no_xml_bundle:
+                return int(f.split('Subrun00000000_')[1].split('.i3')[0])
+            else:
+                if 'Subrun' in f:
+                    return int(re.sub("[^0-9]", "" ,f.split("Subrun")[1].split(".bz2")[0]))
+                elif 'Part' in f:
+                    return int(re.sub("[^0-9]", "", f.split("Part")[1].split(".bz2")[0]))
+                else:
+                    raise Exception('Do not understand file name: {}'.format(f))
+
         try:
             if outdict is not None:
-                outdict[self.RunNumber] = {'missing_files': [], 'metadata_start_time': None, 'metadata_stop_time': None}
+                outdict[self.RunNumber] = {'missing_files': [], 'metadata_start_time': None, 'metadata_stop_time': None, 'metadata_start_time_error': False, 'metadata_stop_time_error': False}
 
             if not len(InFiles):
                 self.logger.warning( "Input file list is empty, maybe failed/short run")
                 return 0
             
-            InFiles.sort()
+            InFiles.sort(key = get_file_part)
 
-            FileParts = None
-
-            if no_xml_bundle:
-                FileParts = [int(i.split('Subrun00000000_')[1].split('.i3')[0]) for i in InFiles]
-            else:
-                if len(InFiles) and 'Subrun' in InFiles[0]:
-                    FileParts = [int(re.sub("[^0-9]","",i.split("Subrun")[1].split(".bz2")[0])) for i in InFiles]
-                elif len(InFiles) and 'Part' in InFiles[0]:
-                    FileParts = [int(re.sub("[^0-9]","",i.split("Part")[1].split(".bz2")[0])) for i in InFiles]
-                else:
-                    raise Exception('Do not understand file name')
+            FileParts = [get_file_part(f) for f in InFiles]
+            FileParts.sort()
 
             if not len(FileParts) or max(FileParts)>1000:
                 self.logger.warning( "Could not resolve number of files from file names ... file names probably do not follow expected naming convention")
@@ -239,7 +243,7 @@ class RunTools(object):
                 if outdict is not None:
                     outdict[self.RunNumber]['missing_files'] = MissingParts
 
-                return 0
+                error = True
 
             RunStart = RunTimes['tStart']
             if isinstance(RunTimes['grl_start_time'],datetime.datetime): RunStart = RunTimes['grl_start_time']
@@ -285,15 +289,17 @@ class RunTools(object):
 
             if not StartCheck and showTimeMismatches:
                 self.logger.warning( "mismatch in start time reported by i3Live:%s and file metadata:%s"%(RunStart, fs_time)) 
+                outdict[self.RunNumber]['metadata_start_time_error'] = True
 
             if not EndCheck and showTimeMismatches:
                 self.logger.warning( "mismatch in end time reported by i3Live:%s and file metadata:%s"%(RunStop, fe_time))        
+                outdict[self.RunNumber]['metadata_stop_time_error'] = True
 
             if outdict is not None:
                 outdict[self.RunNumber]['metadata_start_time'] = fs_time
                 outdict[self.RunNumber]['metadata_stop_time'] = fe_time
             
-            return StartCheck * EndCheck
+            return int(not error) * StartCheck * EndCheck
           
         except Exception, err:
             self.logger.error("FilesComplete Error: %s\n"%str(err))
