@@ -138,8 +138,8 @@ def main(args, run_ids, config, logger):
                 run_id NOT IN ({excluded_runs})'''.format(
                 first = info[season]['first'],
                 last = upper_limit,
-                test_runs = info[season]['test'],
-                excluded_runs = excluded_runs
+                test_runs = ','.join(str(e) for e in info[season]['test']),
+                excluded_runs = ','.join(str(e) for e in excluded_runs)
             )
 
         logger.debug('SQL: {0}'.format(sql))
