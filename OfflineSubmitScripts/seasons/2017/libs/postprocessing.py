@@ -64,7 +64,7 @@ def check_for_stream_errors(f, logger):
     # We should never reach this point
     raise RuntimeError('Unexpected behaviour')
 
-def validate_GCD(jobs, run, logger):
+def validate_GCD_L2(jobs, run, logger):
     """
     Performes a couple of checks for the GCD file.
 
@@ -194,21 +194,96 @@ def validate_GCD(jobs, run, logger):
     # Yay! All checks passed
     return True
 
-def validate_files(iceprod, dataset_id, run, checksumcache, logger):
+def validate_L3_files(jobs, run, dataset_id, logger):
+    # Check if run folder is as expected
+    l3 = get_config(logger).get_level3_info()
+    if int(dataset_id) not in l3:
+        logger.error('Did not find L3 configuration in DB')
+        return False
+
+    l3info = l3[int(dataset_id)]
+    expected_path = os.path.join(run.format(l3info['path']), '')
+    used_path = list(set([os.path.join(os.path.dirname(e['path']), '') for e in jobs[jobs.keys()[0]]['output']]))
+   
+    logger.debug('used_path = {}'.format(used_path))
+ 
+    if len(used_path) > 1:
+        logger.error('More than one output folder: {}'.format(used_path))
+        return False
+
+    if not len(used_path):
+        logger.error('No output folder. How can this happen?')
+        return False
+
+    used_path = used_path[0]
+    if used_path != expected_path:
+        logger.error('The actual output folder does not match the expected output folder:')
+        logger.error('Expected: {}'.format(expected_path))
+        logger.error('Used:     {}'.format(used_path))
+        return False
+
+    # Check if GCD link in run folder is available
+    gcds_in_folder = [f for f in glob(os.path.join(expected_path, '*')) if 'gcd' in f.lower()]
+
+    if not len(gcds_in_folder):
+        logger.error('No GCD link found in {}'.format(expected_path))
+        return False
+
+    if len(gcds_in_folder) > 1:
+        logger.error('More than one GCD link found in {}'.format(expected_path))
+        return False
+
+    gcd_in_folder = gcds_in_folder[0]
+
+    # Check if the linked file is the same as used in processing
+    used_gcd = list(set([e['path'] for e in jobs[jobs.keys()[0]]['input'] if 'gcd' in e['path'].lower()]))
+    used_gcd = used_gcd[0]
+
+    gcd_link_checksum = File.get_sha512(gcd_in_folder, logger)
+    gcd_job_checksum = File.get_sha512(used_gcd, logger)
+
+    if gcd_link_checksum != gcd_job_checksum:
+        logger.error('The used and linked GCD files are not the same!')
+        return False
+
+    logger.info('Passed L3 GCD checks')
+    return True
+
+def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2'):
+    """
+    Validates the files of a run including the GCD file. Works for L2 and L3 production.
+
+    Args:
+        iceprod (iceprodinterface.IceProdInterface): The IceProd interface
+        dataset_id (int): The dataset id
+        run (runs.Run): The run
+        checksumcache (utils.ChecksumCache): The checksum cache
+        logger (Logger): The logger
+        level (str): `L2` or `L3`.
+    """
+
+    if level not in ('L2', 'L3'):
+        logger.critical('Invalid value for `level`: {}'.format(level))
+        exit(1)
+
     config = get_config(logger)
     jobs = iceprod.get_jobs(dataset_id, run)
 
     bad_sub_runs = [sr.sub_run_id for sr in run.get_sub_runs().values() if sr.is_bad()]
 
     # GCD checks
-    if not validate_GCD(jobs, run, logger):
-        return False
+    if level == 'L2':
+        if not validate_GCD_L2(jobs, run, logger):
+            return False
+    else:
+        if not validate_L3_files(jobs, run, dataset_id, logger):
+            return False
 
     # Check of all output files are existing
     # Also check checksums
     missing_files = []
     checksum_fails = []
-    missing_l2_files = []
+    missing_lx_files = []
     stream_errors = []
     l2_files = []
 
@@ -218,12 +293,16 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger):
             continue
 
         found_l2_output = False
-        expected_l2_file_name = run.format(config.get_l2_path_pattern(run.get_season(), 'DATA'), sub_run_id = sub_run_id)
+
+        if level == 'L2':
+            expected_lx_file_name = run.format(config.get_l2_path_pattern(run.get_season(), 'DATA'), sub_run_id = sub_run_id)
+        else:
+            expected_lx_file_name = run.format(os.path.join(config.get_level3_info()[int(dataset_id)]['path'], config.get('Level3', 'FileName')), sub_run = sub_run_id)
 
         logger.info('Calculating checksums and looking for stream errors for sub run {0}'.format(sub_run_id))
 
         for f in job['output']:
-            if f['path'] == expected_l2_file_name:
+            if f['path'] == expected_lx_file_name:
                 found_l2_output = True
                 l2_files.append(f['path'])
 
@@ -250,7 +329,7 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger):
                         checksumcache.set_checksum(f['path'], ctype, current_checksum)
 
         if not found_l2_output:
-            missing_l2_files.append(expected_l2_file_name)
+            missing_lx_files.append(expected_lx_file_name)
 
     if len(missing_files):
         logger.error('{0} missing output files:'.format(len(missing_files)))
@@ -262,9 +341,9 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger):
         for e in checksum_fails:
             logger.error('Path {path}: current = {current_checksum}, iceprod = {iceprod_checksum}'.format(**e))
 
-    if len(missing_l2_files):
-        logger.error('{0} missing L2 files:'.format(len(missing_l2_files)))
-        for f in missing_l2_files:
+    if len(missing_lx_files):
+        logger.error('{0} missing files:'.format(len(missing_lx_files)))
+        for f in missing_lx_files:
             logger.error('Path {0}'.format(f))
 
     if len(stream_errors):
@@ -272,24 +351,24 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger):
         for f in stream_errors:
             logger.error('Path {}'.format(f))
 
-    if len(missing_files) or len(checksum_fails) or len(missing_l2_files) or len(stream_errors):
+    if len(missing_files) or len(checksum_fails) or len(missing_lx_files) or len(stream_errors):
         return False
 
-    logger.info('All output files exists and have the currect checksums and all expected L2 files exists')
+    logger.info('All output files exists and have the currect checksums and all expected {} files exists'.format(level))
 
     # Check number of processed L2 files and available L2 files
     l2_files_on_disk = run.get_level2_files()
     if len(l2_files) != len(l2_files_on_disk):
         # Since we checked if all output files exist, the only case can be that we have more
         # files on disk than processed. That would be odd
-        logger.error('Found more L2 files than actually processed:')
+        logger.error('Found more {} files than actually processed:'.format(level))
         odd_files = list(set([f.path for f in l2_files_on_disk]) - set(l2_files))
         for f in odd_files:
             logger.error('Path {0}'.format(f))
 
         return False
 
-    logger.info('No unexpected L2 files found')
+    logger.info('No unexpected {} files found'.format(level))
 
     # All checks passed
     return True

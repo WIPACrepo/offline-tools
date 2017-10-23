@@ -1,406 +1,236 @@
 #!/usr/bin/env python
+"""
+Combines several checks wich have to be done after the
+files are generated and updates the databases accordingly.
+"""
 
+import os
 
-#############################################################################
-#
-#  General Description: does post-production checks for L3 sets 
-#
-#
-# Copyright: (C) 2014 The IceCube collaboration
-#
-# @file    $Id$
-# @version $Revision$
-
-# @date    12/04/2014
-# @author  Oladipo Fadiran <ofadiran@icecube.wisc.edu>
-#
-#############################################################################
-
-import sys, os
-from os.path import expandvars, join, exists
-import glob
-from optparse import OptionParser
-import time
-import datetime
-import pymysql as MySQLdb
-import cPickle
-import datetime
-from dateutil.relativedelta import *
-import subprocess as sub
-
-import traceback
-
-from libs.files import get_logdir, get_tmpdir, write_meta_xml_post_processing, tar_log_files, remove_path_prefix
-import libs.config
-sys.path.append(libs.config.get_config().get('DEFAULT', 'SQLClientPath'))
-sys.path.append(libs.config.get_config().get('DEFAULT', 'ProductionToolsPath'))
-from RunTools import *
-from FileTools import *
-
-from libs.logger import get_logger, delete_log_file
+from libs.logger import get_logger
 from libs.argparser import get_defaultparser
-from libs.runs import set_post_processing_state, get_validated_runs
-import libs.process
+from libs.config import get_config
+from libs.process import Lock
+from libs.databaseconnection import DatabaseConnection
+from libs.runs import Run, LoadRunDataException
+from libs.iceprod1 import IceProd1
+from libs.postprocessing import validate_files
+from libs.files import tar_gaps_files, insert_gaps_file_info_into_db, tar_log_files, MetaXMLFile
+from libs.trimrun import trim_to_good_run_time_range
+from libs.path import make_relative_symlink, get_logdir, get_tmpdir
+from libs.utils import Counter, DBChecksumCache
 
-##-----------------------------------------------------------------
-## setup DB
-##-----------------------------------------------------------------
+def validate_run(source_dataset_ids, run, args, iceprod, logger, counter, checksumcache):
+    config = get_config(logger)
 
-import SQLClient_i3live as live
-m_live = live.MySQL()
+    # Find source dataset_id for this run
+    source_dataset_id = None
+    for sd_id in source_dataset_ids:
+       if iceprod.get_run_status(sd_id, run) == 'OK':
+            source_dataset_id = sd_id
+            break
 
-import SQLClient_dbs4 as dbs4
-dbs4_ = dbs4.MySQL()
+    if source_dataset_id is None:
+        logger.error(run.format('Could not determine source dataset id of run {run_id}'))
+        counter.count('skipped')
+        return
 
-import SQLClient_dbs2 as dbs2
-dbs2_ = dbs2.MySQL()
+    logger.info(run.format("======= Checking run {run_id}, source dataset = {source_dataset_id}, destination dataset = {destination_dataset_id} ===========", source_dataset_id = source_dataset_id, destination_dataset_id = args.destination_dataset_id))
 
-def main(SDatasetId, DDatasetId, START_RUN, END_RUN, MERGEHDF5, NOMETADATA, dryrun, logger, special_gcd = False, it_files = False, aggregate = 1):
-    SEASON = libs.config.get_season_by_run(START_RUN)
+    # Is already validated?
+    if run.is_validated(args.destination_dataset_id):
+        if args.re_validate:
+            logger.info('Re-validate this run.')
+        else:
+            counter.count('skipped')
+            logger.info('Run has already been validated. Skip this run.')
+            return
 
-    season_of_end_run = libs.config.get_season_by_run(END_RUN)
+    # Check run status
+    run_status = iceprod.get_run_status(args.destination_dataset_id, run)
+    if run_status != 'OK':
+        logger.warning('The run has not been successfully processed yet (status: {0}). Skip this run.'.format(run_status))
+        counter.count('skipped')
+        return
 
-    if SEASON != season_of_end_run:
-        logger.warning("The first run (%s) is of season %s, the last run (%s) is of season %s. Only runs of season %s will be post processed." % (
-            START_RUN, SEASON, END_RUN, season_of_end_run, SEASON
-        ))
+    if not validate_files(iceprod, args.destination_dataset_id, run, checksumcache, logger, level = 'L3'):
+        logger.error(run.format('Files validation failed for run {run_id}, production_version = {production_version}'))
+        counter.count('error')
+        return
 
-    sourceRunInfo = dbs4_.fetchall("""SELECT r.run_id FROM i3filter.job j
-                                        JOIN i3filter.run r ON j.queue_id=r.queue_id
-                                        WHERE j.dataset_id=%s AND r.dataset_id=%s
-                                        AND r.run_id BETWEEN %s AND %s
-                                        AND j.status="OK"
-                                        GROUP BY r.run_id
-                                        ORDER BY r.run_id
-                                        """%(SDatasetId,SDatasetId,START_RUN,END_RUN),UseDict=True)
-   
-    counter = {'all': 0, 'validated': 0, 'errors': 0, 'skipped': 0}
- 
-    GRL = "/data/exp/IceCube/%s/filtered/level2/IC86_%s_GoodRunInfo.txt"%(SEASON,SEASON)
-    if not os.path.isfile(GRL):
-        logger.critical("Can't access GRL file %s for run validation, check path, exiting ...... " % GRL)
-        return counter
-        
-    with open(GRL,"r") as G:
-        L = G.readlines()
-        GoodRuns = [int(l.split()[0]) for l in L if l.split()[0].isdigit()]
+    logger.info("Files validated")
 
-    # Get validated runs in order to avoid validating them another time
-    validated_runs = {}
-    for run in get_validated_runs(DDatasetId, dbs4_, True, logger):
-        validated_runs[int(run['run_id'])] = run
+#    logger.critical('Jan, you need to work on the code after that line')
+#    exit(1)
 
-    for s in sourceRunInfo:
-        counter['all'] = counter['all'] + 1
+    # Get L3 run folder
+    run_folder = run.format(config.get_level3_info()[int(args.destination_dataset_id)]['path'])
 
-        try:    
-            verified = 1
-            
-            RunId = s['run_id']
-            
-            if not RunId in GoodRuns:
-                logger.info("Skip run %s since it is not in the good run list" % RunId)
-                counter['skipped'] = counter['skipped'] + 1
-                continue
+    if not args.nometadata:
+        dest_folder = ''
+        if args.dryrun:
+            meta_file_dest = get_tmpdir()
+        else:
+            meta_file_dest = run_folder
 
-            if int(RunId) in validated_runs:
-                logger.debug("Run %s was already validated on %s" % (RunId, validated_runs[int(RunId)]['date_of_validation']))
-                counter['skipped'] = counter['skipped'] + 1
-                continue
-            
-            sRunInfo = dbs4_.fetchall("""SELECT * FROM i3filter.run r join i3filter.urlpath u on r.queue_id=u.queue_id
-                                       join i3filter.job j on j.queue_id=u.queue_id 
-                                         where j.dataset_id=%s and r.dataset_id=%s and u.dataset_id=%s and r.run_id=%s and j.status="OK"
-                                         order by r.sub_run
-                                              """%(SDatasetId,SDatasetId,SDatasetId,RunId),UseDict=True)
-            
-            dRunInfo = dbs4_.fetchall("""SELECT * FROM i3filter.run r join i3filter.urlpath u on r.queue_id=u.queue_id
-                                      join i3filter.job j on j.queue_id=u.queue_id
-                                         where j.dataset_id=%s and r.dataset_id=%s and u.dataset_id=%s and r.run_id=%s
-                                         order by r.sub_run
-                                              """%(DDatasetId,DDatasetId,DDatasetId,RunId),UseDict=True)
-
-            if not len(dRunInfo):
-                logger.info("No processing information found in DB. Run %s may hav not been submitted yet. Skip this run." % RunId)
-                counter['skipped'] = counter['skipped'] + 1
-                continue
-
-            logger.info("Verifying processing for run %s..." % RunId)
-        
-            # Output directory
-            # Look for PERMANENT entries in urlpath
-            outdir = None
-            for entry in dRunInfo:
-                if entry['type'] == 'PERMANENT':
-                    outdir = entry['path']
-                    break
-
-            if outdir is None:
-                logger.critical("Could not determine output directory")
-                counter['errors'] = counter['errors'] + 1
-                continue
-
-            # Since there is a 'file:' at the beginning of the path...
-            outdir = remove_path_prefix(outdir)
-
-            logger.debug("outdir: %s" % outdir)
-
-            # Check GCD file in L3 out dir.
-            gInfo = [s for s in sRunInfo if "GCD" in s['name']] # GCD file from L2 source
-            gInfo = gInfo[0]
-            
-            # get GCD file linked from L3 dir.
-            linkedGCD = glob.glob(os.path.join(outdir, '*GCD*'))
-            if not len(linkedGCD):
-                verified = 0
-                logger.error("no GCD file linked from out dir. for run %s" % RunId)
-            elif not os.path.isfile(linkedGCD[0]):
-                verified = 0
-                logger.error("Listed GCD file in DB not in output dir. for run %s" % RunId)
-            elif not special_gcd and gInfo['md5sum'] != FileTools(linkedGCD[0], logger).md5sum():
-                verified = 0
-                logger.error("GCD file linked from L3 dir. has different md5sum from source L2 dir. for run %s. Source: %s, linked: %s" % (RunId, gInfo, linkedGCD[0]))
-            else:
-                logger.info("GCD check passed")
-            # End: GCD check
-           
-            if not it_files:
-                sRunInfo = [s for s in sRunInfo if "EHE" not in s['name'] and "_IT" not in s['name'] and "SLOP" not in s['name'] and "i3.bz2" in s['name']]
-            else:
-                sRunInfo = [s for s in sRunInfo if "_IT" in s['name'] and "i3.bz2" in s['name']]
-
-            sRunInfo_sorted = sorted(sRunInfo, key=lambda k:['name'])
-           
-            for sr in sRunInfo:
-                if int(sr['sub_run']) % aggregate:
-                    continue
-
-                nName = sr['name'].replace("Level2_","Level3_").replace("Test_","")
-
-                if it_files:
-                    nName = nName.replace("_IT", "")
-
-                nRecord = []
-                nRecord = [d for d in dRunInfo if d['name']==nName]
-
-                logger.debug("nName = %s" % nName)
-                logger.debug("nRecord = %s" % nRecord)
-
-                if len(nRecord)!=1:
-                    # may just be a subrun that is good in L2 but bad in L3 e.g. really small L2 output so no L3 events
-                    badRunL3 = [d for d in dRunInfo if d['name']==sr['name']]   
-                    if len(badRunL3) and badRunL3[0]['status'] == "BadRun":
-                        logger.info("Skipped sub run %s since it is declared as bad in L3" % sr['sub_run'])
-                        continue
-
-                    # Sometimes a sub run has been discarded in L2 post processing
-                    logger.debug("sr = %s" % sr)
-                    if sr['status'] == "BadRun":
-                        logger.info("Skipped sub run %s since it is declared as bad in L2" % sr['sub_run'])
-                        continue
-
-                    verified = 0
-                    logger.error("no DB record (or more than 1) for in/output %s/%s dir. for run %s" % (sr['name'], nName, RunId))
-                    continue
-
-                nRecord = nRecord[0]
-                OutDir = nRecord['path']
-                if nRecord['status'] not in ("OK","BadRun"):
-                    verified = 0
-                    logger.error("DB record for in/output %s/%s dir. for run %s is %s" % (sr['name'], nName, RunId, nRecord['status']))
-                    continue
-
-                L3Out = os.path.join(remove_path_prefix(nRecord['path']),nRecord['name'])
-                if not os.path.isfile(L3Out):
-                    verified = 0
-                    logger.error("out L3 file %s does not exist in outdir. for run %s"%(L3Out,RunId))
-
-            if verified:
-                logger.info("Sub run check passed")
-            
-            # in case last subrun was a badrun, pick last good subrun as nRecord
-            nRecord = [d for d in dRunInfo if "Level3" in d['name'] and d['status']=="OK"]            
-            nRecord = nRecord[-1]
-
-            if MERGEHDF5:
-                logger.info("Merge hdf5 files")
-                hdf5Files = []
-                
-                # ensures only files from "OK" jobs are included in the Merged file
-                hInfo = dbs4_.fetchall("""SELECT * FROM i3filter.job j join i3filter.urlpath u on j.queue_id=u.queue_id
-                                              join i3filter.run r on r.queue_id=j.queue_id
-                                              where j.dataset_id=%s and u.dataset_id=%s and
-                                              r.dataset_id=%s and j.status="OK" and r.run_id=%s
-                                              and u.name like "%%hdf5%%"
-                                              """%(DDatasetId,DDatasetId,DDatasetId,RunId),UseDict=True)
-                
-                hdf5Files = [remove_path_prefix(h['path'])+"/"+h['name'] for h in hInfo if "Merged" not in h['name']] # avoid previously meged hdf5 file if one exists
-
-                if len(hdf5Files):
-                    hdf5Files.sort()
-                    hdf5Files = " ".join(hdf5Files)
-                    
-                    hdf5Out = remove_path_prefix(nRecord['path'])+"/Level3_IC86.%s_data_Run00%s_Merged.hdf5"%(SEASON,RunId)
-
-                    if not dryrun:
-                        buildir = libs.config.get_config().get('L3', "I3_BUILD_%s" % DDatasetId)
-                        envpath = os.path.join(buildir, './env-shell.sh')
-                        mergescript = os.path.join(buildir, 'hdfwriter/resources/scripts/merge.py')
-
-                        mergeReturn = sub.call([envpath,
-                                            "python", mergescript,
-                                            "%s"%hdf5Files, "-o %s"%hdf5Out])
-                    
-                    if mergeReturn : verified = 0
-
-                    if not dryrun:
-                        dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","PERMANENT","%s","%s")\
-                               on duplicate key update dataset_id="%s",queue_id="%s",name="%s",path="%s",type="PERMANENT",md5sum="%s",size="%s",transferstate="WAITING"  """% \
-                                         (DDatasetId,nRecord['queue_id'],os.path.basename(hdf5Out),"file:"+os.path.dirname(hdf5Out)+"/",str(FileTools(hdf5Out, logger).md5sum()),str(os.path.getsize(hdf5Out)),\
-                                          DDatasetId,nRecord['queue_id'],os.path.basename(hdf5Out),"file:"+os.path.dirname(hdf5Out)+"/",str(FileTools(hdf5Out, logger).md5sum()),str(os.path.getsize(hdf5Out))))
-                        
-                        
-                        dbs4_.execute("""update i3filter.urlpath set transferstate="IGNORED" where dataset_id=%s and name like "%%%s%%hdf5%%" and name not like "%%Merged%%" """%(DDatasetId,RunId))
-
-               
-            if verified:
-                if not NOMETADATA:
-                    dest_folder = ''
-                    if dryrun:
-                        dest_folder = get_tmpdir()
-                    else:
-                        dest_folder = outdir
-
-                    write_meta_xml_post_processing(dest_folder = dest_folder,
-                                                   level = 'L3',
-                                                   script_file = __file__,
-                                                   logger = logger)
-                    
-                else:
-                    logger.info("No meta data files will be written")
-
-                logger.debug('tar log files')
-                tar_log_files(run_path = outdir, dryrun = dryrun, logger = logger)
-
-                logger.info("Succesfully Verified processing for run %s" % RunId)
-                counter['validated'] = counter['validated'] + 1
-            else:
-                logger.error("Failed Verification for run %s, see other logs" % RunId)
-                counter['errors'] = counter['errors'] + 1
-            
-            if not dryrun:
-                set_post_processing_state(RunId, DDatasetId, verified, dbs4_, dryrun, logger)
-
-        except Exception,err:
-            logger.exception(err)
-            counter['errors'] = counter['errors'] + 1
-            logger.warning("skipping verification for %s, see previous error" % RunId)
-
-    logger.info("%s runs were handled | validated %s runs | errors: %s | skipped %s runs" % (counter['all'], counter['validated'], counter['errors'], counter['skipped']))
-    return counter
-
-if __name__ == '__main__':
-    parser = get_defaultparser(__doc__,dryrun=True)
-
-    parser.add_argument("--sourcedatasetid", type=int, default = None,
-                                      dest="SDATASETID", help="Dataset ID to read from, usually L2 dataset. Required if not executed with --cron. If executed with --cron, this option is ignored")
-    
-    parser.add_argument("--destinationdatasetid", type=int, default = None,
-                                      dest="DDATASETID", help="Dataset ID to write to, usually L3 dataset. Required if not executed with --cron. If executed with --cron, this option is ignored")
-
-
-    parser.add_argument("-s", "--startrun", type=int, default = None,
-                                      dest="STARTRUN", help="start submission from this run. Required if not executed with --cron. If executed with --cron, this option is ignored")
-
-
-    parser.add_argument("-e", "--endrun", type=int, default=9999999999,
-                                      dest="ENDRUN", help="end submission at this run. If executed with --cron, this option is ignored")
-    
-    parser.add_argument("--mergehdf5", action="store_true", default=False,
-              dest="MERGEHDF5", help="merge hdf5 files, useful when files are really small")
-    
-    parser.add_argument("--nometadata", action="store_true", default=False,
-              dest="NOMETADATA", help="Don't write meta data files")
-
-    parser.add_argument("--cron", action="store_true", default=False, dest="CRON", help="Execute as cron. No other options required")
-    parser.add_argument("--special-gcd", action="store_true", default=False, dest="SPECIAL_GCD", help="The destination dataset was using a special GCD that was not used in L2.")
-    parser.add_argument("--use-icetop-files", action="store_true", default=False, dest="IT_FILES", help="Use IceTop files instead of standard L2 files")
-    parser.add_argument("--aggregate", type = int, default = 1, help="number of subruns to aggregate to form one job. Needs to match the value passed for the processing.")
-
-    args = parser.parse_args()
-
-    LOGFILE = None
-
-    if args.CRON:
-        LOGFILE=os.path.join(get_logdir(sublogpath = 'L3Processing'), "PostProcessing_CRON_")
+        metafile = MetaXMLFile(meta_file_dest, run, 'L3', args.destination_dataset_id, logger)
+        metafile.add_post_processing_info(__file__, args.no_svn)
     else:
-        LOGFILE = os.path.join(get_logdir(sublogpath = 'L3Processing'), "PostProcessing_%s_%s_" % (args.SDATASETID, args.DDATASETID))
+        logger.info("No meta data files will be written")
 
-    logger = get_logger(args.loglevel,LOGFILE)
+    logger.debug('tar log files')
+    tar_log_files(run, logger, args.dryrun, run_folder = run_folder)
 
-    if not args.CRON and (args.SDATASETID is None or args.DDATASETID is None or args.STARTRUN is None):
-        logger.critical("--sourcedatasetid and --destinationdatasetid and -s are required if not executed with --cron")
+    logger.info('Mark as validated')
+    run.set_post_processing_state(args.destination_dataset_id, True)
+
+    counter.count('validated')
+
+    logger.info("Checks passed")
+
+def main(args, run_ids, config, logger):
+    db = DatabaseConnection.get_connection('filter-db', logger)
+    iceprod = IceProd1(logger, args.dryrun)
+    checksumcache = DBChecksumCache(logger, dryrun = args.dryrun)
+
+    counter = Counter(['handled', 'validated', 'skipped', 'error'])
+
+    # Source dataset ids
+    if args.source_dataset_id is not None:
+        logger.info('Source dataset id has been explicitely set through the parameter!')
+        source_dataset_ids = [args.source_dataset_id]
+    else:
+        source_dataset_ids = config.get_source_dataset_ids(args.destination_dataset_id)
+
+    if not len(source_dataset_ids):
+        logger.critical('Did not find source dataset id for dataset id {0}'.format(args.destination_dataset_id))
         exit(1)
 
+    # If no runs have been specified, find all runs of current season_info
+    # Current season is specified in config file at DEFAULT:Season
+    if not len(run_ids):
+        season = config.getint('DEFAULT', 'Season')
+        info = config.get_seasons_info()
+
+        if int(season) not in info:
+            logger.critical('Did not find information about season {0}'.format(season))
+            exit(1)
+
+        excluded_runs = [-1]
+        upper_limit = 99999999
+
+        next_season = season + 1
+        if next_season not in info:
+            logger.info('Next season has not been configured yet. No information about test runs.')
+        else:
+            excluded_runs.extend(info[next_season]['test'])
+            upper_limit = info[next_season]['first'] - 1
+
+        sql = '''
+            SELECT run_id
+            FROM i3filter.runs
+            WHERE (run_id BETWEEN {first} AND {last} OR
+                run_id IN ({test_runs})) AND
+                run_id NOT IN ({excluded_runs})'''.format(
+                first = info[season]['first'],
+                last = upper_limit,
+                test_runs = ','.join(str(e) for e in info[season]['test']),
+                excluded_runs = ','.join(str(e) for e in excluded_runs)
+            )
+
+        logger.debug('SQL: {0}'.format(sql))
+
+        query = db.fetchall(sql)
+
+        run_ids = [r['run_id'] for r in query]
+
+    logger.debug('Run IDs: {0}'.format(run_ids))
+
+    runs = []
+    for run_id in run_ids:
+        try:
+            r = Run(run_id, logger, dryrun = args.dryrun)
+            r.load()
+
+            if r.is_good_run():
+                runs.append(r)
+        except LoadRunDataException:
+            logger.warning('Skipping run {0} since there are no DB entries'.format(run_id))
+            counter.count('skipped')
+
+    logger.debug('Runs: {0}'.format(runs))
+
+    for run in runs:
+        counter.count('handled')
+
+        try:
+            validate_run(source_dataset_ids, run, args, iceprod, logger, counter, checksumcache)
+        except Exception as e:
+            counter.count('error')
+            logger.exception(run.format("Exception {e} thrown for run = {run_id}, production_version = {production_version}", e = e))
+   
+    logger.info('Post processing complete: {0}'.format(counter.get_summary()))
+
+if __name__ == '__main__':
+    parser = get_defaultparser(__doc__, dryrun = True)
+    parser.add_argument("--source-dataset-id", type = int, required = False, default = None, help="Dataset ID to read from, usually L2 dataset. Use this option only if you want override the configuration.")
+    parser.add_argument("--destination-dataset-id", type = int, required = True, default = None, help="Dataset ID to write to, usually L3 dataset")
+    parser.add_argument("-s", "--startrun", type = int, required = False, default = None, help = "Start submitting from this run")
+    parser.add_argument("-e", "--endrun", type = int, required = False, default= None, help = "End submitting at this run")
+    parser.add_argument("--runs", type = int, nargs = '*', required = False, help = "Submitting specific runs. Can be mixed with -s and -e")
+    parser.add_argument("--nometadata", action = "store_true", default = False, help="Do not write meta data files")
+    parser.add_argument("--cron", action = "store_true", default = False, help = "Use this option if you call this script via a cron")
+    parser.add_argument("--re-validate", action = "store_true", default = False, help = "Also validate runs that have already been validated")
+    parser.add_argument("--no-svn", action = "store_true", default = False, help = "No SVN is available. No SVN information will be logged.")
+    parser.add_argument("--cosmicray", action = "store_true", default = False, help= " Important if you submit L3 jobs for the cosmic ray WG")
+    parser.add_argument("--aggregate", type = int, default = None, help = "USE THIS OPTION IF YOU WANT TO OVERRIDE THE DATASET CONFIGURATION ONLY. DO USE THIS OPTION ONLY IF YOU KNOW WHAT YOU ARE DOING. Number of subruns to aggregate to form one job, needed when processing 1 subrun is really short.")
+    args = parser.parse_args()
+
+    logfile = os.path.join(get_logdir(sublogpath = 'L3Processing'), 'PostProcessing_')
+
+    if args.cron:
+        logfile += 'CRON_'
+
+    if args.logfile is not None:
+        logfile = args.logfile
+
+    logger = get_logger(args.loglevel, logfile, svn_info_from_file = args.no_svn)
+
+    config = get_config(logger)
+
+    # Check arguments
+    runs = args.runs
+
+    if runs is None:
+        runs = []
+
+    if args.startrun is not None:
+        if args.endrun is None:
+            logger.critical('If --startrun, -s has been set, also the --endrun, -e needs to be set.')
+            exit(1)
+
+        runs.extend(range(args.startrun, args.endrun + 1))
+    elif args.endrun is not None:
+        logger.critical('If --endrun, -e has been set, also the --startrun, -s needs to be set.')
+        exit(1)
+
+    if not len(runs):
+        logger.info('No specific runs have been set. Going to validate all runs of current season (check config file DEFAULT:Season).')
+
+    # Check if --cron option is enabled. If so, check if cron usage allowed by config
     lock = None
-    if args.CRON:
-        if not libs.config.get_config().getboolean('L3', 'CronPostProcessing'):
+    if args.cron:
+        if not config.getboolean('Level3', 'CronPostProcessing'):
             logger.critical('It is currently not allowed to execute this script as cron. Check config file.')
             exit(1)
 
         # Check if cron is already running
-        lock = libs.process.Lock(os.path.basename(__file__), logger)
+        lock = Lock(os.path.basename(__file__), logger)
         lock.lock()
 
-    if not args.CRON:
-        main(SDatasetId = args.SDATASETID, 
-            DDatasetId = args.DDATASETID,
-            START_RUN = args.STARTRUN, 
-            END_RUN = args.ENDRUN, 
-            MERGEHDF5 = args.MERGEHDF5, 
-            NOMETADATA = args.NOMETADATA, 
-            dryrun = args.dryrun, 
-            logger = logger,
-            special_gcd = args.SPECIAL_GCD,
-            it_files = args.IT_FILES,
-            aggregate = args.aggregate)
-    else:
-        # Find installed crons
-        crons = libs.config.get_var_dict('L3', 'CronJobPostProcessing', keytype = int, valtype = int)
+    main(args, runs, config, logger)
 
-        firstrun = libs.config.get_config().get('L3', 'CronRunStart')
-        lastrun = libs.config.get_config().get('L3', 'CronRunEnd')
-
-        logger.debug("crons: %s" % crons)
-
-        delete_log = True
-
-        for dest, source in crons.iteritems():
-            logger.info('====================================================')
-            logger.info("Executing Cron Job for dataset %s with source %s" % (dest, source))
-
-            counter = main(SDatasetId = source, 
-                DDatasetId = dest,
-                START_RUN = firstrun, 
-                END_RUN = lastrun, 
-                MERGEHDF5 = args.MERGEHDF5,
-                NOMETADATA = args.NOMETADATA, 
-                dryrun = args.dryrun, 
-                logger = logger,
-                special_gcd = args.SPECIAL_GCD,
-                it_files = args.IT_FILES,
-                aggregate = args.aggregate)
-
-            # counter contains how many runs have been submitted. Since
-            # the cron is executed very often and will probably do nothing
-            # we won't keep those log files since they are useless.
-            # Therefore, we will delete the log file if no run has been submitted
-            if counter['validated'] + counter['errors']:
-                delete_log = False
-
-        if delete_log:
-            delete_log_file(logger)
-    
-    if args.CRON:
+    if args.cron:
         lock.unlock()
+
+    logger.info('Done')
 

@@ -519,7 +519,7 @@ class MetaXMLFile(File):
             # It contains empty lines. Remove them
             formatted_xml = os.linesep.join([s for s in formatted_xml.splitlines() if s.strip()])
 
-            self.logger.debug("Write meta file: {0}".format(path))
+            self.logger.debug("Write meta file: {0}".format(self.path))
             f.write(formatted_xml)
 
 def create_good_run_list(dataset_id, db, logger, dryrun):
@@ -814,13 +814,23 @@ def tar_files(files, tar_file, logger, dryrun, mode = 'w'):
 
             logger.debug("Adding {0} to tar file".format(file_name))
 
-def tar_log_files(run, logger, dryrun):
+def tar_log_files(run, logger, dryrun, run_folder = None):
+    """
+    Tars all log files. If no `run_folder` is given, the L2 run folder will be used.
+
+    Args:
+        run (runs.Run): The run
+        logger (Logger): The logger
+        run_folder (None or str): If `None`, the L2 run folder will be used.
+    """
+
     from config import get_config
     from glob import glob
 
     config = get_config(logger)
 
-    run_folder = run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER', pass_number = 1))
+    if run_folder is None:
+        run_folder = run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER', pass_number = 1))
 
     tar_name = run.format(config.get('Level2', 'TarLogFileName'), RUN_FOLDER = run_folder)
     glob_str = config.get_var_list('Level2', 'LogFileGlob')
