@@ -1005,6 +1005,8 @@ def has_subrun_dstheader_within_good_time_range(subrun, logger):
                     within_good_time_range = True
                     if found_dstheader:
                         break
+                elif good == -1:
+                    found_dstheader = False
     finally:
         f.close()
 

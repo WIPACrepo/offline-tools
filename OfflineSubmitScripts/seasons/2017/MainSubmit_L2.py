@@ -56,16 +56,23 @@ def main(args, run_ids, logger):
     iceprod = IceProd1(logger, args.dryrun)
 
     # Check if the resubmission flag has been set and if all runs are due for a resubmission
-    if args.resubmission:
-        for run in runs:
-            if not iceprod.is_run_submitted(run_id_dataset_id_mapping[run.run_id], run):
-                logger.critical('Run {0} has not been submitted before. Do not use the resubmission flag to submit runs for the first time.'.format(run.run_id))
-                exit(1)
+    ignored_runs = []
+    for run in runs:
+        if iceprod.is_run_submitted(run_id_dataset_id_mapping[run.run_id], run):
+            if args.resubmission:
+                logger.warning(run.format('Run {run_id} will be resubmitted.'))
+            else:
+                logger.warning(run.format('Run {run_id} has already been submitted. The --resubmission flag has not been set. This run will be skipped.'))
+                ignored_runs.append(run)
 
     checksumcache = DBChecksumCache(logger, dryrun = args.dryrun)
 
     for run in runs:
         counter.count('handled')
+
+        if run in ignored_runs:
+            counter.count('skipped')
+            continue
 
         try:
             # Dataset id for this run
@@ -155,6 +162,7 @@ def main(args, run_ids, logger):
                 logger.warning('No I3DSTHeader in first file(s) within good time range. Aggregate first {} files.'.format(short_first_files))
                 run.set_first_files_aggregated(short_first_files)
 
+            logger.critical('*********** short_first_files = {}'.format(short_first_files))
 
             # Submit run
             iceprod.submit_run(dataset_id, run, checksumcache, 'PFFilt', aggregate_only_first_files = short_first_files, aggregate_only_last_files = short_last_files)

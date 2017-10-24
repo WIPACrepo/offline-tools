@@ -57,6 +57,8 @@ def main(run_ids, config, args, logger):
 
         for sd_id in source_dataset_ids:
             if args.ignore_l2_validation:
+                logger.warning('Ignore L2 validation flag')
+
                 for r in all_runs_of_season:
                     if r not in run_dataset_mapping and iceprod.get_run_status(sd_id, Run(r, logger)) == 'OK':
                         run_dataset_mapping[r] = sd_id
@@ -81,8 +83,14 @@ def main(run_ids, config, args, logger):
     logger.debug('run_ids = {0}'.format(run_ids))
 
     # Create Run objects and filter bad runs
+    validated_runs = {sd_id: get_validated_runs(sd_id, logger) for sd_id in source_dataset_ids}
     runs = []
     for run_id in run_ids:
+        if r not in validated_runs:
+            logger.warning('L2 files of run {} have not been validated yet. Skip this run.'.format(run_id))
+            counter.count('skipped')
+            continue
+
         try:
             r = Run(run_id, logger, dryrun = args.dryrun)
             r.load()

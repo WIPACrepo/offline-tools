@@ -194,7 +194,8 @@ class Run(object):
             force_reload (boolean): If `True`, no cached data will be used. The default is `False` and usally the value does not change within a script.
         """
 
-        self.logger.debug('load data: force reload = {0}, run id = {1}'.format(force_reload, self.run_id))
+        # This log message has been printen WAY too often
+        #self.logger.trace('load data: force reload = {0}, run id = {1}'.format(force_reload, self.run_id))
 
         # Load only data if forced or not loaded yet
         if not force_reload and self._data is not None and self._subruns['common'] is not None:
@@ -1370,7 +1371,7 @@ def get_validated_runs(dataset_id, logger):
         list: Run ids.
     """
 
-    # It's compllicated:
+    # It's compllicated (applies to pass1):
     #   1) If it is a L3 dataset < 1885, we do not have any information. Therefore, ignore the validation flag.
     #   2) If it is a L2 dataset < 1915, there is no dataset specific validation information. Therefore, we need
     #      to check for `dataset_id = 0`.
@@ -1379,7 +1380,7 @@ def get_validated_runs(dataset_id, logger):
     dataset = get_config(logger).get_dataset_info(dataset_id)
 
     sql = """
-    SELECT run_id FROM i3filter.runs r
+    SELECT r.run_id FROM i3filter.runs r
     JOIN i3filter.post_processing pp
         ON r.run_id = pp.run_id
     WHERE pp.dataset_id = {dataset_id}
@@ -1408,6 +1409,5 @@ def get_validated_runs(dataset_id, logger):
     from databaseconnection import DatabaseConnection
     db = DatabaseConnection.get_connection('filter-db', logger)
 
-    return [e['run_id'] for r in db.fetchall(sql)]
-
+    return [r['run_id'] for r in db.fetchall(sql)]
 
