@@ -35,12 +35,17 @@ class RunTools(object):
     def GetActiveStringsAndDoms(self, Season, UpdateDB = False, gcd_file = None):
         GCDFile = gcd_file
 
+        startDate=self.GetRunTimes()['tStart']
+
+        detector_configuration = 'IC86' if Season > 2010 else 'IC79'
+
+        gcd_file_glob = "/data/exp/IceCube/%s/filtered/level2%s/VerifiedGCD/Level2%s_%s.%s*%s*"%(startDate.year, self.passString, self.passString, detector_configuration, Season, self.RunNumber)
+
         if gcd_file is None:
-            startDate=self.GetRunTimes()['tStart']
-            GCDFile = glob.glob("/data/exp/IceCube/%s/filtered/level2%s/VerifiedGCD/Level2%s_IC86.%s*%s*"%(startDate.year, self.passString, self.passString, Season, self.RunNumber))
+            GCDFile = glob.glob(gcd_file_glob)
         
         if not len(GCDFile):
-            self.logger.warning("No GCD file for run %s in Verified GCD Directory ... exiting"%self.RunNumber)
+            self.logger.warning("No GCD file for run %s in Verified GCD Directory (%s) ... exiting" % (self.RunNumber, gcd_file_glob))
             return 1
         
         if gcd_file is None:
@@ -61,12 +66,27 @@ class RunTools(object):
             self.logger.warning("No BadDomsList object in GCD file ... exiting")
             return 1
 
+        # Remove duplicates...IC79 has some
+        self.logger.info('Bad Doms List has {} entries'.format(len(BDL)))
+        initial_bdl_len = len(BDL)
+
+        BDL = list(set(BDL))
+
+        if len(BDL) < initial_bdl_len:
+            self.logger.info('Bad Doms List length has changed due to duplicates. Removed {} DOMs.'.format(initial_bdl_len - len(BDL)))
         
         # make default configuration
         detConf = {}    
         for s in range(0,87):
             detConf[s] = range(1,67)
-        
+
+        # If IC79, remove some strings...
+        if Season == 2010:
+            self.logger.info('It\'s IC79...get rid of the IC86-only strings...')
+            ic86only = [1, 7, 14, 22, 31, 79, 80]
+            for s in ic86only:
+                del detConf[s]
+ 
         # remove DOMs in BDL
         for b in BDL:
             detConf[b.string].pop(detConf[b.string].index(b.om))
