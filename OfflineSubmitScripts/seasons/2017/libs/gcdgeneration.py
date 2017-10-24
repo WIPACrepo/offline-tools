@@ -9,8 +9,17 @@ from icecube.gcdserver.GCDGeneratorModule import GCDGenerator
 def get_latest_transaction_of_gcd_db(logger):
     from libs.config import get_config
     import pymongo
+    from icecube.gcdserver.OptionParser import DEFAULT_DB_PASS, DEFAULT_DB_USER
 
     client = pymongo.MongoClient(get_config(logger).get('GCDGeneration', 'MongoDBHost'))
+
+    try:
+        client.omdb.collection_names()
+        # We have all privileges on db
+    except:
+        # We need to authenticate
+        client.omdb.authenticate(DEFAULT_DB_USER, DEFAULT_DB_PASS)
+
     collection = client.omdb.transaction
 
     transactions = collection.find().sort('transaction', pymongo.DESCENDING)
