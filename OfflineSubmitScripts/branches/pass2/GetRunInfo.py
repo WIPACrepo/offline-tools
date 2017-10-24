@@ -23,6 +23,7 @@ import libs.checks
 from libs.databaseconnection import DatabaseConnection
 from RunTools import RunTools
 from icecube.dataclasses import I3Time
+from libs.runs import get_validated_runs
 
 import json
 
@@ -129,12 +130,16 @@ def get_lost_file_information(run_id, logger):
     return data
 
 
-def main(config, logger,dryrun = False, check = False, updates_only = False, runs = [], ignore_time_mismatch = False, errorfile = None):
+def main(config, logger,dryrun = False, check = False, updates_only = False, runs = [], ignore_time_mismatch = False, errorfile = None, check_pfdst_dataset = None):
     if check:
         logger.info('Only in check mode. Just checking if an update is available.')
 
     if updates_only:
         logger.info('Only updates will be executed.')
+
+    validated_runs = None
+    if check_pfdst_dataset is not None:
+        validated_runs = [row['run_id'] for row in get_validated_runs(check_pfdst_dataset, logger = logger)]
 
     # Get the current production version and snapshot info 
     # from the production database dbs4
@@ -356,6 +361,11 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
             logger.debug('Skipping run {} since only specific runs will be reported (see --runs)'.format(r))
             continue
 
+        if validated_runs is not None:
+            if r not in validated_runs:
+                logger.error('Run {0} has not been validated in dataset {1}. This run will be skipped.'.format(r, check_pfdst_dataset))
+                continue
+
        # if not is_good_run:
        #     logger.info("Skip run %s because it is a bad run" % r)
        #     continue
@@ -543,6 +553,7 @@ if __name__ == "__main__":
     parser.add_argument('--ignore-time-mismatch', help="ONLY USE THIS OPTION IF YOU KNOW WHAT YOU ARE DOING!11!111. Sometimes the pass2 times (PFDST) do not match the PFFilt times of pass1. We want to match the pass1 times. Use this option, if the pass2 data is OUTSIDE!!!! of the pass1 range. If it is inside, check for missing data/files.",action="store_true",default=False)  
     parser.add_argument('--updates-only', help="Do only execute updates. Do not insert new entries.",dest="updates_only",action="store_true",default=False)  
     parser.add_argument("--errorfile", type = str, default = None, required = False, help = "Write errors into a json file")
+    parser.add_argument("--check-pfdst-dataset", type = int, default = None, required = False, help = "Check dataset if runs have been validated.")
 
     args = parser.parse_args()
     LOGFILE=os.path.join(get_logdir(sublogpath = 'PreProcessing'), 'GetRunInfo_')
@@ -552,6 +563,6 @@ if __name__ == "__main__":
         logger.critical('You can only use --ignore-time-mismatch if you specify exactly one run with --runs! That\'s a safety restriction in orde rto prevent a batch of wrong data.')
         exit(1)
 
-    main(logger = logger, dryrun=args.dryrun, check = args.check, config = config, updates_only = args.updates_only, runs = args.runs, ignore_time_mismatch = args.ignore_time_mismatch, errorfile = args.errorfile)
+    main(logger = logger, dryrun=args.dryrun, check = args.check, config = config, updates_only = args.updates_only, runs = args.runs, ignore_time_mismatch = args.ignore_time_mismatch, errorfile = args.errorfile, check_pfdst_dataset = args.check_pfdst_dataset)
 
 
