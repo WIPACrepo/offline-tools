@@ -88,7 +88,9 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
             return 1
         else:
             logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
-    
+   
+    detector_configuration = 'IC86' if season > 2010 else 'IC79'
+ 
     R = RunTools(r['run_id'], passNumber = 2)
     InFiles = R.GetRunFiles(r['tStart'],'P', season = season)
     OutFiles = R.GetRunFiles(r['tStart'],'L', season = season)
@@ -180,13 +182,14 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
 
     for p in InFiles:
         l = os.path.join(os.path.dirname(L2Files[0]),
-                        os.path.basename(p).replace("PFFilt_PhysicsFiltering","Level2pass2_IC86.%s_data" % season)
+                        os.path.basename(p).replace("PFFilt_PhysicsFiltering","Level2pass2_%s.%s_data" % (detector_configuration, season))
                                            .replace(".tar",".i3"))\
-                .replace('PFDST_PhysicsTrig_PhysicsFiltering', 'Level2pass2_IC86.%s_data' % season)\
-                .replace('PFDST_TestData_PhysicsFiltering', 'Level2pass2_IC86.%s_data' % season)\
-                .replace('PFDST_PhysicsFiltering', 'Level2pass2_IC86.%s_data' % season)\
+                .replace('PFDST_PhysicsTrig_PhysicsFiltering', 'Level2pass2_%s.%s_data' % (detector_configuration, season))\
+                .replace('PFDST_TestData_PhysicsFiltering', 'Level2pass2_%s.%s_data' % (detector_configuration, season))\
+                .replace('PFDST_PhysicsFiltering', 'Level2pass2_%s.%s_data' % (detector_configuration, season))\
                 .replace('.gz', '.zst')\
-                .replace('.bz2', '.zst')
+                .replace('.bz2', '.zst')\
+                .replace('0000%s' % r['run_id'], '00%s' % r['run_id']) # IC79 PFDST file naming bug
    
         logger.debug("looking for file %s" % l)
  

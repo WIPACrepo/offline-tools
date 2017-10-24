@@ -69,6 +69,11 @@ def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
     if not dryrun and not os.path.exists(RUNINFODIR(ProductionYear)):
         os.mkdir(RUNINFODIR(ProductionYear))
 
+    logger.info('Create GRL')
+
+    logger.info('Write {}'.format(RunInfoFile))
+    logger.info('Write {}'.format(RunInfoFileV))
+
     RI_File = open(RunInfoFile,'w')
     RI_FileV = open(RunInfoFileV,'w')
     
@@ -79,9 +84,11 @@ def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
     RI_FileV.write("\n         (1=good 0=bad)  ")
     
     for k in keys_:
+        logger.debug('Handle run {}'.format(k))
         if not RunInfoDict[k]['validated']:
             #RI_File.write("\n%s  **Incomplete Processing or Not Validated**"%k)
             #RI_FileV.write("\n%s  **Incomplete Processing or Not Validated**"%k)
+            logger.debug('Run {} has not been validated yet'.format(k))
             continue
     
         StartTime = RunInfoDict[k]['tStart'] 

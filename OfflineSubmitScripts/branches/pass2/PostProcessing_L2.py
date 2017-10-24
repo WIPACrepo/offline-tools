@@ -248,9 +248,10 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
         logger.debug("--Attempting to tar _gaps.txt files ...")
         MakeTarGapsTxtFile(dbs4_, r['tStart'], r['run_id'], datasetid = dataset_id, dryrun = dryrun, logger = logger)
         logger.debug("MakeTarGapsFile              .... passed")
-        logger.info( "--Attempting to collect Active Strings/DOMs information from verified GCD file ...")
 
-    R = RunTools(r['run_id'], passNumber = 2)
+    logger.info( "--Attempting to collect Active Strings/DOMs information from verified GCD file ...")
+
+    R = RunTools(r['run_id'], passNumber = 2, logger = logger)
     if 1 == R.GetActiveStringsAndDoms(season, UpdateDB = not dryrun):
         logger.error("GetActiveStringsAndDoms failed")
         return
@@ -342,6 +343,7 @@ def main(runinfo, logger, nometadata, dryrun = False, no_pass2_gcd_file = False,
             # If the dataset id is good, add it to the list of processed dataset ids
             if dataset_id > 0:
                 datasets.add(dataset_id)
+                logger.debug('Add dataset {}'.format(dataset_id))
             
             main_run(run, logger, dataset_id = dataset_id, season = season, nometadata = nometadata, dryrun = dryrun, no_pass2_gcd_file = no_pass2_gcd_file, npx = npx, update_active_X_only = update_active_X_only, missing_output_files = missing_output_files, force = force, accelerate = accelerate)
         except Exception as e:
@@ -349,6 +351,8 @@ def main(runinfo, logger, nometadata, dryrun = False, no_pass2_gcd_file = False,
    
     if len(datasets) > 1:
         logger.warning("We have runs from more than one dataset: %s" % datasets)
+    elif not len(datasets):
+        logger.error('We have no datasets...?')
 
     if runinfo:
         # Create run info files for all dataset ids thta are affected
