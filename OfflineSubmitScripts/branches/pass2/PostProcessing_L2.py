@@ -206,8 +206,13 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
             for f in appending_lost_files:
                 logger.warning('  {sub_run}: livetime {livetime}s'.format(**f))
 
-        pass1_data = get_sub_run_info_pass1(r['run_id'], logger)[r['run_id']]
-        pass1_data_sub_runs = pass1_data.keys()
+        try:
+            pass1_data = get_sub_run_info_pass1(r['run_id'], logger)[r['run_id']]
+            pass1_data_sub_runs = pass1_data.keys()
+        except KeyError:
+            logger.warning('Could not find pass1 run data. That is probably caused by good_it = 1 and good_i3 = 0. Those runs were not processed in 2011/pass1. If an error occurs, you need to check manually.')
+            pass1_data = None
+            pass1_data_sub_runs = None
 
         if (r['good_tstart'] - first_event_of_first_file).total_seconds() + prepending_livetime < -1:
             logger.error('Probably missing a file or data:')
