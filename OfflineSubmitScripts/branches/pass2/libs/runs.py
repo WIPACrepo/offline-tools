@@ -66,7 +66,8 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, checksumcache, dryrun, logg
 
     # Filter .xml, .bad, .error files
     # .bad and .error files are used by Jim Bellinger to mark corrupted files. Sometimes the corrupted and the good files are available.
-    InFiles = [f for f in InFiles if not f.endswith('xml') and not f.endswith('bad') and not f.endswith('error') and not f.endswith('errors')]
+    for e in config.get_config().get('DEFAULT', 'IgnoreFilesWithExtension').split(','):
+        InFiles = [f for f in InFiles if not f.endswith(e)]
  
     logger.debug("InFiles = %s" % InFiles)
  

@@ -209,10 +209,10 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
         pass1_data = get_sub_run_info_pass1(r['run_id'], logger)[r['run_id']]
         pass1_data_sub_runs = pass1_data.keys()
 
-        if (r['good_tstart'] - first_event_of_first_file).total_seconds() - prepending_livetime < -1:
+        if (r['good_tstart'] - first_event_of_first_file).total_seconds() + prepending_livetime < -1:
             logger.error('Probably missing a file or data:')
             logger.error('  good start time:  {0}'.format(r['good_tstart']))
-            logger.error('  first file start: {0} - {1}s (lost data)'.format(first_event_of_first_file, prepending_livetime))
+            logger.error('  first file start: {0} - {1}s (lost data) = {2}'.format(first_event_of_first_file, prepending_livetime, first_event_of_first_file - datetime.timedelta(seconds = prepending_livetime)))
 
             if abs((first_event_of_first_file - pass1_data[pass1_data_sub_runs[0]]['first_event'].date_time).total_seconds() + prepending_livetime) <= 1:
                 logger.warning('The file time does not differ more than 1 second from the pass1 time: {}'.format(abs((first_event_of_first_file - pass1_data[pass1_data_sub_runs[0]]['first_event'].date_time).total_seconds())))
@@ -224,7 +224,7 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
                 else:
                     logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
 
-        if (r['good_tstop'] - last_event_of_last_file).total_seconds() - appending_livetime > 1:
+        if ((r['good_tstop'] - last_event_of_last_file).total_seconds()) - appending_livetime > 1:
             logger.error('Probably missing a file or data:')
             logger.error('  good stop time:       {0}'.format(r['good_tstop']))
             logger.error('  last file stop:       {0} + {1}s (lost data)'.format(last_event_of_last_file, appending_livetime))

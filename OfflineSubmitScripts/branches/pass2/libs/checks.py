@@ -93,6 +93,11 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
     InFiles = R.GetRunFiles(r['tStart'],'P', season = season)
     OutFiles = R.GetRunFiles(r['tStart'],'L', season = season)
    
+    # Filter .xml, .bad, .error files
+    # .bad and .error files are used by Jim Bellinger to mark corrupted files. Sometimes the corrupted and the good files are available.
+    for e in config.get_config().get('DEFAULT', 'IgnoreFilesWithExtension').split(','):
+        InFiles = [f for f in InFiles if not f.endswith(e)]
+ 
     # Remove all BadRuns from InFiles:
     bad_runs = dbtools.get_bad_sub_runs(dbs4 = dbs4_, dataset_id = dataset_id, run_id = r['run_id'], logger = logger)
 
