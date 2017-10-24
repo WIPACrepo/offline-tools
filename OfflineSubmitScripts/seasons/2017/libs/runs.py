@@ -704,7 +704,7 @@ class Run(object):
             value(bool): The value that should be written into the DB. Usually one only sets it to `1`. That's also the default.
         """
         
-        sql = "UPDATE i3filter.runs SET aggregated_fist_files = %(value)s WHERE run_id = {run_id} AND snapshot_id = {snapshot_id} AND production_version = {production_version} LIMIT 1"
+        sql = "UPDATE i3filter.runs SET aggregated_first_files = %(value)s WHERE run_id = {run_id} AND snapshot_id = {snapshot_id} AND production_version = {production_version} LIMIT 1"
         sql = self.format(sql)
 
         self.logger.debug('SQL: {}'.format(sql))

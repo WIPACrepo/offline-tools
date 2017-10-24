@@ -127,6 +127,7 @@ def main(args, run_ids, logger):
                 counter.count('error')
                 continue
 
+            logger.info('Check files for DST header in good time range')
             # Check for short last files:
             # Start from the last file until we find a DST header within the good time range. Aggregate all files that were out of time range/do not have a dst header
             short_last_files = 0
