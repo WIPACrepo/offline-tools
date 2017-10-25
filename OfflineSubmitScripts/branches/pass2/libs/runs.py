@@ -19,7 +19,7 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, checksumcache, dryrun, logg
         logger (logging.Logger): The logger
     """
 
-    from config import get_season_by_run
+    from config import get_season_by_run, get_config
 
     path_prefix = 'gsiftp://gridftp.icecube.wisc.edu'
 
@@ -66,7 +66,7 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, checksumcache, dryrun, logg
 
     # Filter .xml, .bad, .error files
     # .bad and .error files are used by Jim Bellinger to mark corrupted files. Sometimes the corrupted and the good files are available.
-    for e in config.get_config().get('DEFAULT', 'IgnoreFilesWithExtension').split(','):
+    for e in get_config().get('DEFAULT', 'IgnoreFilesWithExtension').split(','):
         InFiles = [f for f in InFiles if not f.endswith(e)]
  
     logger.debug("InFiles = %s" % InFiles)
