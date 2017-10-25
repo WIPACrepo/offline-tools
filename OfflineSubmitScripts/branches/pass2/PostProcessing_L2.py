@@ -219,11 +219,13 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
             logger.error('  good start time:  {0}'.format(r['good_tstart']))
             logger.error('  first file start: {0} - {1}s (lost data) = {2}'.format(first_event_of_first_file, prepending_livetime, first_event_of_first_file - datetime.timedelta(seconds = prepending_livetime)))
 
-            if abs((first_event_of_first_file - pass1_data[pass1_data_sub_runs[0]]['first_event'].date_time).total_seconds() + prepending_livetime) <= 1:
-                logger.warning('The file time does not differ more than 1 second from the pass1 time: {}'.format(abs((first_event_of_first_file - pass1_data[pass1_data_sub_runs[0]]['first_event'].date_time).total_seconds())))
+            if abs((first_event_of_first_file - pass1_data[pass1_data_sub_runs[0]]['first_event'].date_time).total_seconds() - prepending_livetime) <= 1:
+                logger.warning('The file time does not differ more than 1 second from the pass1 time: {}'.format(abs((first_event_of_first_file - pass1_data[pass1_data_sub_runs[0]]['first_event'].date_time).total_seconds() - prepending_livetime)))
                 logger.warning('Pass1 file start time: {}'.format(pass1_data[pass1_data_sub_runs[0]]['first_event']))
                 logger.warning('This is OK and we keep on validating!')
             else:
+                logger.error('The file time does differ more than 1 second from the pass1 time: {}'.format(abs((first_event_of_first_file - pass1_data[pass1_data_sub_runs[0]]['first_event'].date_time).total_seconds() - prepending_livetime)))
+                logger.error('Pass1 file start time: {}'.format(pass1_data[pass1_data_sub_runs[0]]['first_event']))
                 if not force:
                     return
                 else:
