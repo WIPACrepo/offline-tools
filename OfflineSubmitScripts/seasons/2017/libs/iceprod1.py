@@ -140,6 +140,10 @@ class IceProd1(iceprodinterface.IceProdInterface):
             if not isinstance(gcd_file, File):
                 gcd_file = File(gcd_file, self.logger)
 
+        if not gcd_file.exists():
+            self.logger.critical('The GCD file does not exist: {}'.format(gcd_file))
+            raise RuntimeError('The GCD file does not exist: {}'.format(gcd_file))
+
         self.logger.debug("GCD file: {0}".format(gcd_file.path))
 
         if gcd_file is None:

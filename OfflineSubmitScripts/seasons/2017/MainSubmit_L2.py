@@ -7,7 +7,7 @@ from libs.argparser import get_defaultparser
 from libs.iceprod1 import IceProd1
 from libs.config import get_config
 from libs.runs import Run, LoadRunDataException
-from libs.files import clean_datawarehouse, MetaXMLFile, has_subrun_dstheader_within_good_time_range
+from libs.files import clean_datawarehouse, MetaXMLFile, has_subrun_dstheader_within_good_time_range, File
 from libs.path import make_relative_symlink, get_logdir, get_tmpdir
 from libs.databaseconnection import DatabaseConnection
 from libs.utils import Counter, DBChecksumCache
@@ -102,7 +102,7 @@ def main(args, run_ids, logger):
                     os.makedirs(output)
 
             # Create GCD link
-            gcd_file = run.get_gcd_file(exclude_run_folder_gcd = True)
+            gcd_file = run.get_gcd_file(exclude_run_folder_gcd = True) if args.special_gcd is None else File(args.special_gcd, logger)
 
             if gcd_file is None:
                 logger.critical('No GCD found')
@@ -114,7 +114,10 @@ def main(args, run_ids, logger):
                 counter.count('error')
                 continue   
 
-            make_relative_symlink(gcd_file.path, run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER_GCD')), args.dryrun, logger, replace = True)
+            if not args.nogcdlink:
+                make_relative_symlink(gcd_file.path, run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER_GCD')), args.dryrun, logger, replace = True)
+            else:
+                logger.info('No GCD link will be created in run folder')
 
             # Put GCD symlink in run folder into cache since it is probably used in iceprod.submit_run()
             run.get_gcd_file(force_reload = True)
@@ -163,10 +166,8 @@ def main(args, run_ids, logger):
                 logger.warning('No I3DSTHeader in first file(s) within good time range. Aggregate first {} files.'.format(short_first_files))
                 run.set_first_files_aggregated(short_first_files)
 
-            logger.critical('*********** short_first_files = {}'.format(short_first_files))
-
             # Submit run
-            iceprod.submit_run(dataset_id, run, checksumcache, 'PFFilt', aggregate_only_first_files = short_first_files, aggregate_only_last_files = short_last_files)
+            iceprod.submit_run(dataset_id, run, checksumcache, 'PFFilt', aggregate_only_first_files = short_first_files, aggregate_only_last_files = short_last_files, gcd_file = args.special_gcd)
 
             # Write metadata
             if not args.nometadata:
@@ -200,7 +201,9 @@ if __name__ == '__main__':
     parser.add_argument("--cleandatawarehouse", action = "store_true", default = False, help = "Clean output files in datawarehouse as part of (re)submission process.")
     parser.add_argument("--resubmission", action = "store_true", default = False, help = "Resubmit the runs. Note that all runs are resubmitted. If a run would be submitted for the very first time, an error is thrown.")
     parser.add_argument("--nometadata", action = "store_true", default = False, help="Do not write meta data files")
+    parser.add_argument("--nogcdlink", action = "store_true", default = False, help="Do not create a GCD link in the run folder")
     parser.add_argument("--remove-submitted-runs", action = "store_true", default = False, help="Instead of submitting runs, it will remove all runs that are specified from the iceprod DB. This means that those runs will be stopped to be processed.")
+    parser.add_argument("--special-gcd", type = str, required = False, default = None, help = "Use a special GCD file, not the GCD file for this run. Note: This GCD file will be used for ALL runs that are submitted.")
     args = parser.parse_args()
 
     logfile = os.path.join(get_logdir(sublogpath = 'MainProcessing'), 'RunSubmission_')
