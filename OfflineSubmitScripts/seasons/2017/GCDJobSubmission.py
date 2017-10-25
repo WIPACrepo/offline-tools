@@ -9,6 +9,26 @@ from libs.logger import get_logger
 from libs.path import get_logdir, get_tmpdir, get_rootdir, get_env_python_path
 from libs.runs import Run, LoadRunDataException
 from libs.databaseconnection import DatabaseConnection
+from libs.process import Lock
+from libs.cron import cron_finished
+from libs.utils import Counter
+
+def get_runs_without_gcd_file(season, db, logger):
+    """
+    Note: This is not a accurate list! It _can_ contain runs that already have a GCD file (e.g. if there are two entries w/ different
+    production versions/snapshot ids. However, this does not break things since later in the script the correction run_id/production_version
+    combination is picked.
+    We just need to ensure that no run that _could_ have a missing GCD file is filtered.
+
+    This function just prevents from loading unnecessary data by using the Run-class.
+    """
+
+    from libs.runs import get_all_runs_of_season
+    all_runs = get_all_runs_of_season(season, logger)
+
+    sql = 'SELECT run_id FROM i3filter.runs WHERE run_id IN ({}) AND NOT gcd_generated AND NOT gcd_bad_doms_validated'.format(','.join(str(r) for r in all_runs))
+    result = db.fetchall(sql)
+    return [r['run_id'] for r in result]
 
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__, dryrun = True)
@@ -17,22 +37,40 @@ if __name__ == '__main__':
     parser.add_argument("--runs", type = int, nargs = '*', required = False, help = "Generate GCD file of specific runs. Can be mixed with -s and -e")
     parser.add_argument("--resubmission", action = "store_true", default = False, help = "Regenerate GCD file even if already attempted")
     parser.add_argument("--local-execution", action = "store_true", default = False, help = "Do not submit a condor file. Generate a .sh file inseatd. It contains the run commands in order to generate the GCD files on your local machine.")
+    parser.add_argument("--cron", action = "store_true", default = False, help = "Use this option if you call this script via a cron")
     args = parser.parse_args() 
 
     logfile = os.path.join(get_logdir(sublogpath = 'MainProcessing'), 'SubmitGCDJobs_')
+
+    if args.cron:
+        logfile += 'CRON_'
 
     if args.logfile is not None:
         logfile = args.logfile
 
     logger = get_logger(args.loglevel, logfile)
 
+    # Config
+    config = get_config(logger)
+
+    # Counter
+    counter = Counter(['handled', 'submitted', 'skipped', 'error'])
+
+    # Check if --cron option is enabled. If so, check if cron usage allowed by config
+    lock = None
+    if args.cron:
+        if not config.getboolean('GCD', 'CronGCDProcessing'):
+            logger.critical('It is currently not allowed to execute this script as cron. Check config file.')
+            exit(1)
+
+        # Check if cron is already running
+        lock = Lock(os.path.basename(__file__), logger)
+        lock.lock()
+
     # DB connection
     db = DatabaseConnection.get_connection('filter-db', logger)
     if db is None:
         raise Exception('No database connection')
-
-    # Config
-    config = get_config(logger)
 
     # Temporary submit file
     condor_file_path = config.get('GCDGeneration', 'TmpCondorSubmitFile')
@@ -57,6 +95,13 @@ if __name__ == '__main__':
         logger.critical('If --endrun, -e has been set, also the --startrun, -s needs to be set.')
         exit(1)
 
+    if not len(runs) and args.cron:
+        # OK, it's a cron and no runs have been specified explicitely. Let's try to submit all for the current season
+        logger.info('No runs have been specified. Try to generate GCD files for all runs of season {} that have no GCD generated yet.'.format(config.get('DEFAULT', 'Season')))
+
+        runs = get_runs_without_gcd_file(config.get('DEFAULT', 'Season'), db, logger)
+        logger.debug('Found {0} runs w/o GCD file: {1}'.format(len(runs), runs))
+
     if not len(runs):
         logger.critical("No runs given.")
         exit(1)
@@ -74,16 +119,31 @@ if __name__ == '__main__':
     for run in runs:
         logger.info('Submit GCD generation script for run {0}'.format(run.run_id))
 
+        counter.count('handled')
+
         try:
             if not run.is_good_run() and not run.is_test_run():
                 logger.info('Skip run since it is a bad run and not a 24h test run.')
+                counter.count('skipped')
                 continue
         except LoadRunDataException as e:
             logger.error(str(e))
+            counter.count('error')
+            continue
+
+        if run.get_gcd_file() is not None and not run.get_gcd_generated():
+            logger.error('Some state mismatch: A GCD file exists but the DB says it has not been generated yet.')
+            counter.count('error')
+            continue
+
+        if run.get_gcd_file() is None and run.get_gcd_generated():
+            logger.error('Some state mismatch: A GCD file does not exist but the DB says it has been generated.')
+            counter.count('error')
             continue
 
         if not args.resubmission and run.get_gcd_file() is not None:
             logger.info('Skip this run because it already has a GCD file. If you want to re-create it, use the --resubmission option.')
+            counter.count('skipped')
             continue
 
         condor_log = run.format(config.get('GCDGeneration', 'CondorLog'))
@@ -133,12 +193,17 @@ if __name__ == '__main__':
                 logger.debug("Execute `condor_submit {0}`".format(condor_file_path))
                 processoutput = subprocess.check_output("condor_submit {0}".format(condor_file_path), shell = True, stderr = subprocess.STDOUT)
                 logger.info(processoutput.strip())
+                counter.count('submitted')
 
     if args.local_execution:
         bash_file.close()
 
         logger.warning('--local-execution option was enabled. NO JOBS HAVE BEEN SUBMITTED. NO GCD GENERATION PROCESSES ARE RUNNING CURRENTLY!')
         logger.warning('You need to execute {0} manually on that machine you would like!'.format(config.get('GCD', 'LocalExecutionBashFile')))
+
+    if args.cron:
+        lock.unlock()
+        cron_finished(os.path.basename(__file__), counter, logger, args.dryrun)
 
     logger.info('Done')
 

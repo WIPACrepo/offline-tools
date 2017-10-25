@@ -650,7 +650,7 @@ class Run(object):
 
     def get_gcd_generated(self, force_reload = False):
         """
-        Checks if the GCD file has been generated and the GCD audit was successful.
+        Checks if the GCD file has been generated.
 
          Args:
             force_reload (boolean): If `True`, no cached data will be used. The default is `False` and usally the value does not change within a script.
@@ -1325,6 +1325,8 @@ def get_all_runs_of_season(season, logger):
         list: List of run ids
     """
 
+    season = int(season)
+
     from databaseconnection import DatabaseConnection
     db = DatabaseConnection.get_connection('filter-db', logger)
 
@@ -1358,7 +1360,7 @@ def get_all_runs_of_season(season, logger):
 
     logger.debug('SQL: {0}'.format(sql))
 
-    return [e['run_id'] for r in db.fetchall(sql)]
+    return [r['run_id'] for r in db.fetchall(sql)]
 
 def get_validated_runs(dataset_id, logger):
     """

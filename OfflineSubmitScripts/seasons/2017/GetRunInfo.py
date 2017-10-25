@@ -12,6 +12,9 @@ from libs.path import get_logdir
 from libs.runs import Run, validate_file_integrity
 from libs.databaseconnection import DatabaseConnection
 from libs import times
+from libs.process import Lock
+from libs.cron import cron_finished
+from libs.utils import Counter
 
 import os
 
@@ -33,6 +36,8 @@ def send_check_notification(new_records, changed_records, logger, dryrun):
     send_email(receivers, 'A new snapshot is available!', message, logger, dryrun)
 
 def main(inputfiletype, logger, dryrun, check, skip_file_validation = False):
+    counter = Counter(['handled', 'imported', 'error', 'updated'])
+
     if check:
         logger.info('Only in check mode. Just checking if an update is available.')
 
@@ -107,7 +112,7 @@ def main(inputfiletype, logger, dryrun, check, skip_file_validation = False):
 
     if not len(i3live_query):
         logger.info("no results from i3Live DB for runs >= {first_run}".format(first_run = first_run))
-        exit(0)
+        return counter
 
     # dict structure of live db data ensures only latest entry for every run is considered
     run_data = {}
@@ -198,12 +203,12 @@ def main(inputfiletype, logger, dryrun, check, skip_file_validation = False):
 
     if not len(new_data) and not len(changed_runs):
         logger.info("No records to be inserted/updated. Exiting.")
-        exit(0)
+        return counter
 
     if check:
         logger.info("New records available. This was only a check. Do nothing. Exit.")
         send_check_notification(new_data, changed_runs, logger, dryrun)
-        exit(0)
+        return counter
 
     logger.info('Found: new runs = {new_runs}, updated runs = {updated_runs}'.format(new_runs = len(new_data), updated_runs = len(changed_runs)))
 
@@ -241,6 +246,8 @@ def main(inputfiletype, logger, dryrun, check, skip_file_validation = False):
 
         if r in old_data:
             continue
+
+        counter.count('handled')
 
         if r in new_data:
             run_info = []
@@ -288,6 +295,7 @@ def main(inputfiletype, logger, dryrun, check, skip_file_validation = False):
         if r in changed_runs.keys():
             logger.info("updating records for run = {0}".format(r))
             update_comment = 'Updated in snapshot {0}'.format(run.get_snapshot_id())
+            counter.count('updated')
 
         # Insert new runs from live in filter-db
         if check_files or skip_file_validation or (not run.is_good_run() and (not run.is_test_run() or run.is_failed_run())):
@@ -359,24 +367,50 @@ def main(inputfiletype, logger, dryrun, check, skip_file_validation = False):
                     logger.info('Insert comment: {0}'.format(update_comment))
                     db_filter.execute(comment_insertion_sql, comment_insertion_args)
 
+            counter.count('imported')
+        else:
+            counter.count('error')
+
+    return counter
+
 if __name__ == "__main__":
     parser = get_defaultparser(__doc__, dryrun = True)
     parser.add_argument('--check', help="Only check for updates. Do nothing else", action = "store_true", default = False)
+    parser.add_argument("--cron", action = "store_true", default = False, help = "Use this option if you call this script via a cron")
     parser.add_argument('--skip-file-validation', help="Skip file check. Ignores if input files do not exists or similar.", action = "store_true", default = False)
     parser.add_argument('--inputfiletype', help="What is the input file type? Available options: PFDST, PFFilt. Default is PFFilt", default = 'PFFilt', required = False)
     args = parser.parse_args()
 
     logfile = os.path.join(get_logdir(sublogpath = 'PreProcessing'), 'GetRunInfo_')
 
+    if args.cron:
+        logfile += 'CRON_'
+
     if args.logfile is not None:
         logfile = args.logfile
 
     logger = get_logger(args.loglevel, logfile)
 
+    config = get_config(logger)
+
     if args.inputfiletype not in ['PFDST', 'PFFilt']:
         logger.critical('Input file type must match `PFDST` or `PFFilt`.')
         exit(1)
 
-    main(inputfiletype = args.inputfiletype, logger = logger, dryrun = args.dryrun, check = args.check, skip_file_validation = args.skip_file_validation)
+    # Check if --cron option is enabled. If so, check if cron usage allowed by config
+    lock = None
+    if args.cron:
+        if not config.getboolean('Level2', 'CronRunImport'):
+            logger.critical('It is currently not allowed to execute this script as cron. Check config file.')
+            exit(1)
 
+        # Check if cron is already running
+        lock = Lock(os.path.basename(__file__), logger)
+        lock.lock()
+
+    counter = main(inputfiletype = args.inputfiletype, logger = logger, dryrun = args.dryrun, check = args.check, skip_file_validation = args.skip_file_validation)
+
+    if args.cron:
+        lock.unlock()
+        cron_finished(os.path.basename(__file__), counter, logger, args.dryrun)
 

@@ -11,6 +11,8 @@ from libs.files import clean_datawarehouse, MetaXMLFile, has_subrun_dstheader_wi
 from libs.path import make_relative_symlink, get_logdir, get_tmpdir
 from libs.databaseconnection import DatabaseConnection
 from libs.utils import Counter, DBChecksumCache
+from libs.process import Lock
+from libs.cron import cron_finished
 
 def main(args, run_ids, logger):
     config = get_config(logger)
@@ -191,6 +193,7 @@ def main(args, run_ids, logger):
             logger.exception(e)
 
     logger.info('Run submission complete: {0}'.format(counter.get_summary()))
+    return counter
 
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__, dryrun = True)
@@ -204,14 +207,20 @@ if __name__ == '__main__':
     parser.add_argument("--nogcdlink", action = "store_true", default = False, help="Do not create a GCD link in the run folder")
     parser.add_argument("--remove-submitted-runs", action = "store_true", default = False, help="Instead of submitting runs, it will remove all runs that are specified from the iceprod DB. This means that those runs will be stopped to be processed.")
     parser.add_argument("--special-gcd", type = str, required = False, default = None, help = "Use a special GCD file, not the GCD file for this run. Note: This GCD file will be used for ALL runs that are submitted.")
+    parser.add_argument("--cron", action = "store_true", default = False, help = "Use this option if you call this script via a cron")
     args = parser.parse_args()
 
     logfile = os.path.join(get_logdir(sublogpath = 'MainProcessing'), 'RunSubmission_')
+
+    if args.cron:
+        logfile += 'CRON_'
 
     if args.logfile is not None:
         logfile = args.logfile
 
     logger = get_logger(args.loglevel, logfile)
+
+    config = get_config(logger)
 
     # Check arguments
     runs = args.runs
@@ -229,6 +238,14 @@ if __name__ == '__main__':
         logger.critical('If --endrun, -e has been set, also the --startrun, -s needs to be set.')
         exit(1)
 
+    if not len(runs) and args.cron:
+        # OK, it's a cron and no runs have been specified explicitely. Let's try to submit all for the current season
+        logger.info('No runs have been specified. Try to submit all runs of season {} that have were not submitted yet.'.format(config.get('DEFAULT', 'Season')))
+
+        from libs.runs import get_all_runs_of_season
+        runs = get_all_runs_of_season(config.get('DEFAULT', 'Season'), logger)
+        logger.debug('Found {0} runs in the current season.'.format(len(runs), runs))
+
     if not len(runs):
         logger.critical("No runs given.")
         exit(1)
@@ -236,6 +253,21 @@ if __name__ == '__main__':
     if args.dataset_id is None:
         logger.info("No dataset id is specified. For each run the database will be checked to determine the L2 dataset id. If there are more than one dataset id for a specific run, the script will fail.")
 
-    main(args, runs, logger)
+    # Check if --cron option is enabled. If so, check if cron usage allowed by config
+    lock = None
+    if args.cron:
+        if not config.getboolean('Level2', 'CronMainProcessing'):
+            logger.critical('It is currently not allowed to execute this script as cron. Check config file.')
+            exit(1)
+
+        # Check if cron is already running
+        lock = Lock(os.path.basename(__file__), logger)
+        lock.lock()
+
+    counter = main(args, runs, logger)
+
+    if args.cron:
+        lock.unlock()
+        cron_finished(os.path.basename(__file__), counter, logger, args.dryrun)
 
     logger.info('Done')

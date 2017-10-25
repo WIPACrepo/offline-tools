@@ -18,6 +18,7 @@ from libs.files import tar_gaps_files, insert_gaps_file_info_into_db, tar_log_fi
 from libs.trimrun import trim_to_good_run_time_range
 from libs.path import make_relative_symlink, get_logdir, get_tmpdir
 from libs.utils import Counter, DBChecksumCache
+from libs.cron import cron_finished
 
 def validate_run(dataset_id, run, args, iceprod, logger, counter, checksumcache):
     config = get_config(logger)
@@ -114,7 +115,7 @@ def main(args, run_ids, config, logger):
     # Current season is specified in config file at DEFAULT:Season
     if not len(run_ids):
         season = config.getint('DEFAULT', 'Season')
-        info = config.get_season_info()
+        info = config.get_seasons_info()
 
         if season not in info:
             logger.critical('Did not find information about season {0}'.format(season))
@@ -132,7 +133,7 @@ def main(args, run_ids, config, logger):
 
         sql = '''
             SELECT run_id
-            FROM i3filter.run
+            FROM i3filter.runs
             WHERE (run_id BETWEEN {first} AND {last} OR
                 run_id IN ({test_runs})) AND
                 run_id NOT IN ({excluded_runs})'''.format(
@@ -194,6 +195,8 @@ def main(args, run_ids, config, logger):
         create_good_run_list(dataset_id, db, logger, args.dryrun)
 
     logger.info('Post processing complete: {0}'.format(counter.get_summary()))
+
+    return counter
 
 def create_grl_only(config, args):
     dataset_id = args.dataset_id
@@ -279,10 +282,11 @@ if __name__ == '__main__':
         lock = Lock(os.path.basename(__file__), logger)
         lock.lock()
 
-    main(args, runs, config, logger)
+    counter = main(args, runs, config, logger)
 
     if args.cron:
         lock.unlock()
+        cron_finished(os.path.basename(__file__), counter, logger, args.dryrun)
 
     logger.info('Done')
 
