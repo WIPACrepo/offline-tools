@@ -94,7 +94,7 @@ def main(params, logger, DryRun):
         if not args.out:
             GRLInfo = dbs4_.fetchall("""select g.*,r.tStart, r.tStop, r.FilesComplete from i3filter.grl_snapshot_info_pass2 g
                                     join i3filter.run_info_summary_pass2 r on r.run_id=g.run_id
-                                    where g.run_id=%s %s"""%(Run, ' and not submitted' if not DryRun or (DryRun and not Resubmission) else ''),UseDict=True)
+                                    where g.run_id=%s %s"""%(Run, ' and not submitted' if not args.add and (not DryRun or (DryRun and not Resubmission)) else ''),UseDict=True)
         else:
             GRLInfo = dbs4_.fetchall("""select g.*,r.tStart, r.tStop, r.FilesComplete from i3filter.grl_snapshot_info_pass2 g
                                     join i3filter.run_info_summary_pass2 r on r.run_id=g.run_id
@@ -107,7 +107,10 @@ def main(params, logger, DryRun):
         for g in GRLInfo:
             status = get_run_status(g)
            
-            clean_run(dbs4_, dataset_id, Run,params.CLEANDW, g, logger, DryRun)
+            if not args.add:
+                clean_run(dbs4_, dataset_id, Run,params.CLEANDW, g, logger, DryRun)
+            else:
+                logger.info('Do not clean the DB since we want to add some files...')
         
             QId = max_queue_id(dbs4_, dataset_id)
            
@@ -115,36 +118,39 @@ def main(params, logger, DryRun):
                 QId = 0
 
             try: 
-                submit_run(dbs4_, g, status, dataset_id, QId, checksumcache, DryRun, logger, use_std_gcds = args.USE_STD_GCDS, gcd = args.gcd, input = args.input, out = args.out)
+                submit_run(dbs4_, g, status, dataset_id, QId, checksumcache, DryRun, logger, use_std_gcds = args.USE_STD_GCDS, gcd = args.gcd, input = args.input, out = args.out, add = args.add)
             except ValueError as e:
                 logger.exception(e)
 
-                logger.warning('Cleaning run...')
-                clean_run(dbs4_, dataset_id, Run,params.CLEANDW, g, logger, DryRun)
+                if not args.add:
+                    logger.warning('Cleaning run...')
+                    clean_run(dbs4_, dataset_id, Run,params.CLEANDW, g, logger, DryRun)
                 logger.error('Could not submit run {}'.format(Run))
 
                 continue
             except MySQLdb.err.OperationalError as e:
                 logger.exception(e)
 
-                logger.warning('Cleaning run...')
-                clean_run(dbs4_, dataset_id, Run,params.CLEANDW, g, logger, DryRun)
+                if not args.add:
+                    logger.warning('Cleaning run...')
+                    clean_run(dbs4_, dataset_id, Run,params.CLEANDW, g, logger, DryRun)
 
                 logger.warning('Try to submit this run a second time')
 
                 # Try it a second time
                 try:
-                    submit_run(dbs4_, g, status, dataset_id, QId, checksumcache, DryRun, logger, use_std_gcds = args.USE_STD_GCDS, gcd = args.gcd, input = args.input, out = args.out)
+                    submit_run(dbs4_, g, status, dataset_id, QId, checksumcache, DryRun, logger, use_std_gcds = args.USE_STD_GCDS, gcd = args.gcd, input = args.input, out = args.out, add = args.add)
                 except Exception as e:
                     logger.exception(e)
 
-                    logger.warning('Cleaning run...')
-                    clean_run(dbs4_, dataset_id, Run,params.CLEANDW, g, logger, DryRun)
+                    if not args.add:
+                        logger.warning('Cleaning run...')
+                        clean_run(dbs4_, dataset_id, Run,params.CLEANDW, g, logger, DryRun)
 
                     logger.error('Could not submit run {}'.format(Run))
                     continue
         
-            if not args.NOMETADATA and (g['good_i3'] or g['good_it']):
+            if not args.add and not args.NOMETADATA and (g['good_i3'] or g['good_it']):
                 meta_file_dest = ''
                 if DryRun:
                     meta_file_dest = get_tmpdir()
@@ -215,6 +221,7 @@ if __name__ == '__main__':
 
     parser.add_argument("--use-std-GCDs", action="store_true", default=False,
               dest="USE_STD_GCDS", help="Don't use pass2 GCD files. Use pass1 GCD files. This flag should be set for season 2015, 2016... because those GCD files already have the SPE correction")
+    parser.add_argument("--add", action = "store_true", default = False, help = "Use this option if already some files have been processed but accidentally some files weren't submitted. It submits only the missing files.")
 
     args = parser.parse_args()
 

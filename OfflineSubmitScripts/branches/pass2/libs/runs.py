@@ -5,7 +5,7 @@ import os
 import glob
 from logger import DummyLogger
 
-def submit_run(dbs4_, g, status, DatasetId, QueueId, checksumcache, dryrun, logger, use_std_gcds = False, gcd = None, input = None, out = None):
+def submit_run(dbs4_, g, status, DatasetId, QueueId, checksumcache, dryrun, logger, use_std_gcds = False, gcd = None, input = None, out = None, add = False):
     """
     Submits the run. It makes all the inserts to the database.
 
@@ -20,6 +20,7 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, checksumcache, dryrun, logg
     """
 
     from config import get_season_by_run, get_config
+    from files import remove_path_prefix
 
     path_prefix = 'gsiftp://gridftp.icecube.wisc.edu'
 
@@ -59,6 +60,32 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, checksumcache, dryrun, logg
     ]
 
     InFiles = [f for f in InFiles if os.path.basename(f) not in excluded_files]
+
+    if add:
+        sql = '''SELECT 
+    path, name
+FROM
+    i3filter.run r
+        JOIN
+    i3filter.urlpath u ON r.dataset_id = u.dataset_id
+        AND r.queue_id = u.queue_id
+WHERE
+    r.dataset_id = {dataset_id} AND run_id = {run_id}
+        AND `type` = 'INPUT'
+        AND name NOT LIKE '%GCD%'
+ORDER BY name'''.format(dataset_id = DatasetId, run_id = g['run_id'])
+
+        submitted_files = dbs4_.fetchall(sql, UseDict = True)
+
+        submitted_files = [os.path.join(remove_path_prefix(f['path']), f['name']) for f in submitted_files]
+
+        InFiles = [f for f in InFiles if f not in submitted_files]
+
+        logger.warning('The --add option has been activated. Only {} files will be submitted in addition to the already submitted ones.'.format(len(InFiles)))
+
+        logger.debug('Already submitted files:')
+        for f in submitted_files:
+            logger.debug('  ' + f)
  
     if input:
         logger.debug("InFiles glob = %s" % format_path(input))
