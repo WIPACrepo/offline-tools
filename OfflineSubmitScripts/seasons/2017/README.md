@@ -16,6 +16,7 @@ Important cofiguration:
     2. Level2: I3_SRC: Source folder of the icerec release
     3. Level2: I3_BUILD: Build folder of the icerec release
 
+
 Execute Scripts
 -----------------
 
@@ -32,8 +33,23 @@ Several installed cron jobs are helping out. All of them are installed on cobalt
     1. `CacheChecksums.py`: Calculates the MD5 checksums of PFFilt files. The sums are required for run submission and the cache makes it way faster to submit runs.
     2. `GetRunInfo.py --check`: Checks if new run data is available. If so, an email will be sent
     3. `bin/svninfo.sh`: Writes a JSON file to cache the current SVN info. This is needed for jobs that run not on cobalt (e.g. post processing on NPX requires the option `--no-svn`).
-    4. `PostProcessing_L2.py --cron`: Executes the post processing automatically.
+    4. `GetRunInfo.py --cron`: Executes the run import automatically.
+    5. `PostProcessing_L2.py --cron`: Executes the post processing automatically.
+    6. `MainProcessing_L2.py --cron`: Executes the main processing automatically.
 
+One cron has been installed on `submitter`: The automated GCD generation, GCDJobSubmission.py --cron. 
+
+
+eMail configuration
+-------------------
+
+The scripts send in some cases emails. Especially the --cron jobs sending summaries. To configure the receiver, have alook at the following sections:
+
+    1. PoleGCDChecks
+    2. TemplateGCDChecks
+    3. GetRunInfo
+    4. Notifications (sender information)
+    5. Crons
 
 Documentation
 -----------------
