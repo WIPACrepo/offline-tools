@@ -37,13 +37,13 @@ Several installed cron jobs are helping out. All of them are installed on cobalt
     5. `PostProcessing_L2.py --cron`: Executes the post processing automatically.
     6. `MainProcessing_L2.py --cron`: Executes the main processing automatically.
 
-One cron has been installed on `submitter`: The automated GCD generation, GCDJobSubmission.py --cron. 
+One cron has been installed on `submitter`: The automated GCD generation, GCDJobSubmission.py `--cron`. 
 
 
 eMail configuration
 -------------------
 
-The scripts send in some cases emails. Especially the --cron jobs sending summaries. To configure the receiver, have alook at the following sections:
+The scripts send in some cases emails. Especially, the `--cron` jobs sending summaries. To configure the receiver, have alook at the following sections:
 
     1. PoleGCDChecks
     2. TemplateGCDChecks

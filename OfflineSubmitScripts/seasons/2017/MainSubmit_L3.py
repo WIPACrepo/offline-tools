@@ -2,7 +2,7 @@
 
 import os
 
-from libs.logger import get_logger
+from libs.logger import get_logger, delete_log_file
 from libs.argparser import get_defaultparser
 from libs.files import clean_datawarehouse, MetaXMLFile
 from libs.process import Lock
@@ -12,6 +12,7 @@ from libs.runs import Run, get_validated_runs, get_all_runs_of_season, LoadRunDa
 from libs.iceprod1 import IceProd1
 from libs.l3processing import get_gcd_file, get_cosmicray_mc_gcd_file
 from libs.path import make_symlink, get_logdir, get_tmpdir
+from libs.cron import cron_finished
 
 from collections import OrderedDict
 
@@ -337,9 +338,10 @@ if __name__ == '__main__':
     if counter.get('handled') > 0:
         delete_log = False
 
-    if delete_log:
-        delete_log_file(logger)
-
     if lock is not None:
         lock.unlock()
+        cron_finished(os.path.basename(__file__), counter, logger, args.dryrun)
+
+    if delete_log:
+        delete_log_file(logger)
 

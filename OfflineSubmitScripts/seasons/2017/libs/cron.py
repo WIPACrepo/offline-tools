@@ -13,7 +13,7 @@ def cron_finished(cron_name, counter, logger, dryrun):
     config = get_config(logger)
 
     filehandlers = [handler for handler in logger.handlers if isinstance(handler, logging.FileHandler)]
-    log_files = [h.baseFilename for h in filehandlers]
+    log_files = [h.baseFilename.replace('/mnt/lfs3/', '/data/') for h in filehandlers]
 
     subject = None
     content = None
@@ -31,18 +31,18 @@ def cron_finished(cron_name, counter, logger, dryrun):
             lines = log_file.readlines()
 
         subject = 'Cron {cron_name} finished ({summary})'.format(cron_name = cron_name, summary = counter.get_summary())
-        content = 'Cron {cron_name} finished.\n\n{summary}\n\n'.format(cron_name = cron_name, summary = counter.get_summary())
-        content += 'Log files: {}\n\n'.format(', '.join(log_files))
-        content += 'First {} lines of the first log file:\n'.format(first_lines)
-        content += '-----------------------------------{}\n'.format(len(str(first_lines)) * '-')
+        content = 'Cron <b>{cron_name}</b> finished.\n\n{summary}\n\n'.format(cron_name = cron_name, summary = counter.get_summary())
+        content += '<b>Log files:</b> <a href="http://convey.icecube.wisc.edu{0}" target="_blank">{0}</a>\n\n'.format(', '.join(log_files))
+        content += '<b>First {} lines of the first log file:</b>\n'.format(first_lines)
+        content += '<hr>\n'
         content += ''.join(lines[:first_lines])
         content += '...\n'
-        content += '-----------------------------------{}\n\n'.format(len(str(first_lines)) * '-')
-        content += 'Last {} lines of the first log file:\n'.format(first_lines)
-        content += '----------------------------------{}\n'.format(len(str(last_lines)) * '-')
+        content += '<hr>\n'
+        content += '<b>Last {} lines of the first log file:</b>\n'.format(first_lines)
+        content += '<hr>\n'
         content += '...\n'
         content += ''.join(lines[-last_lines:])
-        content += '----------------------------------{}\n'.format(len(str(last_lines)) * '-')
+        content += '<hr>\n'
 
         content = content.replace('\n', '<br>\n')
 

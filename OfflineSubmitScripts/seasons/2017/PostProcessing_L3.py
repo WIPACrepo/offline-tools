@@ -18,6 +18,7 @@ from libs.files import tar_gaps_files, insert_gaps_file_info_into_db, tar_log_fi
 from libs.trimrun import trim_to_good_run_time_range
 from libs.path import make_relative_symlink, get_logdir, get_tmpdir
 from libs.utils import Counter, DBChecksumCache
+from libs.cron import cron_finished
 
 def validate_run(source_dataset_ids, run, args, iceprod, logger, counter, checksumcache):
     config = get_config(logger)
@@ -169,6 +170,7 @@ def main(args, run_ids, config, logger):
             logger.exception(run.format("Exception {e} thrown for run = {run_id}, production_version = {production_version}", e = e))
    
     logger.info('Post processing complete: {0}'.format(counter.get_summary()))
+    return counter
 
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__, dryrun = True)
@@ -227,10 +229,11 @@ if __name__ == '__main__':
         lock = Lock(os.path.basename(__file__), logger)
         lock.lock()
 
-    main(args, runs, config, logger)
+    counter = main(args, runs, config, logger)
 
     if args.cron:
         lock.unlock()
+        cron_finished(os.path.basename(__file__), counter, logger, args.dryrun)
 
     logger.info('Done')
 
