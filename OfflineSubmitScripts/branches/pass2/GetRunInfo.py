@@ -397,6 +397,9 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
 
             CheckFiles = R.FilesComplete(InFiles, RunTimes, get_tmpdir(), showTimeMismatches = is_good_run, outdict = detailed_check_information, no_xml_bundle = current_season in (2010, 2015, 2016))
 
+            logger.debug("Check files returned %s" % CheckFiles)
+            logger.debug('detailed_check_information = {}'.format(detailed_check_information))
+
             lost_files = get_lost_file_information(r, logger)
             if len(lost_files):
                 logger.warning('For this run {} files has been marked as lost. We will ignore warnings for those lost files. Enable --debug if you would like to see the detailed information.'.format(len(lost_files)))
@@ -419,10 +422,11 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
                 if not len(detailed_check_information[r]['missing_files']) and \
                   not detailed_check_information[r]['metadata_start_time_error'] and \
                   not detailed_check_information[r]['metadata_stop_time_error'] and \
-                  len(detailed_check_information[r]) == 3:
+                  len(detailed_check_information[r]) == 5:
                     CheckFiles = 1
 
             logger.debug("Check files returned %s" % CheckFiles)
+            logger.debug('detailed_check_information = {}'.format(detailed_check_information))
 
             # Hack for season 2012: We agreed that we're using the pDAQ/tstart/tstop times (meeting 02/01/2017, John, Dave, Matt, Michael, Colin, Jan)
             # Hack for season 2011: We agreed that we don't have any `good` time information at all. Therefore, we will process the entire files.
