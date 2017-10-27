@@ -57,12 +57,14 @@ def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
         return
     
     ProductionYear = str(RunInfoDict[keys_[0]]['tStart'].year)
-    
+   
+    detector_configuration = 'IC86' if int(ProductionYear) > 2010 else 'IC79'
+ 
     LatestProductionVersion = str(RunInfoDict[keys_[-1]]['production_version'])
     
-    RunInfoFile = RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_"%(ProductionYear,LatestProductionVersion)+time.strftime("%Y_%m_%d-%H_%M_%S",time.localtime()) + ".txt"
+    RunInfoFile = RUNINFODIR(ProductionYear) + "%s_%s_GoodRunInfo_%s_"%(detector_configuration, ProductionYear,LatestProductionVersion)+time.strftime("%Y_%m_%d-%H_%M_%S",time.localtime()) + ".txt"
     
-    RunInfoFileV = RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_Versioned_"%(ProductionYear,LatestProductionVersion)+time.strftime("%Y_%m_%d-%H_%M_%S",time.localtime()) + ".txt"
+    RunInfoFileV = RUNINFODIR(ProductionYear) + "%s_%s_GoodRunInfo_%s_Versioned_"%(detector_configuration, ProductionYear,LatestProductionVersion)+time.strftime("%Y_%m_%d-%H_%M_%S",time.localtime()) + ".txt"
     if dryrun: RunInfoFile  = os.path.join(get_tmpdir(), "runinfo")
     if dryrun: RunInfoFileV = os.path.join(get_tmpdir(), "runinfoV")
 
@@ -129,34 +131,34 @@ def MakeRunInfoFile(dbs4_, dataset_id, logger, dryrun = False):
     RI_FileV.close()
    
     if not dryrun: 
-        LatestGoodRunInfo = glob.glob(RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_2*" % (ProductionYear, LatestProductionVersion))
+        LatestGoodRunInfo = glob.glob(RUNINFODIR(ProductionYear) + "%s_%s_GoodRunInfo_%s_2*" % (detector_configuration, ProductionYear, LatestProductionVersion))
         LatestGoodRunInfo.sort(key=lambda x: os.path.getmtime(x))
         LatestGoodRunInfo = LatestGoodRunInfo[-1]
         LatestGoodRunInfoRelativePath = LatestGoodRunInfo.replace(LEVEL2_DIR(ProductionYear), '')
 
-        logger.debug("Sym link command: ln -s %s %s" % (LatestGoodRunInfoRelativePath, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt" % (ProductionYear)))
+        logger.debug("Sym link command: ln -s %s %s" % (LatestGoodRunInfoRelativePath, LEVEL2_DIR(ProductionYear) + "%s_%s_GoodRunInfo.txt" % (detector_configuration, ProductionYear)))
 
-    if os.path.lexists(LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt" % (ProductionYear)):
+    if os.path.lexists(LEVEL2_DIR(ProductionYear) + "%s_%s_GoodRunInfo.txt" % (detector_configuration, ProductionYear)):
         if not dryrun:
-            sub.call(["rm", LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt" % (ProductionYear)])
+            sub.call(["rm", LEVEL2_DIR(ProductionYear) + "%s_%s_GoodRunInfo.txt" % (detector_configuration, ProductionYear)])
 
     if not dryrun:
-        sub.call(["ln", "-s", "%s" % LatestGoodRunInfoRelativePath, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo.txt" % (ProductionYear)])
+        sub.call(["ln", "-s", "%s" % LatestGoodRunInfoRelativePath, LEVEL2_DIR(ProductionYear) + "%s_%s_GoodRunInfo.txt" % (detector_configuration, ProductionYear)])
     
     if not dryrun:   
-        LatestGoodRunInfoV = glob.glob(RUNINFODIR(ProductionYear) + "IC86_%s_GoodRunInfo_%s_Versioned*" % (ProductionYear, LatestProductionVersion))
+        LatestGoodRunInfoV = glob.glob(RUNINFODIR(ProductionYear) + "%s_%s_GoodRunInfo_%s_Versioned*" % (detector_configuration, ProductionYear, LatestProductionVersion))
         LatestGoodRunInfoV.sort(key=lambda x: os.path.getmtime(x))
         LatestGoodRunInfoV = LatestGoodRunInfoV[-1]
         LatestGoodRunInfoVRelativePath = LatestGoodRunInfoV.replace(LEVEL2_DIR(ProductionYear), '')
 
-        logger.debug("Sym link command: ln -s %s %s" % (LatestGoodRunInfoVRelativePath, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt" % (ProductionYear)))
+        logger.debug("Sym link command: ln -s %s %s" % (LatestGoodRunInfoVRelativePath, LEVEL2_DIR(ProductionYear) + "%s_%s_GoodRunInfo_Versioned.txt" % (detector_configuration, ProductionYear)))
 
-    if os.path.lexists(LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt" % (ProductionYear)):
+    if os.path.lexists(LEVEL2_DIR(ProductionYear) + "%s_%s_GoodRunInfo_Versioned.txt" % (detector_configuration, ProductionYear)):
         if not dryrun:
-            sub.call(["rm", LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt" % (ProductionYear)])
+            sub.call(["rm", LEVEL2_DIR(ProductionYear) + "%s_%s_GoodRunInfo_Versioned.txt" % (detector_configuration, ProductionYear)])
 
     if not dryrun:
-        sub.call(["ln", "-s", "%s" % LatestGoodRunInfoVRelativePath, LEVEL2_DIR(ProductionYear) + "IC86_%s_GoodRunInfo_Versioned.txt" % (ProductionYear)])
+        sub.call(["ln", "-s", "%s" % LatestGoodRunInfoVRelativePath, LEVEL2_DIR(ProductionYear) + "%s_%s_GoodRunInfo_Versioned.txt" % (detector_configuration, ProductionYear)])
 
 def MakeTarGapsTxtFile(dbs4_, StartTime, RunId, datasetid, dryrun = False, logger = DummyLogger()):
     """
