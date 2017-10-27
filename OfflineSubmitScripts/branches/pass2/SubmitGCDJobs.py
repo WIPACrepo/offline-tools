@@ -149,6 +149,14 @@ if __name__ == '__main__':
 
         Season = "IC%s.%s_" % (detector_conf, run_season)
 
+        spe_file = config.get('GCDGeneration', 'SpeCorrectionFile').format(season = run_season, detector_configuration = 'IC{}'.format(detector_conf))
+
+        logger.info('SPE file: {}'.format(spe_file))
+
+        if not os.path.isfile(spe_file):
+            logger.error('SPE correction file does not exist')
+            continue
+
         sY = str(StartDay.year)
         sM = str(StartDay.month).zfill(2)
         sD = str(StartDay.day).zfill(2)
@@ -228,7 +236,7 @@ if __name__ == '__main__':
         SUBMITFILE = open(CONDOR_SUBMIT_FILE,"w")
         SUBMITFILE.write("Universe = vanilla ")
         SUBMITFILE.write('\nExecutable = %s/./env-shell.sh'%I3BUILD)
-        SUBMITFILE.write("\narguments =  python -u %s/GCDGeneration_pass2.py %s %s %s %s %s %s "%(PYTHONSCRIPTDIR, GCDNamePass1, config.get('GCDGeneration', 'SpeCorrectionFile'), GCDName, r, PV, SId))
+        SUBMITFILE.write("\narguments =  python -u %s/GCDGeneration_pass2.py %s %s %s %s %s %s "%(PYTHONSCRIPTDIR, GCDNamePass1, spe_file, GCDName, r, PV, SId))
         SUBMITFILE.write("\nLog = %s/Run00%s_%s_%s.log"%(Clog,str(r),PV,SId))
         SUBMITFILE.write("\nError = %s/Run00%s_%s_%s.err"%(Cerr,str(r),PV,SId))
         SUBMITFILE.write("\nOutput = %s/Run00%s_%s_%s.out"%(Olog,str(r),PV,SId))
