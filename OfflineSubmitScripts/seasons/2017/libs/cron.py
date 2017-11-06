@@ -5,6 +5,13 @@ from email import send_email
 
 import logging
 
+def send_custom_message(cron_name, subject, message, logger, dryrun, replace_nl = True):
+    config = get_config(logger)
+    receivers = config.get_var_list('Crons', 'NotificationReceiver')
+    subject = 'Cron {0}: {1}'.format(cron_name, subject)
+
+    send_email(receivers, subject, message.replace('\n', '<br>\n'), logger, dryrun)
+
 def cron_finished(cron_name, counter, logger, dryrun):
     """
     Sends an email with cron_name in subject. It adds the first and last lines of the log file as well as the path to the log file.

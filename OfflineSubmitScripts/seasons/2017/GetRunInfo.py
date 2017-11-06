@@ -13,7 +13,7 @@ from libs.runs import Run, validate_file_integrity
 from libs.databaseconnection import DatabaseConnection
 from libs import times
 from libs.process import Lock
-from libs.cron import cron_finished
+from libs.cron import cron_finished, send_custom_message
 from libs.utils import Counter
 
 import os
@@ -35,7 +35,72 @@ def send_check_notification(new_records, changed_records, logger, dryrun):
 
     send_email(receivers, 'A new snapshot is available!', message, logger, dryrun)
 
-def main(inputfiletype, logger, dryrun, check, skip_file_validation = False):
+def updated_runs_manual_check(runs, logger):
+    ok = False
+
+    actions = []
+
+    logger.info('Please define actions for runs with an updated snapshot.')
+    logger.info('Actions:')
+    logger.info('   I: Ignore')
+    logger.info('   U: Update')
+    logger.info('   Q: Exit script')
+    while not ok:
+        actions = []
+        for run_id, snapshot_id in runs.items():
+            ok_action = False
+
+            while not ok_action:
+                action = raw_input('Run {0}, new snapshot id {1}: '.format(run_id, snapshot_id))
+
+                action = action.upper()
+                if action == 'I' or action == 'U' or action == 'Q':
+                    logger.info('Run {0}, new snapshot id {1}: {2}'.format(run_id, snapshot_id, action))
+                    ok_action = True
+                else:
+                    logger.error('Invalid action')
+
+            if action == 'Q':
+                logger.info('Stop script.')
+                exit()
+
+            actions.append({'run_id': run_id, 'snapshot_id': snapshot_id, 'action': action})
+
+        logger.info('*******************')
+        logger.info('Summary of actions:')
+        for action in actions:
+            logger.info('  Run {run_id}, snapshot id {snapshot_id}: {action}'.format(**action))
+
+        ok_approved = False
+        while not ok_approved:
+            approved = raw_input('Is this correct? (Y/N): ')
+
+            if approved.upper() in ('Y', 'N'):
+                logger.info('Is this correct? (Y/N): {}'.format(approved.upper()))
+                ok_approved = True
+
+                if approved.upper() == 'Y':
+                    ok = True
+            else:
+                logger.error('Invalid option. Try again.')
+
+    return actions
+
+def mark_ignored_run_snapshots(actions, db, logger, dryrun):
+    sql = 'INSERT INTO i3filter.runs_ignored (run_id, snapshot_id, `comment`, `date`) VALUES (%(run_id)s, %(snapshot_id)s, %(comment)s, NOW())'
+
+    for action in actions:
+        if action['action'] == 'I':
+            logger.debug('Ignore: {}'.format(action))
+
+            if not dryrun:
+                db.execute(sql, {'run_id': action['run_id'], 'snapshot_id': action['snapshot_id'], 'comment': 'Manually ignored'})
+
+def get_ignored_run_snapshots(db, logger):
+    sql = 'SELECT run_id, snapshot_id FROM i3filter.runs_ignored'
+    return db.fetchall(sql)
+
+def main(inputfiletype, logger, dryrun, check, skip_file_validation, cron):
     counter = Counter(['handled', 'imported', 'error', 'updated'])
 
     if check:
@@ -164,6 +229,8 @@ def main(inputfiletype, logger, dryrun, check, skip_file_validation = False):
 
     changed_data = db_filter.fetchall(changed_data_sql)
 
+    ignored_run_snapshots = get_ignored_run_snapshots(db_filter, logger)
+
     # Find out which records have been changed. That means which run has a new snapshot
     # Check which RunId/SnapShotId combinations are already in the DB
 
@@ -175,6 +242,11 @@ def main(inputfiletype, logger, dryrun, check, skip_file_validation = False):
 
         for c in changed_data:
             if run_id == c['run_id'] and snapshot_id == c['snapshot_id']:
+                found = True
+                break
+
+        for i in ignored_run_snapshots:
+            if run_id == i['run_id'] and snapshot_id == i['snapshot_id']:
                 found = True
                 break
 
@@ -190,12 +262,29 @@ def main(inputfiletype, logger, dryrun, check, skip_file_validation = False):
         logger.info("The following records have changed and will result in an update to the production_version {0}".format(new_snapshot_for_run))
 
         if not check:
-            logger.info("Continue processing with updates (Y/N)")
-            continue_processing = raw_input("Continue processing with updates (Y/N): ")
+            if cron:
+                logger.warning('Updated runs are included. Manual check is required.')
 
-            if continue_processing.upper() != "Y":
-                logger.info("Halting processig due to user intervention...")
+                message_run_links = ', '.join('<a href="https://live.icecube.wisc.edu/run/{0}/">{0}</a>'.format(r) for r in new_snapshot_for_run)
+
+                message = "The following records have changed and will result in an update to the production_version {0}".format(message_run_links)
+                message += '\nYou need to review and approve those updates manually.'
+
+                send_custom_message(os.path.basename(__file__), 'Updated runs in snapshot. Manual check required.', message, logger, dryrun)
+
                 exit(0)
+            else:
+                actions = updated_runs_manual_check(new_snapshot_for_run, logger)
+
+                logger.debug('new_snapshot_for_run = {}'.format(new_snapshot_for_run))
+
+                for action in actions:
+                    if new_snapshot_for_run[action['run_id']] == action['snapshot_id'] and action['action'] == 'I':
+                        del new_snapshot_for_run[action['run_id']]
+
+                logger.debug('new_snapshot_for_run = {}'.format(new_snapshot_for_run))
+
+                mark_ignored_run_snapshots(actions, db_filter, logger, dryrun)
 
     changed_runs = new_snapshot_for_run
     if len(changed_runs):
@@ -408,7 +497,7 @@ if __name__ == "__main__":
         lock = Lock(os.path.basename(__file__), logger)
         lock.lock()
 
-    counter = main(inputfiletype = args.inputfiletype, logger = logger, dryrun = args.dryrun, check = args.check, skip_file_validation = args.skip_file_validation)
+    counter = main(inputfiletype = args.inputfiletype, logger = logger, dryrun = args.dryrun, check = args.check, skip_file_validation = args.skip_file_validation, cron = args.cron)
 
     if args.cron:
         lock.unlock()
