@@ -34,16 +34,22 @@ Several installed cron jobs are helping out. All of them are installed on cobalt
     2. `GetRunInfo.py --check`: Checks if new run data is available. If so, an email will be sent
     3. `bin/svninfo.sh`: Writes a JSON file to cache the current SVN info. This is needed for jobs that run not on cobalt (e.g. post processing on NPX requires the option `--no-svn`).
     4. `GetRunInfo.py --cron`: Executes the run import automatically.
-    5. `PostProcessing_L2.py --cron`: Executes the post processing automatically.
-    6. `MainProcessing_L2.py --cron`: Executes the main processing automatically.
+    5. `PostProcessing_L2.py --cron`: Executes the '''post''' processing automatically.
+    6. `MainProcessing_L2.py --cron`: Executes the '''main''' processing job submission automatically.
+    7. `MainProcessing_L3.py --cron --destination-dataset-id XXXX`: Executes the '''main''' processing job submission automatically for the given dataset id (each dataset id needs a separate cron).
+    8. `PostProcessing_L3.py --cron --destination-dataset-id XXXX`: Executes the '''post''' processing job submission automatically for the given dataset id (each dataset id needs a separate cron).
+    9. `GCDTemplateValidation.py --cron`
+    10. `GCDPoleValidation.py --cron`
 
 One cron has been installed on `submitter`: The automated GCD generation, GCDJobSubmission.py `--cron`. 
+
+Check the current configured crons on cobalt08.
 
 
 eMail configuration
 -------------------
 
-The scripts send in some cases emails. Especially, the `--cron` jobs sending summaries. To configure the receiver, have alook at the following sections:
+The scripts send in some cases emails. Especially, the `--cron` jobs are sending summaries. To configure the receiver, have a look at the following sections:
 
     1. PoleGCDChecks
     2. TemplateGCDChecks
