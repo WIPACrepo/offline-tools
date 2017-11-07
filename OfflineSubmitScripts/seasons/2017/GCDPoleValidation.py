@@ -20,6 +20,7 @@ from libs.runs import Run
 from libs.path import get_tmpdir, get_env_python_path, get_logdir
 from libs.email import send_email
 from libs.files import File
+from libs.cron import cron_finished
 
 def main(run_ids, args, config, logger):
     counter = Counter(['handled', 'skipped', 'error', 'validated'])
@@ -163,6 +164,7 @@ def main(run_ids, args, config, logger):
                 os.remove(f)
 
     logger.info('Pole GCD validation complete: {0}'.format(counter.get_summary()))
+    return counter
 
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__, dryrun = True)
@@ -170,6 +172,7 @@ if __name__ == '__main__':
     parser.add_argument("-e", "--endrun", type = int, required = False, default= None, help = "End checking at this run")
     parser.add_argument("--runs", type = int, nargs = '*', required = False, help = "Checking specific runs. Can be mixed with -s and -e")
     parser.add_argument("--recheck-failed", action = "store_true", default = False, help = "Re-check all failed files")
+    parser.add_argument("--cron", action = "store_true", default = False, help = "Use this option if you call this script via a cron")
     args = parser.parse_args()
 
     logfile = os.path.join(get_logdir(sublogpath = 'PoleGCDChecks'), 'PoleGCDChecks_')
@@ -245,7 +248,10 @@ if __name__ == '__main__':
     lock = Lock(os.path.basename(__file__), logger)
     lock.lock()
 
-    main(runs, args, config, logger)
+    counter = main(runs, args, config, logger)
+
+    if args.cron:
+        cron_finished(os.path.basename(__file__), counter, logger, args.dryrun)
 
     lock.unlock()
 

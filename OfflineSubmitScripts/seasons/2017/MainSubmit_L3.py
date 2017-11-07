@@ -87,7 +87,7 @@ def main(run_ids, config, args, logger):
     validated_runs = {sd_id: get_validated_runs(sd_id, logger) for sd_id in source_dataset_ids}
     runs = []
     for run_id in run_ids:
-        if r not in validated_runs:
+        if run_id not in validated_runs[run_dataset_mapping[run_id]]:
             logger.warning('L2 files of run {} have not been validated yet. Skip this run.'.format(run_id))
             counter.count('skipped')
             continue
