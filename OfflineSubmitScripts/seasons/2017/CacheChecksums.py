@@ -111,6 +111,7 @@ if __name__ == "__main__":
     argparser.add_argument('--end-date', type = str, required = False, default= None, help = "Do cache files between two dates. Stop here. Format: YYYY-MM-DD")
     argparser.add_argument('--type', type = str, required = False, default= 'config', help = "Type of file that should be chached: config, Level2, PFFilt, PFDST. Default is config. Config means that the paths will be read from the config file.")
     argparser.add_argument('--path-pattern', type = str, required = False, default= None, help = "Use this path pattern and not the ones from the config file. You can use {year}, {month}, {day}, {run_id}, {sub_run_id}, etc. as placeholder.")
+    parser.add_argument("--cron", action = "store_true", default = False, help = "Use this option if you call this script via a cron")
     args = argparser.parse_args()
 
     logfile=os.path.join(get_logdir(sublogpath = 'PreProcessing'), 'CacheChksums_')
@@ -119,6 +120,11 @@ if __name__ == "__main__":
         logfile = args.logfile
 
     logger = get_logger(args.loglevel, logfile, svn_info_from_file = True)
+
+    if args.cron:
+        if not config.getboolean('CacheCheckSums', 'CronEnabled'):
+            logger.critical('It is currently not allowed to execute this script as cron. Check config file.')
+            exit(1)
 
     if args.type not in ['config', 'Level2', 'PFDST', 'PFFilt']:
         logger.critical('Unknown file type')

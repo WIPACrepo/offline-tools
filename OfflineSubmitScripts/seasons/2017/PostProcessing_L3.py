@@ -60,9 +60,6 @@ def validate_run(source_dataset_ids, run, args, iceprod, logger, counter, checks
 
     logger.info("Files validated")
 
-#    logger.critical('Jan, you need to work on the code after that line')
-#    exit(1)
-
     # Get L3 run folder
     run_folder = run.format(config.get_level3_info()[int(args.destination_dataset_id)]['path'])
 

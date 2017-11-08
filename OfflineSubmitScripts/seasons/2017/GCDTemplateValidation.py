@@ -166,6 +166,11 @@ if __name__ == '__main__':
 
     config = get_config(logger)
 
+    if args.cron
+        if not config.getboolean('TemplateGCDChecks', 'CronEnabled'):
+            logger.critical('It is currently not allowed to execute this script as cron. Check config file.')
+            exit(1)
+
     db = DatabaseConnection.get_connection('filter-db', logger)
 
     # Check arguments

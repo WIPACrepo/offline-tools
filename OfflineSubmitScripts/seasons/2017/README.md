@@ -8,7 +8,7 @@ The configuration is stored at two places:
     2. MySQL DB: Host: filter-db, DB: i3filter, Tables: datasets, seasons, working_groups, level2_paths, level3_outdir
 
 The database (2) only contains configurations about the seasons (test runs and run starts), datasets (IDs, L1, L2, L3, etc) and the working groups as the table names already say.
-All other configuration is done in the config file (1). This includes ALL paths, etc. You should never need to touch a python file in orde rto reconfigure anything.
+All other configuration is done in the config file (1). This includes ALL paths, etc. You should never need to touch a python file in order to reconfigure anything.
 
 Important cofiguration:
 
@@ -28,7 +28,7 @@ Example: `./bin/EnvPython.sh MainSubmit_L2.py --dataset-id 1234 --runs 123456 12
 Cron Jobs
 -----------------
 
-Several installed cron jobs are helping out. All of them are installed on cobalt08 (user: i3filter).
+Several installed cron jobs are helping out. All of them (except for one) are installed on cobalt08 (user: i3filter). All crons can be easily enabled/disabled in the confog file (`config.offline_processing.cfg`) without a need of editing the `crontab`. See corresponding options in the sections `GCD`, `GetRunInfo`, `TemplateGCDChecks`, `PoleGCDChecks`, `Level3`, `Level2`, and `CacheCheckSums`.
 
     1. `CacheChecksums.py`: Calculates the MD5 checksums of PFFilt files. The sums are required for run submission and the cache makes it way faster to submit runs.
     2. `GetRunInfo.py --check`: Checks if new run data is available. If so, an email will be sent
