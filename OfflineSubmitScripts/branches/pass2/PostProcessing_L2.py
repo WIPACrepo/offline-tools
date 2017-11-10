@@ -214,9 +214,13 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
             pass1_data = None
             pass1_data_sub_runs = None
 
-        if (r['good_tstart'] - first_event_of_first_file).total_seconds() + prepending_livetime < -1:
+        # *_frac is in tenth of nanoseconds
+        precise_good_start_time = r['good_tstart'].replace(microsecond = r['good_tstart_frac'] / 10 / 1000)
+        precise_good_stop_time = r['good_tstop'].replace(microsecond = r['good_tstop_frac'] / 10 / 1000)
+
+        if (precise_good_start_time - first_event_of_first_file).total_seconds() + prepending_livetime < -1:
             logger.error('Probably missing a file or data:')
-            logger.error('  good start time:  {0}'.format(r['good_tstart']))
+            logger.error('  good start time:  {0}'.format(precise_good_start_time))
             logger.error('  first file start: {0} - {1}s (lost data) = {2}'.format(first_event_of_first_file, prepending_livetime, first_event_of_first_file - datetime.timedelta(seconds = prepending_livetime)))
 
             if abs((first_event_of_first_file - pass1_data[pass1_data_sub_runs[0]]['first_event'].date_time).total_seconds() - prepending_livetime) <= 1:
@@ -231,9 +235,9 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
                 else:
                     logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
 
-        if ((r['good_tstop'] - last_event_of_last_file).total_seconds()) - appending_livetime > 1:
+        if ((precise_good_stop_time - last_event_of_last_file).total_seconds()) - appending_livetime > 1:
             logger.error('Probably missing a file or data:')
-            logger.error('  good stop time:       {0}'.format(r['good_tstop']))
+            logger.error('  good stop time:       {0}'.format(precise_good_stop_time))
             logger.error('  last file stop:       {0} + {1}s (lost data)'.format(last_event_of_last_file, appending_livetime))
             logger.error('  Pass1 file stop time: {}'.format(pass1_data[pass1_data_sub_runs[-1]]['last_event']))
 
