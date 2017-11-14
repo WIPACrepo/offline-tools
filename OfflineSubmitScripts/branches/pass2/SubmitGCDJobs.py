@@ -26,6 +26,7 @@ import sys, os
 import glob
 import datetime
 from dateutil.relativedelta import *
+from datetime import timedelta
 import time
 import cPickle
 import subprocess
@@ -211,6 +212,13 @@ if __name__ == '__main__':
             GCDFilesPass1_glob = os.path.join(GCDDirPass1, "Level2_%sdata_Run00%s_*%s*GCD.i3.gz" % (Season, r, SId))
 
         GCDFilesPass1 = glob.glob(GCDFilesPass1_glob)
+
+        # IC79 GCD location bug: Some GCds are in the wrong folder: a day before
+        if run_season == 2010 and not len(GCDFilesPass1):
+            new_date = StartDay - timedelta(days = 1)
+            GCDDirPass1 = "/data/exp/IceCube/{year}/filtered/level2a/{month:0>2}{day:0>2}".format(year = new_date.year, month = new_date.month, day = new_date.day)
+            GCDFilesPass1_glob = os.path.join(GCDDirPass1, "Level2a_IC%s_data_Run00%s_GCD.i3.bz2" % (detector_conf, r))
+            GCDFilesPass1 = glob.glob(GCDFilesPass1_glob)
 
         logger.debug("GCDFilesPass1 glob expression: %s" % GCDFilesPass1_glob)
         logger.debug("GCDFilesPass1 = %s" % GCDFilesPass1)
