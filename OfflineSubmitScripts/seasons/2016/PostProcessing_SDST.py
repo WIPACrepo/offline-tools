@@ -136,8 +136,17 @@ def CheckFiles(r, logger, dataset_id, season, run_id, dryrun, checksumcache, for
     
     GCDName = GCDName[0]
     GCDName = os.path.join(ICECUBE_GCDDIR(r['tstart'], r['run_id']),os.path.basename(GCDName))
-    Files2Check.append(GCDName)
+
+    # Some IC79 GCD files are in the wrong folder
+    if not os.path.isfile(GCDName):
+        # Check other folder: Day before
+        GCDName = os.path.join(ICECUBE_GCDDIR(r['tstart'] - relativedelta(days = 1), r['run_id']),os.path.basename(GCDName))
+        if not os.path.isfile(GCDName):
+            logger.error('Clould not find GCD file: {}'.format(GCDName))
+            return 1
     
+    Files2Check.append(GCDName)
+
     L2Files = [f for f in OutFiles if "GCD" not in f \
                    and "txt" not in f and "root" not in f\
                    and "EHE" not in f and "IT" not in f \
@@ -379,13 +388,11 @@ WHERE
     (g.run_id BETWEEN {first_run} AND {last_run}
         OR g.run_id IN ({test_runs},-1))
         AND g.run_id NOT IN ({next_test_runs},-1)
-        AND (good_it OR good_i3
-        OR g.run_id IN ({test_runs},-1))
-GROUP BY g.run_id
-ORDER BY g.run_id
+        OR g.run_id IN ({test_runs},-1)
+ORDER BY g.run_id, g.snapshot_id
 """.format( first_run = seasons_info[season]['first'],
             test_runs = ','.join([str(r) for r in seasons_info[season]['test']]),
-            last_run = last_run,
+            last_run = last_run - 1,
             next_test_runs = ','.join([str(r) for r in next_test_runs]),
             dataset_id = args.dataset_id
 )
@@ -393,6 +400,19 @@ ORDER BY g.run_id
         logger.debug('SQL: {0}'.format(sql))
 
         RunInfo = fdb.fetchall(sql, UseDict=True)
+
+        # Remove bad runs
+        tmp = {}
+        for r in RunInfo:
+            good = int(r['good_i3']) == 1 or int(r['good_it'])
+
+            if good:
+                tmp[r['run_id']] = r
+            elif r['run_id'] in tmp:
+                logger.info('Found snapshot that marked run {} as bad (was previously marked as good).'.format(r['run_id']))
+                del tmp[r['run_id']]
+
+        RunInfo = sorted(tmp.values(), key = lambda r: r['run_id'])
 
 #    logger.debug("RunInfo = %s" % str(RunInfo))
 
