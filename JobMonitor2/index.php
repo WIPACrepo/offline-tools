@@ -248,7 +248,7 @@ $test_run_data = $test_runs->get_list();
             </p>
 
             <ul>
-                <li>A green row indicate a restored file</li>
+                <li>A green row indicates a restored file</li>
                 <li>Click on the path cell to get the full path</li>
                 <li>Use the search in order to check a certain run</li>
                 <li>The sum of the missing livetime is displayed. Keep in mind that this livetime might not be very accurate. The <code>+ &asymp;</code> indicates an additional estimated missing livetime for files with an livetime value of <code>N/A</code>. The estimation utilizes the mean value: <code>mean_value / #allfiles * #files</code>.</li>

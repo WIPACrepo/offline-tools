@@ -30,7 +30,7 @@ $CONFIG = array(
     'svn' => '$Id$',
     'svn_url' => 'http://code.icecube.wisc.edu/svn/sandbox/jan/JobMonitor2',
     'data_warehouse' => 'http://icecube:skua@128.104.255.226',
-    'path_prefixes' => array('file:', 'gsiftp://gridftp.icecube.wisc.edu'),
+    'path_prefixes' => array('file:', 'gsiftp://gridftp.icecube.wisc.edu', 'http://convey.icecube.wisc.edu'),
     '_version' => 10
 );
 

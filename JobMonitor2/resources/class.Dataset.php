@@ -87,7 +87,7 @@ class Dataset {
 
         $data = $query->fetch_assoc();
 
-        if($data['type'] == 'L3') {
+        if($data['type'] == 'L3' || $data['type'] == 'L4') {
             $sql = "SELECT * FROM i3filter.level3_config WHERE dataset_id = {$this->dataset_id}";
             $query = $this->filter_db->query($sql);
 
@@ -118,7 +118,7 @@ class Dataset {
     }
 
     private function add_level3_information() {
-        if($this->dataset_info['type'] == 'L3') {
+        if($this->dataset_info['type'] == 'L3' || $this->dataset_info['type'] == 'L4') {
             $this->result['data']['level3_information'] = $this->dataset_info['__level3'];
             if(isset($this->result['data']['level3_information']['dataset_id'])) {
                 unset($this->result['data']['level3_information']['dataset_id']);
