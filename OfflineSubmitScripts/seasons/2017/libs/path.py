@@ -6,7 +6,7 @@ def remove_path_prefix(path):
     Removes `file:` or `gsiftp://gridftp.icecube.wisc.edu` from path.
     """
 
-    prefix = ['file:', 'gsiftp://gridftp.icecube.wisc.edu']
+    prefix = ['file:', 'gsiftp://gridftp.icecube.wisc.edu', 'http://convey.icecube.wisc.edu']
 
     for p in prefix:
         if path.startswith(p):
