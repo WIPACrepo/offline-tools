@@ -320,7 +320,8 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
             else:
                 force_m += ' '
 
-            force_m += 'Has lost files.'
+            if len(pass2_lost_files):
+                force_m += 'Has lost files.'
 
             if not dryrun:
                 filter_db.execute(sql, params = {
