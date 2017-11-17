@@ -14,11 +14,14 @@ from libs.argparser import get_defaultparser
 from libs.logger import get_logger
 from libs.path import get_logdir
 from libs.config import get_config
-from libs.utils import DBChecksumCache
+from libs.utils import DBChecksumCache, Counter
 from libs.stringmanipulation import replace_var
+from libs.process import Lock
 
 def main(logger, args):
     config = get_config(logger)
+
+    counter = Counter(['handled', 'skipped', 'calculated'])
 
     look_back_in_days = config.getint('CacheCheckSums', 'LookBack')
     hold_off_interval = config.getint('CacheCheckSums', 'HoldOffInterval')
@@ -85,6 +88,8 @@ def main(logger, args):
         for path in files:
             logger.debug("Current file: {0}".format(path))
 
+            counter.count('handled')
+
             if not cache.has_md5(path):
                 logger.debug("File has no MD5 sum in cache")
 
@@ -95,15 +100,21 @@ def main(logger, args):
                     # File is not old enough
                     logger.debug("File's last modification was at {0}. Its age is {1} seconds. Min age is {2} seconds.".format(last_mod, current_time - last_mod, hold_off_interval))
                     logger.debug('File is not old enough. Skip it.')
+                    counter.count('skipped')
                     continue
 
                 checksum = cache.set_md5(path)
                 logger.info("md5('{0}'): {1}".format(path, checksum))
+                counter.count('calculated')
 
             else:
+                counter.count('skipped')
                 logger.info('Already cached, skip file {0}'.format(path))
 
         look_back += timedelta(days = 1)
+
+    logger.info('Checksum calculation complete: {0}'.format(counter.get_summary()))
+    return counter
 
 if __name__ == "__main__":
     argparser = get_defaultparser(__doc__, dryrun = True)
@@ -111,7 +122,7 @@ if __name__ == "__main__":
     argparser.add_argument('--end-date', type = str, required = False, default= None, help = "Do cache files between two dates. Stop here. Format: YYYY-MM-DD")
     argparser.add_argument('--type', type = str, required = False, default= 'config', help = "Type of file that should be chached: config, Level2, PFFilt, PFDST. Default is config. Config means that the paths will be read from the config file.")
     argparser.add_argument('--path-pattern', type = str, required = False, default= None, help = "Use this path pattern and not the ones from the config file. You can use {year}, {month}, {day}, {run_id}, {sub_run_id}, etc. as placeholder.")
-    parser.add_argument("--cron", action = "store_true", default = False, help = "Use this option if you call this script via a cron")
+    argparser.add_argument("--cron", action = "store_true", default = False, help = "Use this option if you call this script via a cron")
     args = argparser.parse_args()
 
     logfile=os.path.join(get_logdir(sublogpath = 'PreProcessing'), 'CacheChksums_')
@@ -122,7 +133,7 @@ if __name__ == "__main__":
     logger = get_logger(args.loglevel, logfile, svn_info_from_file = True)
 
     if args.cron:
-        if not config.getboolean('CacheCheckSums', 'CronEnabled'):
+        if not get_config(logger).getboolean('CacheCheckSums', 'CronEnabled'):
             logger.critical('It is currently not allowed to execute this script as cron. Check config file.')
             exit(1)
 
@@ -130,5 +141,11 @@ if __name__ == "__main__":
         logger.critical('Unknown file type')
         exit(1)
 
+    # Check if cron is already running
+    lock = Lock(os.path.basename(__file__), logger)
+    lock.lock()
+
     main(logger, args)
 
+    lock.unlock()
+    logger.info('Done')
