@@ -176,7 +176,8 @@ WHERE
             $this->result['data']['grid'][] = array('name' => $fetch['name'],
                                                     'failures' => intval($fetch['failures']),
                                                     'evictions' => intval($fetch['evictions']),
-                                                    'jobs' => intval($jobs['num']));
+                                                    'jobs' => intval($jobs['num']),
+                                                    'enabled' => intval($fetch['suspend']) == 0);
         }
     }
 

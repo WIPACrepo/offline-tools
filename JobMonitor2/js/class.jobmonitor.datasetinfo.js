@@ -233,6 +233,7 @@ JobMonitorDatasetInformation.prototype._queryComplete = function(data) {
                 '<table class="table table-striped">' +
                 '<thead>' +
                 '<th>Grid Name</td>' +
+                '<th>Enabled</td>' +
                 '<th>Jobs</td>' +
                 '<th>Evictions</td>' +
                 '<th>Failures</td>' +
@@ -242,6 +243,7 @@ JobMonitorDatasetInformation.prototype._queryComplete = function(data) {
     $.each(data['data']['grid'], function(index, value) {
         content += '<tr>';
         content += '<td>' + value['name'] + '</td>';
+        content += '<td>' + (value['enabled'] ? '&#10003;' : '&#10007;' ) + '</td>';
         content += '<td>' + value['jobs'] + '</td>';
         content += '<td>' + value['evictions'] + '</td>';
         content += '<td>' + value['failures'] + '</td>';
