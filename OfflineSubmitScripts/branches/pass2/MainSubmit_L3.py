@@ -262,7 +262,7 @@ def main(SDatasetId, DDatasetId, runs, AGGREGATE, CLEAN_DW, outdir, LINK_ONLY_GC
 
         if s['run_id'] in submittedRuns and not LINK_ONLY_GCD:
             if not args.RESUBMISSION:
-                logger.debug("Skipping run %s because it has been already submitted" % s['run_id'])
+                logger.info("Skipping run %s because it has been already submitted" % s['run_id'])
                 counter['skipped'] = counter['skipped'] + 1
                 continue
             else:
