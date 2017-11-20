@@ -223,7 +223,11 @@ if __name__ == '__main__':
             exit(1)
 
         # Check if cron is already running
-        lock = Lock(os.path.basename(__file__), logger)
+        lock = Lock(
+            os.path.basename(__file__),
+            logger,
+            lock_file = os.path.join(get_tmpdir(), os.path.splitext(os.path.basename(__file__))[0] + '-' + str(args.destination_dataset_id) + '.lock')
+        )
         lock.lock()
 
     counter = main(args, runs, config, logger)
