@@ -15,7 +15,7 @@ args = parser.parse_args()
 error_files = []
 
 md5_mismatch_c = re.compile(r'MD5\ check\ sum\ mismatch\ for\ ([\/a-zA-Z0-9\.\-\_]+)')
-stream_error_c = re.compile(r'ERROR\:\ checks\(229\)\:\   File\ ([\/\-\_\.a-zA-Z0-9]+)\ is\ corrupted\: Command')
+stream_error_c = re.compile(r'ERROR\:\ checks\([0-9]+\)\:\   File\ ([\/\-\_\.a-zA-Z0-9]+)\ is\ corrupted\: Command')
 
 def find_md5_mismatch(text):
     result = md5_mismatch_c.search(text)

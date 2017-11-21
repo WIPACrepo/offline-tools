@@ -32,7 +32,7 @@ ORDER BY j.status_changed
 
 fdb = DatabaseConnection.get_connection('filter-db', DummyLogger())
 
-validated = fdb.fetchall('SELECT * FROM i3filter.post_processing WHERE dataset_id BETWEEN 1916 AND 1922 AND dataset_id NOT IN (1920, 1921) AND validated')
+validated = fdb.fetchall('SELECT * FROM i3filter.post_processing WHERE dataset_id BETWEEN 1916 AND 1922 AND dataset_id NOT IN (1920, 1921, 1922) AND validated')
 validated = [int(d['run_id']) for d in validated]
 
 with open(os.path.join('/home/joertlin/ForGonzalo/PFDSTProcessing', 'processed_files_{0:%Y-%m-%d_%H-%M-%S}.txt'.format(datetime.now())), 'w') as f:
