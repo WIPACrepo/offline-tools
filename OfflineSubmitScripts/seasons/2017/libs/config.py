@@ -326,7 +326,7 @@ class Config(ConfigParser.SafeConfigParser):
                     JOIN
                 i3filter.working_groups wg ON ds.working_group = wg.working_group_id
             WHERE
-                type = 'L3'""")
+                type IN ('L3', 'L4')""")
 
             datasets = {}
 

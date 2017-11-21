@@ -197,7 +197,13 @@ class IceProd1(iceprodinterface.IceProdInterface):
                     # Add short first files to the first job. File 0 has already been added...
                     self.logger.debug('Aggregate first {} files'.format(aggregate_only_first_files))
 
-                    job_input_files.extend(input_files[file_counter : aggregate_only_first_files + 1])
+                    if aggregate_only_first_files > 10:
+                        self.logger.warning('*** There are too many files to aggregate at the beginning of the run. We assume that it is sufficient to submit two files withing this job and ignore the others.**')
+                        # Remove the first file that is added within the `for _ in range(aggregate)` loop.
+                        del job_input_files[-1]
+                        job_input_files.extend(input_files[aggregate_only_first_files - 2 : aggregate_only_first_files + 1])
+                    else:
+                        job_input_files.extend(input_files[file_counter : aggregate_only_first_files + 1])
 
                     # Next file will be...
                     file_counter = aggregate_only_first_files + 1
@@ -206,7 +212,11 @@ class IceProd1(iceprodinterface.IceProdInterface):
                     # Add last file to the current job
                     self.logger.debug('Aggregate last {} files'.format(aggregate_only_last_files))
 
-                    job_input_files.extend(input_files[file_counter :])
+                    if aggregate_only_last_files > 10:
+                        self.logger.warning('*** There are too many files to aggregate at the end of the run. We assume that it is sufficient to submit two files withing this job and ignore the others.**')
+                        job_input_files.extend(input_files[file_counter : file_counter + 2])
+                    else:
+                        job_input_files.extend(input_files[file_counter :])
 
                 self.logger.debug('Submit job #{1}, sub run ID {2}, with the following input files: {0}'.format(job_input_files, job_id, input_files[job_id].sub_run_id))
 
