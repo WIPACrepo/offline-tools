@@ -79,8 +79,11 @@ def remove_empty_files(run_folder, dataset_id, run_id, logger, dryrun):
             logger.info('Remove {0}'.format(rf))
 
             sql = """
-                UPDATE i3filter.urlpath u JOIN i3filter.run r ON u.queue_id = r.queue_id SET u.transferstate = "IGNORED"
-                WHERE r.dataset_id = {dataset_id} AND u.dataset_id = {dataset_id} AND r.run_id = {run_id} AND u.name LIKE '{filenames}'
+                UPDATE i3filter.urlpath u
+                    JOIN i3filter.run r USING(dataset_id, queue_id)
+                    JOIN i3filter.job j USING(dataset_id, queue_id)
+                SET u.transferstate = "IGNORED", j.status = 'BadRun'
+                WHERE dataset_id = {dataset_id} AND r.run_id = {run_id} AND u.name LIKE '{filenames}'
             """.format(dataset_id = dataset_id, run_id = run_id, filenames = os.path.basename(f).replace('.i3.zst', '') + '%')
 
             logger.debug('SQL: {0}'.format(sql))
