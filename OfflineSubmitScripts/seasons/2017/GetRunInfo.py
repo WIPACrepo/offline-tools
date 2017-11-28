@@ -460,6 +460,7 @@ def main(inputfiletype, logger, dryrun, check, skip_file_validation, cron):
         else:
             counter.count('error')
 
+    logger.info('Run import complete: {0}'.format(counter.get_summary()))
     return counter
 
 if __name__ == "__main__":
@@ -503,3 +504,4 @@ if __name__ == "__main__":
         lock.unlock()
         cron_finished(os.path.basename(__file__), counter, logger, args.dryrun)
 
+    logger.info('Done')

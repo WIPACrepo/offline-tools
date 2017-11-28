@@ -274,7 +274,7 @@ if __name__ == '__main__':
         args.dryrun = True
 
     # Log file
-    logfile = os.path.join(get_logdir(sublogpath = 'L3Processing'), 'RunSubmission_')
+    logfile = os.path.join(get_logdir(sublogpath = 'L3Processing'), 'RunSubmission-' + str(args.destination_dataset_id) + '_')
 
     if args.cron:
         logfile += 'CRON_'

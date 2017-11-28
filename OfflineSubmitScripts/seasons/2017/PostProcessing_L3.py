@@ -184,7 +184,7 @@ if __name__ == '__main__':
     parser.add_argument("--aggregate", type = int, default = None, help = "USE THIS OPTION IF YOU WANT TO OVERRIDE THE DATASET CONFIGURATION ONLY. DO USE THIS OPTION ONLY IF YOU KNOW WHAT YOU ARE DOING. Number of subruns to aggregate to form one job, needed when processing 1 subrun is really short.")
     args = parser.parse_args()
 
-    logfile = os.path.join(get_logdir(sublogpath = 'L3Processing'), 'PostProcessing_')
+    logfile = os.path.join(get_logdir(sublogpath = 'L3Processing'), 'PostProcessing-' + str(args.destination_dataset_id) + '_')
 
     if args.cron:
         logfile += 'CRON_'
