@@ -160,9 +160,17 @@ class IceProd1(iceprodinterface.IceProdInterface):
 
             self.logger.info("Attempting to submit {0} {2} files for run {1}".format(len(input_files), run.run_id, source_file_type))
 
+            # AGGEGRATE -- HOW IT WORKS
+            # A requirement from the LE WG is that we make a mapping that is simple to understand. Only sub run ids should count, not the actual number of files.
+            # This usually doesn't matter unless there is no missing file.
+            # So, if we aggregate 10 files, the mapping should be
+            #   sub runs 0-9 -> job 1
+            #   sub runs 10-19 -> job 2
+            #   ...
+            # Therefore, in order to calculate the total job number, we assume that we have all sub runs.
             # Calculate number of jobs. Files/jobs is `aggregate`
-            # If input_files % aggregate > 0, we need an additional job that processes the leftover files
-            number_of_jobs = int(len(input_files) / aggregate) + int(bool(len(input_files) % aggregate))
+            # If input_files[-1].sub_run_id % aggregate > 0, we need an additional job that processes the leftover files
+            number_of_jobs = int((input_files[-1].sub_run_id + 1) / aggregate) + int(bool((input_files[-1].sub_run_id + 1) % aggregate))
 
             if aggregate_only_last_files > 0:
                 # add aggregate_only_last_files jobs to the last job... therefore, we have aggregate_only_last_files less.
@@ -178,20 +186,38 @@ class IceProd1(iceprodinterface.IceProdInterface):
             for job_id in range(number_of_jobs):
                 queue_id += 1
 
-                self.logger.debug('Job #{0}'.format(job_id))
+                if aggregate > 1:
+                    self.logger.info('Job #{0}'.format(job_id))
+                else:
+                    self.logger.debug('Job #{0}'.format(job_id))
 
                 job_input_files = [gcd_file]
                 job_input_files.extend(special_files)
 
+                input_files_added = False
+
                 for _ in range(aggregate):
-                    self.logger.debug('Add file #{0}/{1} to job'.format(file_counter + 1, len(input_files)))
+                    if (job_id * aggregate) <= input_files[file_counter].sub_run_id <= ((job_id + 1) * aggregate - 1):
+                        if aggregate > 1:
+                            self.logger.info('Add file #{0}/{1} (sub run #{2}/{3}) to job'.format(file_counter + 1, len(input_files), input_files[file_counter].sub_run_id, input_files[-1].sub_run_id))
+                        else:
+                            self.logger.debug('Add file #{0}/{1} (sub run #{2}/{3}) to job'.format(file_counter + 1, len(input_files), input_files[file_counter].sub_run_id, input_files[-1].sub_run_id))
 
-                    job_input_files.append(input_files[file_counter])
-                    file_counter += 1
+                        job_input_files.append(input_files[file_counter])
+                        file_counter += 1
+                        input_files_added = True
 
-                    if len(input_files) <= file_counter:
-                        self.logger.debug('Reached last input file')
-                        break
+                        if len(input_files) <= file_counter:
+                            if aggregate > 1:
+                                self.logger.info('Reached last input file')
+                            else:
+                                self.logger.debug('Reached last input file')
+                            break
+                    else:
+                        if aggregate > 1:
+                            self.logger.info('We have probably missing files. Therefore, this file has been added: {}'.format(input_files[file_counter]))
+                        else:
+                            self.logger.debug('We have probably missing files. Therefore, this file has been added: {}'.format(input_files[file_counter]))
 
                 if aggregate_only_first_files > 0 and job_id == 0:
                     # Add short first files to the first job. File 0 has already been added...
@@ -220,7 +246,10 @@ class IceProd1(iceprodinterface.IceProdInterface):
 
                 self.logger.debug('Submit job #{1}, sub run ID {2}, with the following input files: {0}'.format(job_input_files, job_id, input_files[job_id].sub_run_id))
 
-                self._submit_job(queue_id, dataset_id, run, input_files[job_id].sub_run_id, checksumcache, job_input_files)
+                if input_files_added:
+                    self._submit_job(queue_id, dataset_id, run, input_files[job_id].sub_run_id, checksumcache, job_input_files)
+                else:
+                    self.logger.warning('Job #{} has not been submitted since no input files have been added. This could be caused by missing files.'.format(job_id))
 
     def clean_run(self, dataset_id, run):
         query  = self._dbs4.fetchall(run.format("""
