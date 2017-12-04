@@ -11,6 +11,7 @@ from dateutil.relativedelta import *
 from math import *
 import xml.etree.ElementTree as ET
 import traceback
+import collections
 
 from dummylogger import DummyLogger
 
@@ -169,17 +170,28 @@ class RunTools(object):
                                     str(Type).upper(),self.RunNumber)))
                 
             elif str(Type).upper() == "P" and self.passNumber == 2:
-                Files.extend(glob.glob("/data/exp/IceCube/%s/unbiased/PFDST/%s%s/%s*%s*"%(startDate.year,\
-                                    str(startDate.month).zfill(2),str(startDate.day).zfill(2),\
-                                    str(Type).upper(),self.RunNumber)))
-                # useful for PFFilt files because the "spill" over multiple dates
-                nextDate = startDate + relativedelta(days=1)	
-                Files.extend(glob.glob("/data/exp/IceCube/%s/unbiased/PFDST/%s%s/%s*%s*"%(nextDate.year,\
-                                    str(nextDate.month).zfill(2),str(nextDate.day).zfill(2),\
-                                    str(Type).upper(),self.RunNumber)))
+                paths = [
+                    '/data/exp/IceCube/',
+                    '/mnt/lfs1/PFDST/IceCube/'
+                ]
+
+                for p in paths:
+                    Files.extend(glob.glob(os.path.join(p, "%s/unbiased/PFDST/%s%s/%s*%s*"%(startDate.year,\
+                                        str(startDate.month).zfill(2),str(startDate.day).zfill(2),\
+                                        str(Type).upper(),self.RunNumber))))
+                    # useful for PFFilt files because the "spill" over multiple dates
+                    nextDate = startDate + relativedelta(days=1)	
+                    Files.extend(glob.glob(os.path.join(p, "%s/unbiased/PFDST/%s%s/%s*%s*"%(nextDate.year,\
+                                        str(nextDate.month).zfill(2),str(nextDate.day).zfill(2),\
+                                        str(Type).upper(),self.RunNumber))))
                 
-                # Filter _UW_ files. Those were generate in Madison, not at the pole
-                Files = [f for f in Files if '_UW_' not in f]
+                # Filter _UW_ files (except for certain runs). Those were generate in Madison, not at the pole
+                use_uw_files = [124551, 124566, 125832, 126034, 126036]
+
+                if self.RunNumber in use_uw_files:
+                    Files = [f for f in Files if '_UW_' in f]
+                else:
+                    Files = [f for f in Files if '_UW_' not in f]
 
             elif str(Type).upper() == "P" and self.passNumber == 1:
                 Files.extend(glob.glob("/data/exp/IceCube/%s/filtered/PFFilt/%s%s/%s*%s*"%(startDate.year,\
@@ -234,16 +246,28 @@ class RunTools(object):
 
         try:
             if outdict is not None:
-                outdict[self.RunNumber] = {'missing_files': [], 'metadata_start_time': None, 'metadata_stop_time': None, 'metadata_start_time_error': False, 'metadata_stop_time_error': False}
+                outdict[self.RunNumber] = {'missing_files': [], 'metadata_start_time': None, 'metadata_stop_time': None, 'metadata_start_time_error': False, 'metadata_stop_time_error': False, 'duplicates': []}
 
             if not len(InFiles):
                 self.logger.warning( "Input file list is empty, maybe failed/short run")
                 return 0
-            
+           
             InFiles.sort(key = get_file_part)
 
             FileParts = [get_file_part(f) for f in InFiles]
             FileParts.sort()
+
+            # find duplicates
+            duplicates = [(part, count) for part, count in collections.Counter(FileParts).items() if count != 1]
+
+            outdict[self.RunNumber]['duplicates'] = duplicates
+
+            if len(duplicates):
+                self.logger.error('Found duplicates of file part(s):')
+                for dup in duplicates:
+                    self.logger.error('  File part {0} exists {1} times'.format(*dup))
+
+                return 0
 
             if not len(FileParts) or max(FileParts)>1000:
                 self.logger.warning( "Could not resolve number of files from file names ... file names probably do not follow expected naming convention")
@@ -275,23 +299,39 @@ class RunTools(object):
                 tmpfile = os.path.join(tmppath, 'tmp.xml')
      
                 self.logger.info('Check start time')
-    
+                self.logger.debug('File: {}'.format(InFiles[0]))
+
                 StartCheck = 0
                 processoutput = subprocess.check_output("""tar xvf %s --exclude="*.i3*" -O > %s""" % (InFiles[0], tmpfile), shell = True, stderr=subprocess.STDOUT)
                 self.logger.debug(processoutput.strip())
     
                 doc = ET.ElementTree(file = tmpfile)
                 sTime = [t.text for t in doc.getiterator() if t.tag=="Start_DateTime"]
+
+                # In some meta.xml files is a bug with the time format. It uses a Z as a separator for date and time. Fix this:
+                if sTime[0][10] == 'Z':
+                    sTime[0] = '{0}{1}{2}'.format(sTime[0][:10], 'T', sTime[0][10 + 1:])
+
+                self.logger.info('Meta Start Time: {}'.format(sTime[0]))
+
                 fs_time = parse(sTime[0])
                 
                 self.logger.info('Check stop time')
-    
+                self.logger.debug('File: {}'.format(InFiles[-1]))
+
                 EndCheck = 0
                 processoutput = subprocess.check_output("""tar xvf %s --exclude="*.i3*" -O > %s""" % (InFiles[-1], tmpfile), shell = True, stderr=subprocess.STDOUT)
                 self.logger.info(processoutput.strip())
                 
                 doc = ET.ElementTree(file = tmpfile)
                 eTime = [t.text for t in doc.getiterator() if t.tag=="End_DateTime"]
+
+                # In some meta.xml files is a bug with the time format. It uses a Z as a separator for date and time. Fix this:
+                if eTime[0][10] == 'Z':
+                    eTime[0] = '{0}{1}{2}'.format(eTime[0][:10], 'T', eTime[0][10 + 1:])
+
+                self.logger.info('Meta End Time: {}'.format(eTime[0]))
+
                 fe_time = parse(eTime[0])
                 
                 #t_diff = RunStop - fe_time
