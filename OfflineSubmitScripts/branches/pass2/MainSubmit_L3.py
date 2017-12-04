@@ -160,12 +160,12 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
         os.system(lnCmd)
         logger.debug("Created GCD link")
 
-    for g in range(len(groups_)-1):
+    for g in range(len(groups_)):
         QId+=1
 
         logger.debug('g = %s' % g)
 
-        p = [r for r in runInfo if r['sub_run'] in range(groups_[g],groups_[g+1]) and "_"+str(r['sub_run']).zfill(8)+"_" not in r['name'] and r['type']=="PERMANENT"]
+        p = [r for r in runInfo if r['sub_run'] in range(groups_[g], groups_[g] + AGGREGATE) and "_"+str(r['sub_run']).zfill(8)+"_" not in r['name'] and r['type']=="PERMANENT"]
 
         if not len(p):
             logger.debug('p = %s' % p)
@@ -195,13 +195,18 @@ def SubmitRunL3(DDatasetId, SDatasetId, Run, QId, OUTDIR, AGGREGATE, logger, lin
     
     logger.debug("g = %s" % g)
 
-    p = [r for r in runInfo if r['sub_run'] in range(groups_[g+1],lastSubRun+1) and str(r['sub_run']).zfill(8)+"_" not in r['name'] and r['type']=="PERMANENT"]
+    p = [r for r in runInfo if r['sub_run'] in range(groups_[-1] + AGGREGATE,lastSubRun+1) and str(r['sub_run']).zfill(8)+"_" not in r['name'] and r['type']=="PERMANENT"]
+
+    logger.debug('Remaining files to submit: {}'.format(len(p)))
+
     for q in p:
         logger.debug(q)
         if not dryrun: dbs4_.execute("""insert into i3filter.urlpath (dataset_id,queue_id,name,path,type,md5sum,size) values ("%s","%s","%s","%s","INPUT","%s","%s")"""% \
                          (DDatasetId,QId,q['name'],q['path'],q['md5sum'],q['size']))
-        
-    if not dryrun: dbs4_.execute("""insert into i3filter.run (run_id,dataset_id,queue_id,sub_run,date) values (%s,%s,%s,%s,"%s")"""%(Run,DDatasetId,QId,p[0]['sub_run'],q['date']))
+    
+    if not dryrun and len(p):
+        logger.debug('Submit remeining files')
+        dbs4_.execute("""insert into i3filter.run (run_id,dataset_id,queue_id,sub_run,date) values (%s,%s,%s,%s,"%s")"""%(Run,DDatasetId,QId,p[0]['sub_run'],q['date']))
 
     if not nometadata:
         meta_file_dest = ''
