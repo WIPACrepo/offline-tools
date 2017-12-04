@@ -395,6 +395,8 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
             for e in config.get('DEFAULT', 'IgnoreFilesWithExtension').split(','):
                 InFiles = [f for f in InFiles if not f.endswith(e)]
 
+#            logger.info('infiles = {}'.format(InFiles))
+
             CheckFiles = R.FilesComplete(InFiles, RunTimes, get_tmpdir(), showTimeMismatches = is_good_run, outdict = detailed_check_information, no_xml_bundle = current_season in (2010, 2015, 2016))
 
             logger.debug("Check files returned %s" % CheckFiles)
@@ -422,12 +424,12 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
                 if not len(detailed_check_information[r]['missing_files']) and \
                   not detailed_check_information[r]['metadata_start_time_error'] and \
                   not detailed_check_information[r]['metadata_stop_time_error'] and \
-                  len(detailed_check_information[r]) == 5:
+                  len(detailed_check_information[r]) == 6 and not len(detailed_check_information[r]['duplicates']):
                     CheckFiles = 1
 
                 if not CheckFiles and not len(detailed_check_information[r]['missing_files']) and \
                   (detailed_check_information[r]['metadata_start_time_error'] or detailed_check_information[r]['metadata_stop_time_error']) and \
-                  len(detailed_check_information[r]) == 5:
+                  len(detailed_check_information[r]) == 5 and not len(detailed_check_information[r]['duplicates']):
                     logger.warning('We have time mismatche(s) AND we have lost files. It could be that the mismatche(s) are a result of the missing files.')
                     logger.warning('Ignore the time mismatches since it will be checked again at the post processing step where the missing files are taken into account.')
                     CheckFiles = 1
@@ -440,7 +442,7 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
             if current_season in [2010, 2011, 2012] and not CheckFiles:
                 # Check why the CheckFiles went wrong
                 # If it is only the tstart/tstop time, we'll ignore it
-                if len(detailed_check_information[r]['missing_files']) == 0:
+                if len(detailed_check_information[r]['missing_files']) == 0 and not len(detailed_check_information[r]['duplicates']):
                     # OK, the only error is a mismatch in start or stop time. We will igore that:
                     CheckFiles = 1
 
@@ -450,10 +452,14 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
                     logger.warning("*** You are currently import runs of season 2011. We agreed to ignore time mismatches and process the entire file. ***")
   
             if ignore_time_mismatch and not CheckFiles:
-                if len(detailed_check_information[r]['missing_files']) == 0:
+                if len(detailed_check_information[r]['missing_files']) == 0\
+                  and (detailed_check_information[r]['metadata_start_time_error'] or detailed_check_information[r]['metadata_stop_time_error']) \
+                  and not len(detailed_check_information[r]['duplicates']):
                     # OK, the only error is a mismatch in start or stop time. We will igore that:
                     CheckFiles = 1
                     logger.warning('You enabled the option --ignore-time-mismatch. The time mis match will be ignored.')
+
+            logger.debug("Check files returned %s" % CheckFiles)
 
             #  fill new runs from live in run_info_summary_pass2 
             if not dryrun and (CheckFiles or not is_good_run):
