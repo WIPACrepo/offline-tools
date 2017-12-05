@@ -120,7 +120,7 @@ def MakeGCD(RunNum,FName,GCDName,ProductionVersion,SnapshotId,effectiveStartTime
                         #Database = 'I3OmDb'
                         )
         
-        spe_correction_file = config.get('GCDGeneration', 'SpeCorrectionFile')
+        spe_correction_file = config.get('GCDGeneration', 'SpeCorrectionFile').format(detector_configuration = 'IC86', season = libs.config.get_season_by_run(RunNum))
 
         print "SPE Correction File = %s" % spe_correction_file
 

@@ -429,7 +429,7 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
 
                 if not CheckFiles and not len(detailed_check_information[r]['missing_files']) and \
                   (detailed_check_information[r]['metadata_start_time_error'] or detailed_check_information[r]['metadata_stop_time_error']) and \
-                  len(detailed_check_information[r]) == 5 and not len(detailed_check_information[r]['duplicates']):
+                  len(detailed_check_information[r]) == 6 and not len(detailed_check_information[r]['duplicates']):
                     logger.warning('We have time mismatche(s) AND we have lost files. It could be that the mismatche(s) are a result of the missing files.')
                     logger.warning('Ignore the time mismatches since it will be checked again at the post processing step where the missing files are taken into account.')
                     CheckFiles = 1
