@@ -173,6 +173,7 @@ class RunTools(object):
                 paths = [
                     '/data/exp/IceCube/',
                     '/mnt/lfs1/PFDST/IceCube/'
+                    '/mnt/lfs4/PFDST/IceCube/'
                 ]
 
                 for p in paths:
@@ -192,6 +193,14 @@ class RunTools(object):
                     Files = [f for f in Files if '_UW_' in f]
                 else:
                     Files = [f for f in Files if '_UW_' not in f]
+
+                # Ignore Subrun = 1 files for 120996 and 123971
+                ignore_files = [
+                    '/data/exp/IceCube/2012/unbiased/PFDST/1121/PFDST_PhysicsTrig_PhysicsFiltering_Run00120996_Subrun00000001_00000000.tar.gz',
+                    '/data/exp/IceCube/2014/unbiased/PFDST/0121/PFDST_PhysicsFiltering_Run00123971_Subrun00000001_00000000.tar.gz'
+                ]
+
+                Files = [f for f in Files if f not in ignore_files]
 
             elif str(Type).upper() == "P" and self.passNumber == 1:
                 Files.extend(glob.glob("/data/exp/IceCube/%s/filtered/PFFilt/%s%s/%s*%s*"%(startDate.year,\
@@ -235,12 +244,24 @@ class RunTools(object):
 
         def get_file_part(f):
             if no_xml_bundle:
-                return int(f.split('Subrun00000000_')[1].split('.i3')[0])
+                try:
+                    return int(f.split('Subrun00000000_')[1].split('.i3')[0])
+                except Exception as e:
+                    self.logger.error('File: {}'.format(f))
+                    raise e
             else:
                 if 'Subrun' in f:
-                    return int(re.sub("[^0-9]", "" ,f.split("Subrun")[1].split(".bz2")[0]))
+                    try:
+                        return int(f.split("Subrun00000000_")[1].split(".")[0])
+                    except Exception as e:
+                        self.logger.error('File: {}'.format(f))
+                        raise e
                 elif 'Part' in f:
-                    return int(re.sub("[^0-9]", "", f.split("Part")[1].split(".bz2")[0]))
+                    try:
+                        return int(f.split("Part")[1].split(".")[0])
+                    except Exception as e:
+                        self.logger.error('File: {}'.format(f))
+                        raise e
                 else:
                     raise Exception('Do not understand file name: {}'.format(f))
 
@@ -270,6 +291,8 @@ class RunTools(object):
                 return 0
 
             if not len(FileParts) or max(FileParts)>1000:
+                self.logger.debug('FileParts = {}'.format(FileParts))
+
                 self.logger.warning( "Could not resolve number of files from file names ... file names probably do not follow expected naming convention")
                 return 0
             
