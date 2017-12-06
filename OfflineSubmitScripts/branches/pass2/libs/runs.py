@@ -59,11 +59,49 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, checksumcache, dryrun, logg
         'PFDST_TestData_Unfiltered_Run00120516_Subrun00000000_0000030.tar.gz'
     ]
 
+    def get_sub_run_id(f):
+        return int(f.split('Subrun00000000_')[1].split('.')[0])
+
     InFiles = [f for f in InFiles if os.path.basename(f) not in excluded_files]
+
+    # Since we have several data source for pass2 (that actually should not happen...anyway), we nee dto check if we have two versions of the same file
+    # If so, we need to identify the file part and the try to select one version
+    import collections
+    sub_run_ids = [get_sub_run_id(f) for f in InFiles]
+
+    duplicates = [(part, count) for part, count in collections.Counter(sub_run_ids).items() if count != 1]
+
+    if len(duplicates):
+        logger.error('Found duplicates of file part(s):')
+        for dup in duplicates:
+            logger.error('  File part {0} exists {1} times'.format(*dup))
+
+        logger.error('Try to remove duplicates')
+
+        # We want to use the /data/exp version or the lfs1 or the lfs4...ins this order
+        for part, count in duplicates:
+            dfiles = [f for f in InFiles if get_sub_run_id(f) == part]
+
+            for location in reversed(['/data/exp', '/mnt/lfs2', '/mnt/lfs1', '/mnt/lfs4']):
+                dfiles = [f for f in dfiles if not f.startswith(location)]
+
+                if len(dfiles) == 1:
+                    break
+
+            if len(dfiles) > 1:
+                logger.critical('Could not remove all duplicates: {}'.format(dfiles))
+                raise RuntimeError('Could not remove all duplicates')
+
+            logger.info('Use this copy: {}'.format(dfiles[0]))
+            InFiles = [f for f in InFiles if get_sub_run_id(f) != part or f in dfiles]
+
+        logger.error('Removed all duplicates')
+
+    # End duplicate handling
 
     if add:
         sql = '''SELECT 
-    path, name
+    path, name, sub_run
 FROM
     i3filter.run r
         JOIN
@@ -77,16 +115,35 @@ ORDER BY name'''.format(dataset_id = DatasetId, run_id = g['run_id'])
 
         submitted_files = dbs4_.fetchall(sql, UseDict = True)
 
+        submitted_sub_runs = [int(f['sub_run']) for f in submitted_files]
         submitted_files = [os.path.join(remove_path_prefix(f['path']), f['name']) for f in submitted_files]
 
-        InFiles = [f for f in InFiles if f not in submitted_files]
+        InFiles = [f for f in InFiles if f not in submitted_files and get_sub_run_id(f) not in submitted_sub_runs]
 
-        logger.warning('The --add option has been activated. Only {} files will be submitted in addition to the already submitted ones.'.format(len(InFiles)))
+        logger.warning('The --add option has been activated. Only {0} files will be submitted in addition to the already submitted ({1}) ones.'.format(len(InFiles), len(submitted_files)))
 
         logger.debug('Already submitted files:')
         for f in submitted_files:
             logger.debug('  ' + f)
+
+        if len(InFiles):
+            logger.warning('Set validation status to false')
+
+            set_post_processing_state(g['run_id'], DatasetId, False, dbs4_, dryrun, logger)
+
+            sql1 = 'UPDATE i3filter.grl_snapshot_info_pass2 SET validated = 0 WHERE run_id = {run_id} AND snapshot_id = {snapshot_id}'.format(**g)
+            sql2 = 'UPDATE i3filter.post_processing SET validated = 0, date_of_validation = NOW() WHERE run_id = {run_id} AND dataset_id = {dataset_id}'.format(dataset_id = DatasetId, **g)
  
+            logger.debug('SQL1: {}'.format(sql1))
+            logger.debug('SQL2: {}'.format(sql2))
+
+            from databaseconnection import DatabaseConnection
+            filter_db = DatabaseConnection.get_connection('filter-db', logger)
+
+            if not dryrun:
+                dbs4_.execute(sql1)
+                filter_db.execute(sql2)
+
     if input:
         logger.debug("InFiles glob = %s" % format_path(input))
         InFiles = sorted(glob.glob(format_path(input)))
