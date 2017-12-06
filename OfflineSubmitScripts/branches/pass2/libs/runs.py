@@ -59,6 +59,8 @@ def submit_run(dbs4_, g, status, DatasetId, QueueId, checksumcache, dryrun, logg
         'PFDST_TestData_Unfiltered_Run00120516_Subrun00000000_0000030.tar.gz'
     ]
 
+    add_metadata = {}
+
     def get_sub_run_id(f):
         return int(f.split('Subrun00000000_')[1].split('.')[0])
 
@@ -144,6 +146,8 @@ ORDER BY name'''.format(dataset_id = DatasetId, run_id = g['run_id'])
                 dbs4_.execute(sql1)
                 filter_db.execute(sql2)
 
+    add_metadata['added_files'] = InFiles
+
     if input:
         logger.debug("InFiles glob = %s" % format_path(input))
         InFiles = sorted(glob.glob(format_path(input)))
@@ -216,10 +220,10 @@ ORDER BY name'''.format(dataset_id = DatasetId, run_id = g['run_id'])
     
     if not len(InFiles):
         logger.info("No PFFilt will be submitted for run %s"%g['run_id'])
-    
+   
         QueueId+=1
     
-        if not dryrun:
+        if not dryrun and not add:
             dbs4_.execute("""insert into i3filter.job (dataset_id,queue_id,status) values (%s,%s,"%s")"""%(DatasetId,QueueId,status))
             dbs4_.execute("""insert into i3filter.run (run_id,dataset_id,queue_id,sub_run,date) values (%s,%s,%s,%s,"%s")"""%(g['run_id'],DatasetId,QueueId,-1,str(sDay.date())))
     else:
@@ -248,6 +252,8 @@ ORDER BY name'''.format(dataset_id = DatasetId, run_id = g['run_id'])
                              (DatasetId,QueueId,os.path.basename(InFile),path_prefix+os.path.dirname(InFile)+"/",InFileChkSum,str(os.path.getsize(InFile))))
     
                 dbs4_.execute("""insert into i3filter.run (run_id,dataset_id,queue_id,sub_run,date) values (%s,%s,%s,%s,"%s")"""%(g['run_id'],DatasetId,QueueId,CountSubRun,str(sDay.date())))
+
+    return add_metadata
 
 def clean_run(dbs4_,DatasetId,Run,CLEAN_DW,g, logger, dryrun):
     """

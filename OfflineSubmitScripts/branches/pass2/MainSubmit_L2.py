@@ -78,6 +78,8 @@ def main(params, logger, DryRun):
 
     checksumcache = DBChecksumCache(logger, DryRun)
 
+    add_metadata = {}
+
     for Run in AllRuns:
         dataset_id = params.DATASETID
 
@@ -118,7 +120,7 @@ def main(params, logger, DryRun):
                 QId = 0
 
             try: 
-                submit_run(dbs4_, g, status, dataset_id, QId, checksumcache, DryRun, logger, use_std_gcds = args.USE_STD_GCDS, gcd = args.gcd, input = args.input, out = args.out, add = args.add)
+                add_metadata[g['run_id']] = submit_run(dbs4_, g, status, dataset_id, QId, checksumcache, DryRun, logger, use_std_gcds = args.USE_STD_GCDS, gcd = args.gcd, input = args.input, out = args.out, add = args.add)
             except ValueError as e:
                 logger.exception(e)
 
@@ -139,7 +141,7 @@ def main(params, logger, DryRun):
 
                 # Try it a second time
                 try:
-                    submit_run(dbs4_, g, status, dataset_id, QId, checksumcache, DryRun, logger, use_std_gcds = args.USE_STD_GCDS, gcd = args.gcd, input = args.input, out = args.out, add = args.add)
+                    add_metadata[g['run_id']] = submit_run(dbs4_, g, status, dataset_id, QId, checksumcache, DryRun, logger, use_std_gcds = args.USE_STD_GCDS, gcd = args.gcd, input = args.input, out = args.out, add = args.add)
                 except Exception as e:
                     logger.exception(e)
 
@@ -184,6 +186,17 @@ def main(params, logger, DryRun):
                 
 
                 logger.info("**************")
+
+    if args.add:
+        import json
+        import logging
+
+        meta_file_name = [handler for handler in logger.handlers if isinstance(handler, logging.FileHandler)][0].baseFilename + '_add_metadata.json'
+
+        with open(meta_file_name, 'w') as f:
+            json.dump(add_metadata, f, sort_keys = True, indent = 2)
+
+        logger.info('Summary adding files to jobs: {}'.format(meta_file_name,))
 
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__, dryrun = True)
