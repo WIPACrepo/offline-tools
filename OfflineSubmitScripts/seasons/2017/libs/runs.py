@@ -447,6 +447,7 @@ class Run(object):
             from path import get_sub_run_id_from_path
 
             path_pattern_repl = replace_var(path_pattern, 'sub_run_id', '*[0-9]')
+            path_pattern_repl = replace_var(path_pattern_repl, 'filtering_type', '*')
 
             next_day = self.get_start_time().date_time + relativedelta(days = 1)
 
@@ -531,6 +532,43 @@ class Run(object):
         """
 
         return self._get_x_files(get_config(self.logger).get_l2_path_pattern(season = self.get_season(), ftype = 'DATA', pass_number = 2), 'Level2pass2', force_reload).values()
+
+    def get_levelx_files(self, dataset_id):
+        """
+        Returns a list if SubRuns of type `Level3` and the specific dataset.
+
+        Args:
+            dataset_id (int): The dataset_id
+
+        Returns:
+            list: List of SubRuns
+        """
+
+        from glob import glob
+
+        path_pattern = get_config(self.logger).get_level3_info()[dataset_id]['path']
+        path_pattern = os.path.join(path_pattern, '*Level*{run_id}*Subrun00000000_{sub_run_id:0>8}.i3.*')
+
+        files = []
+
+        for sub_run_id, subrun in self.get_sub_runs().items():
+            path = subrun.format(path_pattern)
+            self.logger.debug('Looking up L3 files for dataset {0} in {1}'.format(dataset_id, path))
+
+            f = glob(path)
+
+            if len(f) != 1:
+                raise RuntimeError('Could not find file')
+
+            sr = SubRun(f[0], self.logger)
+            sr.run = self
+            sr.sub_run_id = sub_run_id
+            sr.filetype = 'LevelX'
+            sr.dataset_id = dataset_id
+
+            files.append(sr)
+
+        return files
 
     def set_post_processing_state(self, dataset_id, validated):
         """

@@ -224,10 +224,15 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, coun
     iceprod.clean_run(args.destination_dataset_id, run)
 
     try:
+        # Determine source data. First, we assume that we're going to process L3 data. So, the source is L2 data.
+        # However, we also can process some higher level. Then we have a different data source that depends on the dataset id.
         ftype = 'Level2'
 
         if dataset_info['pass'] == 2:
             ftype = 'Level2pass2'
+
+        if dataset_info != 'L3':
+            ftype = ('LevelX', source_dataset_id)
 
         iceprod.submit_run(args.destination_dataset_id, run, checksumcache, ftype, aggregate = args.aggregate, gcd_file = gcd_file, special_files = special_files)
 

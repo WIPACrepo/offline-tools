@@ -83,7 +83,7 @@ class IceProd1(iceprodinterface.IceProdInterface):
             dataset_id (int): The dataset id
             run (runs.Run): The run
             checksumcache (files.ChecksumCache): The cache that manages the checksums
-            source_file_type (str): `Level2`, `Level2pass2`, `PFDST`, or `PFFilt`
+            source_file_type (str|tuple): `Level2`, `Level2pass2`, `PFDST`, `PFFilt`, or `('LevelX', <dataset_id>)`
             gcd_file (files.File|str): GCD file. If `None`, the GCD file will be looked up from the datawarehouse
             special_files (list): List of paths or files.File that are input file for *each* job of this run. If `None` or the list is empty, this option is ignored
             aggregate (int): Needs to be >= 1. If > 1, more than one input file will be processed by one job
@@ -117,6 +117,8 @@ class IceProd1(iceprodinterface.IceProdInterface):
             input_files = run.get_level2_files()
         elif source_file_type == 'Level2pass2':
             input_files = run.get_level2pass2_files()
+        elif isinstance(source_file_type, tuple) and len(source_file_type) == 2 and source_file_type[0] == 'LevelX':
+            input_files = run.get_levelx_files(source_file_type[1])
         else:
             self.logger.critical('Unknown data source')
             raise RuntimeError('Unknown data source')
