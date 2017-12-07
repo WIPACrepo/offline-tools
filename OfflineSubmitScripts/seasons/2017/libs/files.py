@@ -375,8 +375,8 @@ class MetaXMLFile(File):
     def __init__(self, dest_folder, run, level, dataset_id, logger):
         super(MetaXMLFile, self).__init__(None, logger)
 
-        if level not in ['L2', 'L3']:
-            raise Exception('Level must be L2 or L3')
+        if level not in ['L2', 'L3', 'L4']:
+            raise Exception('Level must be L2 or L3 or L4')
 
         from libs.config import get_config
         self.config = get_config(logger)
@@ -385,6 +385,8 @@ class MetaXMLFile(File):
             self.path = os.path.join(dest_folder, self.config.get('Level2', 'MetaFileName'))
         elif level == 'L3':
             self.path = os.path.join(dest_folder, self.config.get('Level3', 'MetaFileName'))
+        elif level == 'L4':
+            self.path = os.path.join(dest_folder, self.config.get('Level4', 'MetaFileName'))
 
         self.run = run
         self.level = level
@@ -427,8 +429,8 @@ class MetaXMLFile(File):
             subcategory = 'level2'
             icerec_version = os.path.basename(self.config.get('Level2', 'I3_SRC'))
             subcategory_capitalized = subcategory.title()
-        elif self.level == 'L3':
-            subcategory = 'level3'
+        elif self.level in ('L3', 'L4'):
+            subcategory = 'level3' if self.level == 'L3' else 'level4'
             l3_datasets = self.config.get_level3_info()
             if self.dataset_id not in l3_datasets.keys():
                 self.logger.critical("Dataset {0} is not configured in config file.".format(self.dataset_id))

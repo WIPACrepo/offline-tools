@@ -231,7 +231,7 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, coun
         if dataset_info['pass'] == 2:
             ftype = 'Level2pass2'
 
-        if dataset_info != 'L3':
+        if dataset_info['type'] != 'L3':
             ftype = ('LevelX', source_dataset_id)
 
         iceprod.submit_run(args.destination_dataset_id, run, checksumcache, ftype, aggregate = args.aggregate, gcd_file = gcd_file, special_files = special_files)
@@ -245,7 +245,7 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, coun
             else:
                 meta_file_dest = outdir
 
-            metafile = MetaXMLFile(meta_file_dest, run, 'L3', args.destination_dataset_id, logger)
+            metafile = MetaXMLFile(meta_file_dest, run, dataset_info['type'], args.destination_dataset_id, logger)
             metafile.add_main_processing_info()
         else:
             logger.info("No meta data files will be written")
