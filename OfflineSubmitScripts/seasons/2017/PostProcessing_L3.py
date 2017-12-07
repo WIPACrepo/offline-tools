@@ -23,6 +23,10 @@ from libs.cron import cron_finished
 def validate_run(source_dataset_ids, run, args, iceprod, logger, counter, checksumcache):
     config = get_config(logger)
 
+    dataset_info = config.get_level3_info()
+
+    level = dataset_info[int(args.destination_dataset_id)]['type']
+
     # Find source dataset_id for this run
     source_dataset_id = None
     for sd_id in source_dataset_ids:
@@ -53,7 +57,7 @@ def validate_run(source_dataset_ids, run, args, iceprod, logger, counter, checks
         counter.count('skipped')
         return
 
-    if not validate_files(iceprod, args.destination_dataset_id, run, checksumcache, logger, level = 'L3'):
+    if not validate_files(iceprod, args.destination_dataset_id, run, checksumcache, logger, level = level):
         logger.error(run.format('Files validation failed for run {run_id}, production_version = {production_version}'))
         counter.count('error')
         return
@@ -61,7 +65,7 @@ def validate_run(source_dataset_ids, run, args, iceprod, logger, counter, checks
     logger.info("Files validated")
 
     # Get L3 run folder
-    run_folder = run.format(config.get_level3_info()[int(args.destination_dataset_id)]['path'])
+    run_folder = run.format(dataset_info[int(args.destination_dataset_id)]['path'])
 
     if not args.nometadata:
         dest_folder = ''
@@ -70,7 +74,7 @@ def validate_run(source_dataset_ids, run, args, iceprod, logger, counter, checks
         else:
             meta_file_dest = run_folder
 
-        metafile = MetaXMLFile(meta_file_dest, run, 'L3', args.destination_dataset_id, logger)
+        metafile = MetaXMLFile(meta_file_dest, run, level, args.destination_dataset_id, logger)
         metafile.add_post_processing_info(__file__, args.no_svn)
     else:
         logger.info("No meta data files will be written")

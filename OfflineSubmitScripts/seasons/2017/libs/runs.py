@@ -546,12 +546,24 @@ class Run(object):
 
         from glob import glob
 
-        path_pattern = get_config(self.logger).get_level3_info()[dataset_id]['path']
+        dataset_info = get_config(self.logger).get_level3_info()[dataset_id]
+
+        path_pattern = dataset_info['path']
         path_pattern = os.path.join(path_pattern, '*Level*{run_id}*Subrun00000000_{sub_run_id:0>8}.i3.*')
 
         files = []
 
-        for sub_run_id, subrun in self.get_sub_runs().items():
+        all_sub_runs = SubRun.sort_sub_runs(self.get_sub_runs().values())
+
+        for subrun in all_sub_runs:
+            sub_run_id = subrun.sub_run_id
+
+            last_id = all_sub_runs[-1].sub_run_id
+
+            # Take --aggregate inof account
+            if sub_run_id >= int((last_id + 1) / dataset_info['aggregate']) + int(bool((last_id + 1) % dataset_info['aggregate'])):
+                break
+
             path = subrun.format(path_pattern)
             self.logger.debug('Looking up L3 files for dataset {0} in {1}'.format(dataset_id, path))
 

@@ -262,11 +262,14 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2'
         level (str): `L2` or `L3`.
     """
 
-    if level not in ('L2', 'L3'):
+    if level not in ('L2', 'L3', 'L4'):
         logger.critical('Invalid value for `level`: {}'.format(level))
         exit(1)
 
     config = get_config(logger)
+
+    dataset_info = config.get_level3_info()[int(dataset_id)]
+
     jobs = iceprod.get_jobs(dataset_id, run)
 
     bad_sub_runs = [sr.sub_run_id for sr in run.get_sub_runs().values() if sr.is_bad()]
@@ -297,8 +300,12 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2'
 
         if level == 'L2':
             expected_lx_file_name = run.format(config.get_l2_path_pattern(run.get_season(), 'DATA'), sub_run_id = sub_run_id)
+        elif level == 'L3':
+            expected_lx_file_name = run.format(os.path.join(dataset_info['path'], config.get('Level3', 'FileName')), sub_run_id = sub_run_id)
+        elif level == 'L4':
+            expected_lx_file_name = run.format(os.path.join(dataset_info['path'], config.get('Level4', 'FileName')), sub_run_id = sub_run_id)
         else:
-            expected_lx_file_name = run.format(os.path.join(config.get_level3_info()[int(dataset_id)]['path'], config.get('Level3', 'FileName')), sub_run_id = sub_run_id)
+            raise RuntimeError('Unknown level: {}'.format(level))
 
         logger.info('Calculating checksums and looking for stream errors for sub run {0}'.format(sub_run_id))
 
@@ -361,8 +368,11 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2'
     logger.info('All output files exists and have the currect checksums and all expected {} files exists'.format(level))
 
     # Check number of processed LX files and available LX files
-    lx_files_on_disk = run.get_level2_files() if level == 'L2' else get_level3_files(run, dataset_id, logger)
+    lx_files_on_disk = run.get_level2_files() if level == 'L2' else run.get_levelx_files(dataset_id)# get_level3_files(run, dataset_id, logger)
     if len(l2_files) != len(lx_files_on_disk):
+        logger.info('l2_files = {}'.format(l2_files))
+        logger.info('lx_files_on_disk = {}'.format(lx_files_on_disk))
+
         # Since we checked if all output files exist, the only case can be that we have more
         # files on disk than processed. That would be odd
         logger.error('Found more {} files than actually processed:'.format(level))
@@ -375,24 +385,34 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2'
     logger.info('No unexpected {} files found'.format(level))
 
     # Check if all L2 files were processed
-    if level == 'L3':
-        l3_in_files = set([f for f in in_files if 'gcd' not in f.lower()])
-        l2_files_on_disk = set([f.path for f in run.get_level2_files()])
+    if level in ('L3', 'L4'):
+        lx_in_files = set([f for f in in_files if 'gcd' not in f.lower()])
 
-        if l3_in_files == l2_files_on_disk:
-            logger.info('All L2 files have been processed')
+        if level == 'L3':
+            lxm1_files_on_disk = set([f.path for f in run.get_level2_files()])
         else:
-            not_processed = l2_files_on_disk - l3_in_files
+            source_datasets = config.get_source_dataset_ids(dataset_id)
+
+            for sds in source_datasets:
+                lxm1_files_on_disk = set([f.path for f in run.get_levelx_files(sds)])
+
+                if len(lxm1_files_on_disk):
+                    break
+
+        if lx_in_files == lxm1_files_on_disk:
+            logger.info('All input files have been processed')
+        else:
+            not_processed = lxm1_files_on_disk - lx_in_files
 
             if len(not_processed):
-                logger.error('Some L2 files have not been processed:')
+                logger.error('Some input files have not been processed:')
 
                 for i, f in enumerate(list(not_processed)):
                     logger.error('  {0}: {1}'.format(i, f))
 
-            unknown_input_files = l3_in_files - l2_files_on_disk
+            unknown_input_files = lx_in_files - lxm1_files_on_disk
             if len(unknown_input_files):
-                logger.error('L2 files have been used as input files that are not present on disk:')
+                logger.error('L2/X files have been used as input files that are not present on disk:')
 
                 for i, f in enumerate(list(unknown_input_files)):
                     logger.error('  {0}: {1}'.format(i, f))
@@ -401,14 +421,4 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2'
 
     # All checks passed
     return True
-
-def get_level3_files(run, dataset_id, logger):
-    pattern = os.path.join(get_config(logger).get_level3_info()[int(dataset_id)]['path'], get_config(logger).get('Level3', 'FileName'))
-
-    from stringmanipulation import replace_var
-
-    pattern = replace_var(pattern, 'sub_run_id', '*[0-9]')
-    pattern = run.format(pattern)
-
-    return glob(pattern)
 
