@@ -25,6 +25,7 @@ from libs.runs import get_run_status, clean_run, submit_run
 from libs.dbtools import max_queue_id 
 from libs.config import get_dataset_id_by_run
 from libs.utils import DBChecksumCache
+from libs.databaseconnection import DatabaseConnection
 
 ##-----------------------------------------------------------------
 ## setup DB
@@ -38,6 +39,7 @@ def main(params, logger, DryRun):
     Resubmission = params.RESUBMISSION
 
     dbs4_ = dbs4.MySQL()
+    filter_db = DatabaseConnection.get_connection('filter-db', logger)
 
     # Check arguments
     runs = params.runs
@@ -76,7 +78,8 @@ def main(params, logger, DryRun):
                                      validated=0 \
                                  WHERE run_id IN (%s) AND (good_i3=1 OR good_it=1)"""%(','.join([str(r) for r in runs])))
 
-    checksumcache = DBChecksumCache(logger, DryRun)
+
+    checksumcache = DBChecksumCache(logger, False)# DryRun)
 
     add_metadata = {}
 
@@ -92,6 +95,9 @@ def main(params, logger, DryRun):
                 logger.info("Dataset id of run %s was determined to %s" % (Run, dataset_id))
 
         logger.info("************** Attempting to (Re)submit %s"%(Run))
+
+        if Resubmission and not args.out and not args.dryrun:
+            filter_db.execute('UPDATE i3filter.post_processing SET validated = 0, date_of_validation = NOW() WHERE dataset_id = {0} AND run_id = {1}'.format(dataset_id, Run))
 
         if not args.out:
             GRLInfo = dbs4_.fetchall("""select g.*,r.tStart, r.tStop, r.FilesComplete from i3filter.grl_snapshot_info_pass2 g

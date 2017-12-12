@@ -29,7 +29,7 @@ echo "##############################################"
 echo "# LoweEnergy Run Submission                  #"
 echo "##############################################"
 
-# Muon
+# LowEnergy
 python MainSubmit_L3.py --sourcedatasetid 1921 --destinationdatasetid 1954 -s 127951 -e 128753 --aggregate 10
 python MainSubmit_L3.py --sourcedatasetid 1920 --destinationdatasetid 1953 -s 126289 -e 127949 --aggregate 10
 python MainSubmit_L3.py --sourcedatasetid 1919 --destinationdatasetid 1952 -s 124550 -e 126377 --aggregate 10

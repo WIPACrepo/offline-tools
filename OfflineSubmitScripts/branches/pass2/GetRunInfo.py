@@ -353,6 +353,7 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
 
     detailed_check_information = {}
     
+    gb = ('BAD', 'GOOD')
     for r in RunNums_:
         is_good_run = RunInfo_[r]['good_it'] or RunInfo_[r]['good_i3']
         logger.debug("Is run %s a good run? = %s" % (r, is_good_run))
@@ -363,7 +364,7 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
 
         if validated_runs is not None:
             if r not in validated_runs:
-                logger.error('Run {0} has not been validated in dataset {1}. This run will be skipped.'.format(r, check_pfdst_dataset))
+                logger.error('Run {0} has not been validated in dataset {1}. This run will be skipped. ({2})'.format(r, check_pfdst_dataset, gb[is_good_run]))
                 continue
 
        # if not is_good_run:
@@ -383,7 +384,6 @@ def main(config, logger,dryrun = False, check = False, updates_only = False, run
                 logger.info('%s is a new run but the `updates-only` option is enabled. Skip this run.' % r)
                 continue
 
-            gb = ('BAD', 'GOOD')
             logger.info("entering new records for run = %s (%s)" % (r, gb[is_good_run]))
 
             R = RunTools(r, logger = logger, passNumber = 2)
