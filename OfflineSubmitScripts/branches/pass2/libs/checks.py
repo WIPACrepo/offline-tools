@@ -182,8 +182,10 @@ def CheckFiles(r, logger, dataset_id, season, dryrun = False, no_pass2_gcd_file 
 
     for p in InFiles:
         l = os.path.join(os.path.dirname(L2Files[0]),
-                        os.path.basename(p).replace("PFFilt_PhysicsFiltering","Level2pass2_%s.%s_data" % (detector_configuration, season))
-                                           .replace(".tar",".i3"))\
+                        os.path.basename(p)
+                .replace('_UW_', '_')\
+                .replace("PFFilt_PhysicsFiltering","Level2pass2_%s.%s_data" % (detector_configuration, season))\
+                .replace(".tar",".i3"))\
                 .replace('PFDST_PhysicsTrig_PhysicsFiltering', 'Level2pass2_%s.%s_data' % (detector_configuration, season))\
                 .replace('PFDST_TestData_PhysicsFiltering', 'Level2pass2_%s.%s_data' % (detector_configuration, season))\
                 .replace('PFDST_PhysicsFiltering', 'Level2pass2_%s.%s_data' % (detector_configuration, season))\

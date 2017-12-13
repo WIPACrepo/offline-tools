@@ -218,8 +218,8 @@ def main_run(r, logger, dataset_id, season, nometadata, dryrun = False, no_pass2
             pass1_data_sub_runs = None
 
         # *_frac is in tenth of nanoseconds
-        precise_good_start_time = r['good_tstart'].replace(microsecond = r['good_tstart_frac'] / 10 / 1000)
-        precise_good_stop_time = r['good_tstop'].replace(microsecond = r['good_tstop_frac'] / 10 / 1000)
+        precise_good_start_time = r['good_tstart'].replace(microsecond = (r['good_tstart_frac'] if r['good_tstart_frac'] is not None else 0) / 10 / 1000)
+        precise_good_stop_time = r['good_tstop'].replace(microsecond = (r['good_tstop_frac'] if r['good_tstop_frac'] is not None else 0) / 10 / 1000)
 
         if (precise_good_start_time - first_event_of_first_file).total_seconds() + prepending_livetime < -1:
             logger.error('Probably missing a file or data:')
