@@ -88,6 +88,11 @@ def submit_run(checksumcache, db, gcd, run_id, status, DatasetId, QueueId, dryru
     InFiles.extend(glob.glob("/data/exp/IceCube/%s/unbiased/PFRaw/%s%s/*PFRaw_*_Run00%s_Subrun00000000_00000*.tar.gz" % (nextDate.year, str(nextDate.month).zfill(2), str(nextDate.day).zfill(2), run_id)))       
     InFiles.extend(glob.glob("/data/exp/IceCube/%s/unbiased/PFRaw/%s%s/*PFRaw_*_Run00%s_Subrun00000000_00000*.tar.zst" % (nextDate.year, str(nextDate.month).zfill(2), str(nextDate.day).zfill(2), run_id)))       
    
+    # Exceptions for run 126754, see https://tracker.icecube.wisc.edu/Ticket/Display.html?id=27981
+    if run_id == 126754:
+        InFiles.extend(glob.glob("/data/exp/IceCube/%s/unbiased/PFRaw/%s%s/*PFRaw_*_Run00%s_Subrun00000000_00000*.i3" % (sY, sM, sD, run_id)))
+        InFiles.extend(glob.glob("/data/exp/IceCube/%s/unbiased/PFRaw/%s%s/*PFRaw_*_Run00%s_Subrun00000000_00000*.i3" % (nextDate.year, str(nextDate.month).zfill(2), str(nextDate.day).zfill(2), run_id)))       
+
     InFiles.sort()
 
     logger.debug("InFiles = %s" % InFiles)
@@ -199,7 +204,8 @@ ORDER BY name'''.format(dataset_id = DatasetId, run_id = run_id)
         logger.info("Attempting to submit %s PFRaw Files for run %s"%(str(len(InFiles)),g['run_id']))
     
         for InFile in InFiles:
-            CountSubRun = int(InFile[-15:-7])
+#            CountSubRun = int(InFile[-15:-7])
+            CountSubRun = int(InFile.split('Subrun00000000_00')[1].split('.')[0])
             
             logger.info("Submission of file %s / %s -> %s" % (CountSubRun, len(InFiles), InFile))
 

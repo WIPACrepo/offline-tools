@@ -61,7 +61,9 @@ def get_out_files(run_id, start_date, season):
     if int(season) in (2015, 2016):
         dst_folder += 'noSPE'
 
-    return get_x_files(run_id, start_date, '/data/exp/IceCube/{year}/unbiased/' + dst_folder + '/{month:0>2}{day:0>2}/PFDST_PhysicsFiltering_Run*{run_id:0>8}_Subrun00000000_00000*.i3.bz2')
+    uw = '' if run_id not in (125832, 126034, 126036) else '_UW'
+
+    return get_x_files(run_id, start_date, '/data/exp/IceCube/{year}/unbiased/' + dst_folder + '/{month:0>2}{day:0>2}/PFDST' + uw + '_PhysicsFiltering_Run*{run_id:0>8}_Subrun00000000_00000*.i3.bz2')
 
 def get_x_files(run_id, start_date, folder_pattern):
     from glob import glob
@@ -137,13 +139,22 @@ def CheckFiles(r, logger, dataset_id, season, run_id, dryrun, checksumcache, for
     GCDName = GCDName[0]
     GCDName = os.path.join(ICECUBE_GCDDIR(r['tstart'], r['run_id']),os.path.basename(GCDName))
 
+    logger.info('GCDName = {}'.format(GCDName))
+
     # Some IC79 GCD files are in the wrong folder
     if not os.path.isfile(GCDName):
-        # Check other folder: Day before
-        GCDName = os.path.join(ICECUBE_GCDDIR(r['tstart'] - relativedelta(days = 1), r['run_id']),os.path.basename(GCDName))
-        if not os.path.isfile(GCDName):
-            logger.error('Clould not find GCD file: {}'.format(GCDName))
-            return 1
+        if os.path.basename(GCDName).startswith('SDST'):
+            GCDName = os.path.join('/data/exp/IceCube/{year}/filtered/level2pass2/OfflinePreChecks/DataFiles/{month:0>2}{day:0>2}'.format(year = r['tstart'].year, month = r['tstart'].month, day = r['tstart'].day), os.path.basename(GCDName))
+
+            if not os.path.isfile(GCDName):
+                logger.error('Clould not find GCD file: {}'.format(GCDName))
+                return 1
+        else:
+            # Check other folder: Day before
+            GCDName = os.path.join(ICECUBE_GCDDIR(r['tstart'] - relativedelta(days = 1), r['run_id']),os.path.basename(GCDName))
+            if not os.path.isfile(GCDName):
+                logger.error('Clould not find GCD file: {}'.format(GCDName))
+                return 1
     
     Files2Check.append(GCDName)
 
@@ -166,16 +177,18 @@ def CheckFiles(r, logger, dataset_id, season, run_id, dryrun, checksumcache, for
             logger.warning('IGNORE ERROR SINCE --force-validation IS ENABLED')
 
     for p in InFiles:
+        uw = '' if run_id not in (125832, 126034, 126036) else '_UW'
+
         l = os.path.join(
             os.path.dirname(L2Files[0]),
             #'PFDST_' + os.path.basename(p).split('PFRaw_')[1].replace(".tar",".i3").replace('.gz', '.bz2')
-            'PFDST_PhysicsFiltering_Run{run_id:0>8}_Subrun00000000_{sub_run:0>8}.i3.bz2'.format(run_id = r['run_id'], sub_run = int(p.split('.')[0].split('_00')[-1]))
+            'PFDST' + uw + '_PhysicsFiltering_Run{run_id:0>8}_Subrun00000000_{sub_run:0>8}.i3.bz2'.format(run_id = r['run_id'], sub_run = int(p.split('.')[0].split('_00')[-1]))
         )
    
         # IC 79 configuration bug: accidently configured too many zeros before the run id 
         l2 = os.path.join(
             os.path.dirname(L2Files[0]),
-            'PFDST_PhysicsFiltering_Run{run_id:0>10}_Subrun00000000_{sub_run:0>8}.i3.bz2'.format(run_id = r['run_id'], sub_run = int(p.split('.')[0].split('_00')[-1]))
+            'PFDST' + uw + '_PhysicsFiltering_Run{run_id:0>10}_Subrun00000000_{sub_run:0>8}.i3.bz2'.format(run_id = r['run_id'], sub_run = int(p.split('.')[0].split('_00')[-1]))
         )
     
         if not os.path.isfile(l) and not os.path.isfile(l2):
