@@ -268,7 +268,8 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2'
 
     config = get_config(logger)
 
-    dataset_info = config.get_level3_info()[int(dataset_id)]
+    if level != 'L2':
+        dataset_info = config.get_level3_info()[int(dataset_id)]
 
     jobs = iceprod.get_jobs(dataset_id, run)
 
