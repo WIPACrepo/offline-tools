@@ -62,6 +62,17 @@ file_id = int(args.i.split('Subrun00000000_00')[1].split('.')[0])
 
 logger.info('File metadata: run_id = {0}, file_id = {1}'.format(run_id, file_id))
 
+# Check if post processing has already been performed
+db = DatabaseConnection.get_connection('filter-db', logger)
+
+sql = "SELECT * FROM i3filter.pass2_gfu_post_processing WHERE run_id = {0} AND sub_run = {1} AND done = 1".format(run_id, file_id)
+rows = db.fetchall(sql, UseDict = True)
+if len(rows):
+    logger.info('This file has already been GFU post processed.')
+    logger.info('DB response: {}'.format(rows))
+    logger.info('Exit')
+    exit()
+
 # configure logging
 icetray.I3Logger.global_logger.set_level(icetray.I3LogLevel.LOG_INFO)
 icetray.I3Logger.global_logger.set_level_for_unit('I3FilterModule',        icetray.I3LogLevel.LOG_INFO)
@@ -195,7 +206,6 @@ else:
         if not args.dryrun:
             os.rename(outputfile, args.i)
     
-    db = DatabaseConnection.get_connection('filter-db', logger)
     sql = 'INSERT INTO i3filter.pass2_gfu_post_processing (`run_id`, `sub_run`, `path`, `done`, `date`) VALUES ({run_id}, {sub_run}, \'{path}\', 1, NOW())'.format(run_id = run_id, sub_run = file_id, path = args.i)
     
     logger.debug('SQL: {}'.format(sql))
