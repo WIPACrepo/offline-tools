@@ -1251,6 +1251,13 @@ def validate_file_integrity(run, files, logger, run_start_time = None, run_stop_
     if isinstance(run_stop_time, dataclasses.I3Time):
         run_stop_time = run_stop_time.date_time
 
+    # In case it is a bad run and no start/stop times are provided by i3live
+    # (e.g. run 130375), we just skip this and return false. It doesn't matter
+    # since it is a bad run.
+    if not run.is_good_run():
+        if run_stop_time is None or run_start_time is None:
+            return False
+
     run_start_time = run_start_time.replace(microsecond = 0)
     run_stop_time = run_stop_time.replace(microsecond = 0)
 
