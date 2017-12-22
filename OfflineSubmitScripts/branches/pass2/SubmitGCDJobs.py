@@ -211,6 +211,13 @@ if __name__ == '__main__':
         else:
             GCDFilesPass1_glob = os.path.join(GCDDirPass1, "Level2_%sdata_Run00%s_*%s*GCD.i3.gz" % (Season, r, SId))
 
+        if r in (115975, 115976, 115978, 115982, 115984, 115985):
+            # Special runs: The original GCD files had a lack of a certain trigger configuration.
+            # Therefore, I needed to generate new GCD files from dbs2.
+            GCDFilesPass1_glob = '/data/exp/IceCube/%s/filtered/level2pass2/OfflinePreChecks/DataFiles/%s%s/SDST_Run00%s_GCD.i3.gz' % (sY, sM, sD, r)
+            logger.info('*** Special run in IC79. Special GCD. ***')
+            logger.info('*** GCD: {} ***'.format(GCDFilesPass1_glob))
+
         GCDFilesPass1 = glob.glob(GCDFilesPass1_glob)
 
         # IC79 GCD location bug: Some GCds are in the wrong folder: a day before
