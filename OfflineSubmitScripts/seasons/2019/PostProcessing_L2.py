@@ -93,9 +93,10 @@ def validate_run(dataset_id, run, args, iceprod, logger, counter, checksumcache)
     logger.debug('tar log files')
     tar_log_files(run, logger, args.dryrun)
 
-    if not run.is_test_run():
-        logger.info('Create run sym link')
-        make_relative_symlink(run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER')), run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER_LINK')), args.dryrun, logger, replace = True)
+    # Comment out next line so links get created even for test runs
+    # if not run.is_test_run():
+    logger.info('Create run sym link')
+    make_relative_symlink(run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER')), run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER_LINK')), args.dryrun, logger, replace = True)
 
     logger.info('Mark as validated')
     run.set_post_processing_state(dataset_id, True)

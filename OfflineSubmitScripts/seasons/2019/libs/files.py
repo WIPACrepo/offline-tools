@@ -294,7 +294,7 @@ class GapsFile(File):
         return 'gap' in self._values.keys()
 
     def get_gaps(self):
-        if self.has_gap():
+        if self.has_gaps():
             return self._values['gap']
         else:
             return None
@@ -917,7 +917,8 @@ def insert_gaps_file_info_into_db(run, dryrun, logger):
 
         if gf.has_gaps():
             for gap in gf.get_gaps():
-                gap_insert_sql = 'INSERT INTO gaps (run_id, sub_run, prev_event_id, curr_event_id, delta_time, prev_event_frac, curr_event_frac) VALUES (%s, %s, %s, %s, %s, %s, %s)'
+                # RMS20190906 gap_insert_sql = 'INSERT INTO gaps (run_id, sub_run, prev_event_id, curr_event_id, delta_time, prev_event_frac, curr_event_frac) VALUES (%s, %s, %s, %s, %s, %s, %s)'
+                gap_insert_sql = 'REPLACE INTO gaps (run_id, sub_run, prev_event_id, curr_event_id, delta_time, prev_event_frac, curr_event_frac) VALUES (%s, %s, %s, %s, %s, %s, %s)'
                 gaps.append(gap_insert_sql % (gf.get_run_id(), gf.get_sub_run_id(), gap['prev_event_id'],  gap['curr_event_id'],  gap['dt'],  gap['prev_event_frac'], gap['curr_event_frac']))
 
     db = DatabaseConnection.get_connection('filter-db', logger)
@@ -968,7 +969,7 @@ def has_subrun_dstheader_within_good_time_range(subrun, logger):
         bool: `True` if the file is good.
     """
 
-    from icecube import dataio, dataclasses
+    from icecube import icetray, dataio, dataclasses
 
     def is_frame_in_gtr(frame, run):
         if frame['I3EventHeader'].start_time < run.get_good_start_time():
@@ -978,13 +979,14 @@ def has_subrun_dstheader_within_good_time_range(subrun, logger):
         else:
             return 0
 
-    f = dataio.I3File(subrun.path)
-
     found_dstheader = False
     within_good_time_range = False
 
     # Note: It can happen that we find a I3DSTHeader before we find a I3EventHeader. We
     # need to ensure that we are within the good time range!
+
+    print subrun.path
+    f = dataio.I3File(subrun.path)
 
     try:
         while f.more():
@@ -1009,7 +1011,11 @@ def has_subrun_dstheader_within_good_time_range(subrun, logger):
                         break
                 elif good == -1:
                     found_dstheader = False
+    except:
+        logger.error('error in %s', subrun.path, exc_info=True)
     finally:
+    #    while f.more():
+    #        frame = f.pop_frame()
         f.close()
 
     return found_dstheader

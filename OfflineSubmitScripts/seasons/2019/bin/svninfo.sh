@@ -2,7 +2,7 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
-eval `/cvmfs/icecube.opensciencegrid.org/py2-v2/setup.sh`
+eval `/cvmfs/icecube.opensciencegrid.org/py2-v3.1.1/setup.sh`
 
 # Load config in order to get current L2 icerec path
 eval "$(python ${DIR}/bin/ConfigLoader.py)"
