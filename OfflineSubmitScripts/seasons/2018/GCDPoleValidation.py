@@ -16,7 +16,7 @@ from libs.config import get_config
 from libs.databaseconnection import DatabaseConnection
 from libs.utils import Counter
 from libs.process import Lock
-from libs.runs import Run
+from libs.runs import Run, LoadRunDataException
 from libs.path import get_tmpdir, get_env_python_path, get_logdir
 from libs.email import send_email
 from libs.files import File
@@ -137,15 +137,20 @@ def main(run_ids, args, config, logger):
 
             email_content = run.format(email_content, return_code = return_code, north_gcd = north_gcd, sps_gcd = sps_gcd, gcddiff = gcddiff)
 
-            send_email(
-                config.get_var_list('PoleGCDChecks', 'NotificationReceiver'),
-                run.format('Pole/North GCD check for Run {run_id}'),
-                email_content,
-                logger,
-                args.dryrun
-            )
+            # RMS20190211 Do not send email if this is a test run.
+            if run.is_test_run():
+                logger.info(run.format("Check failed for run {run_id} but this is a test run so skip email"))
+            else:
+                send_email(
+                    config.get_var_list('PoleGCDChecks', 'NotificationReceiver'),
+                    run.format('Pole/North GCD check for Run {run_id}'),
+                    email_content,
+                    logger,
+                    args.dryrun
+                )
 
-            logger.info(run.format("Check failed for run {run_id}"))
+                logger.info(run.format("Check failed for run {run_id}"))
+
             counter.count('error')
         else:
             logger.info(run.format("Run {run_id} passed check"))

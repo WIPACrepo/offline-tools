@@ -968,7 +968,7 @@ def has_subrun_dstheader_within_good_time_range(subrun, logger):
         bool: `True` if the file is good.
     """
 
-    from icecube import dataio, dataclasses
+    from icecube import icetray, dataio, dataclasses
 
     def is_frame_in_gtr(frame, run):
         if frame['I3EventHeader'].start_time < run.get_good_start_time():
@@ -978,13 +978,14 @@ def has_subrun_dstheader_within_good_time_range(subrun, logger):
         else:
             return 0
 
-    f = dataio.I3File(subrun.path)
-
     found_dstheader = False
     within_good_time_range = False
 
     # Note: It can happen that we find a I3DSTHeader before we find a I3EventHeader. We
     # need to ensure that we are within the good time range!
+
+    print subrun.path
+    f = dataio.I3File(subrun.path)
 
     try:
         while f.more():
@@ -1009,7 +1010,11 @@ def has_subrun_dstheader_within_good_time_range(subrun, logger):
                         break
                 elif good == -1:
                     found_dstheader = False
+    except:
+        logger.error('error in %s', subrun.path, exc_info=True)
     finally:
+    #    while f.more():
+    #        frame = f.pop_frame()
         f.close()
 
     return found_dstheader

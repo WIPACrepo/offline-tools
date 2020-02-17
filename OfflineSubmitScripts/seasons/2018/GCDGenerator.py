@@ -62,7 +62,7 @@ def main(run_id, production_version, snapshot_id, outdir, logger):
         infiles = sorted([s.path for s in run.get_pffilt_files()])
 
         # Try auditing first subrun
-        tmp_file = os.path.join(scratch_folder, ('tmp_' + os.path.basename(infiles[0])).replace(".tar.bz2",".i3.bz2"))
+        tmp_file = os.path.join(scratch_folder, ('tmp_' + os.path.basename(infiles[0])).replace(".tar.bz2",".i3.gz"))
         rehydrate(gcd_data_path, infiles[0], tmp_file, logger)
 
         logger.info("First infile for bad dom audit check: {0}".format(infiles[0]))
@@ -71,7 +71,11 @@ def main(run_id, production_version, snapshot_id, outdir, logger):
 
         os.remove(tmp_file)
 
-        if first_bad_dom_audit_result:
+        if not first_bad_dom_audit_result:
+            logger.info("First file FAILED")
+        else:
+            logger.info("First file is OK, processing end file")
+            
             # This further check is necessary in case a DOM drops out during a run, this ensures that all DOMs
             # are present all through data taking
             
@@ -83,7 +87,7 @@ def main(run_id, production_version, snapshot_id, outdir, logger):
             else:
                 last_bd_autit_infile = infiles[-1]
 
-            tmp_file = os.path.join(scratch_folder, ('tmp_' + os.path.basename(last_bd_autit_infile)).replace(".tar.bz2",".i3.bz2"))
+            tmp_file = os.path.join(scratch_folder, ('tmp_' + os.path.basename(last_bd_autit_infile)).replace(".tar.bz2",".i3.gz"))
             rehydrate(gcd_data_path, last_bd_autit_infile, tmp_file, logger)
 
             logger.info("Second/Last infile for bad dom audit check: {0}".format(last_bd_autit_infile))

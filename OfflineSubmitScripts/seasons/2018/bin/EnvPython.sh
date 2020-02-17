@@ -7,4 +7,6 @@ eval `/cvmfs/icecube.opensciencegrid.org/py2-v2/setup.sh`
 # Load config in order to get current L2 icerec path
 eval "$(python ${DIR}/bin/ConfigLoader.py)"
 
+echo "I3_BUILD=${Level2[i3_build]}"
+
 "${Level2[i3_build]}/./env-shell.sh" python $@

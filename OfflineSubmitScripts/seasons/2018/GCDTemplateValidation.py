@@ -12,7 +12,7 @@ from libs.config import get_config
 from libs.databaseconnection import DatabaseConnection
 from libs.utils import Counter
 from libs.process import Lock
-from libs.runs import Run
+from libs.runs import Run, LoadRunDataException
 from libs.path import get_tmpdir, get_env_python_path, get_logdir
 from libs.email import send_email
 from libs.files import File

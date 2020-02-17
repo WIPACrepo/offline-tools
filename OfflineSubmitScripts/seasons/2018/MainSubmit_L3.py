@@ -211,15 +211,15 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, coun
     if not os.path.isdir(outdir) and not args.dryrun:
         os.makedirs(outdir)
 
-    logger.info('Add GCD file to run folder')
-    make_symlink(gcd_file.path, eff_gcd_file, args.dryrun, logger, replace = True)
-
     if args.cosmicray:
         logger.info('CosmicRay: Add MC GCD file to run folder')
         make_symlink(mc_gcd_file.path, eff_mc_gcd_file, args.dryrun, logger, replace = True)
 
     if not args.link_only_gcd and args.cleandatawarehouse:
         clean_datawarehouse(run, logger, args.dryrun, run_folder = outdir)
+
+    logger.info('Add GCD file to run folder')
+    make_symlink(gcd_file.path, eff_gcd_file, args.dryrun, logger, replace = True)
 
     iceprod.clean_run(args.destination_dataset_id, run)
 
