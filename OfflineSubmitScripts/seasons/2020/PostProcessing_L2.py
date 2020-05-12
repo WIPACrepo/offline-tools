@@ -12,7 +12,7 @@ from libs.config import get_config
 from libs.process import Lock
 from libs.databaseconnection import DatabaseConnection
 from libs.runs import Run, LoadRunDataException
-from libs.iceprod1 import IceProd1
+from libs.iceprod2 import IceProd2
 from libs.postprocessing import validate_files
 from libs.files import tar_gaps_files, insert_gaps_file_info_into_db, tar_log_files, create_good_run_list, MetaXMLFile
 from libs.trimrun import trim_to_good_run_time_range
@@ -107,7 +107,11 @@ def validate_run(dataset_id, run, args, iceprod, logger, counter, checksumcache)
 
 def main(args, run_ids, config, logger):
     db = DatabaseConnection.get_connection('filter-db', logger)
-    iceprod = IceProd1(logger, args.dryrun)
+
+    # Get IceProd read-only authentication token
+    authtok = config.get('ip2auth','rotok')
+    iceprod = IceProd2(logger, args.dryrun, args.username, authtok)
+
     checksumcache = DBChecksumCache(logger, dryrun = args.dryrun)
 
     counter = Counter(['handled', 'validated', 'skipped', 'error'])
@@ -225,6 +229,8 @@ def create_grl_only(config, args):
 
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__, dryrun = True)
+    parser.add_argument("-u","--username",type=str, action="store", default=None, dest="username", help="username")
+    parser.add_argument("-g","--group",type=str, action="store", default="users", dest="group", help="group")
     parser.add_argument("--dataset-id", type = int, required = False, default = None, help="The dataset id. The default value is `None`. In this case it gets the dataset id from the database.")
     parser.add_argument("-s", "--startrun", type = int, required = False, default = None, help = "Start submitting from this run")
     parser.add_argument("-e", "--endrun", type = int, required = False, default= None, help = "End submitting at this run")

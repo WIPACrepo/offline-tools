@@ -103,6 +103,12 @@ def main(run_ids, args, config, logger):
                 ], stdout = run_log, stderr = run_log)
 
         logger.debug('GCD Diff return code: {0}'.format(return_code))
+        logger.debug(" ".join([ get_env_python_path(),
+                config.get('GCDGeneration', 'GCDCompareTool'),
+                sps_gcd_actual,
+                north_gcd.path,
+                '--ignore-start-end-times']))
+
 
         sql = run.format("""
             UPDATE i3filter.runs
@@ -141,6 +147,7 @@ def main(run_ids, args, config, logger):
             if run.is_test_run():
                 logger.info(run.format("Check failed for run {run_id} but this is a test run so skip email"))
             else:
+                continue
                 send_email(
                     config.get_var_list('PoleGCDChecks', 'NotificationReceiver'),
                     run.format('Pole/North GCD check for Run {run_id}'),

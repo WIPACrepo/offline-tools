@@ -1,7 +1,7 @@
 
-from config import get_config
+from .config import get_config
 from libs.utils import Counter
-from email import send_email
+from .email import send_email
 
 import logging
 

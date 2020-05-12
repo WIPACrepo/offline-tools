@@ -10,6 +10,6 @@ from libs.logger import DummyLogger
 config = get_config(DummyLogger())
 
 for sec in config.sections():
-    print "declare -A %s" % (sec)
-    for key, val in config.items(sec):
-        print '%s[%s]="%s"' % (sec, key, val)
+    print ("declare -A %s" % (sec))
+    for key in config[sec]:
+        print ('%s[%s]="%s"' % (sec, key, config[sec][key]))

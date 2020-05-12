@@ -1,13 +1,14 @@
 
 import json
 import os
-import ConfigParser
-import path
+import configparser 
+from configparser import ConfigParser
+from . import path
 import collections
 import re
-from databaseconnection import DatabaseConnection
+from .databaseconnection import DatabaseConnection
 
-class Config(ConfigParser.SafeConfigParser):
+class Config(configparser.ConfigParser):
     """
     Implements the possibility to include variables from other sections: ${Section:var}
     This class has been found here: http://stackoverflow.com/a/35877548
@@ -15,7 +16,7 @@ class Config(ConfigParser.SafeConfigParser):
 
     def __init__(self, *args, **kwargs):
         self.cur_depth = 0 
-        ConfigParser.SafeConfigParser.__init__(self, *args, **kwargs)
+        ConfigParser.__init__(self, *args, **kwargs)
         self.logger = None
 
         self.db = None
@@ -24,7 +25,7 @@ class Config(ConfigParser.SafeConfigParser):
         self.level3_info = None
 
     def get(self, section, option, raw=False, vars=None):
-        r_opt = ConfigParser.SafeConfigParser.get(self, section, option, raw=True, vars=vars)
+        r_opt = ConfigParser.get(self, section, option, raw=True, vars=vars)
         if raw:
             return r_opt
 
@@ -36,21 +37,23 @@ class Config(ConfigParser.SafeConfigParser):
         if m_new:
             for f_section, f_option in m_new:
                 self.cur_depth = self.cur_depth + 1 
-                if self.cur_depth < ConfigParser.MAX_INTERPOLATION_DEPTH:
+                if self.cur_depth < configparser.MAX_INTERPOLATION_DEPTH:
                     sub = self.get(f_section, f_option, vars=vars)
                     ret = ret.replace('${{{0}:{1}}}'.format(f_section, f_option), sub)
                 else:
-                    raise ConfigParser.InterpolationDepthError, (option, section, r_opt)
+                    print(option, section, r_opt)
+                    raise configparser.InterpolationDepthError
 
         m_old = re.findall(re_oldintp, r_opt)
         if m_old:
             for l_option in m_old:
                 self.cur_depth = self.cur_depth + 1 
-                if self.cur_depth < ConfigParser.MAX_INTERPOLATION_DEPTH:
+                if self.cur_depth < configparser.MAX_INTERPOLATION_DEPTH:
                     sub = self.get(section, l_option, vars=vars)
                     ret = ret.replace('%({0})s'.format(l_option), sub)
                 else:
-                    raise ConfigParser.InterpolationDepthError, (option, section, r_opt)
+                    print (option, section, r_opt)
+                    raise configparser.InterpolationDepthError
 
         self.cur_depth = self.cur_depth - 1 
         return ret
@@ -74,7 +77,7 @@ class Config(ConfigParser.SafeConfigParser):
         # example.py
         mails = config.get_var_array('emailAddresses', 'mail')
 
-        for v, k in mails.iteritems():
+        for v, k in mails.items():
             print "%s: %s" % (v, k)
 
         # Output:
@@ -95,7 +98,8 @@ class Config(ConfigParser.SafeConfigParser):
             collection.OrderedDict: The dict
         """
 
-        vars = self.items(section)
+        #vars = self.items(section)
+        vars = self[section].items()
 
         varbeginning = str(name)
 
@@ -128,7 +132,7 @@ class Config(ConfigParser.SafeConfigParser):
         val_list = []
         val_dict = self.get_var_dict(section = section, name = name, valtype = valtype)
 
-        for k, v in val_dict.iteritems():
+        for k, v in val_dict.items():
             val_list.append(v)
 
         return val_list
@@ -172,7 +176,7 @@ class Config(ConfigParser.SafeConfigParser):
                 self.logger.warning('*** OVERRIDDEN VALUE {0} ***'.format(ftype))
                 return value
 
-        except ConfigParser.NoOptionError as e:
+        except configparser.NoOptionError as e:
             # OK, the value has not been overridden within the donfig file. Let's proceed
             pass
 
@@ -373,7 +377,7 @@ class Config(ConfigParser.SafeConfigParser):
         run_id = int(run_id)
 
         found_season = -1
-        for s, v in seasons.iteritems():
+        for s, v in seasons.items():
             if (run_id >= v['first'] and v['first'] != -1) or run_id in v['test']:
                 found_season = s
 
@@ -405,7 +409,7 @@ class Config(ConfigParser.SafeConfigParser):
                     continue
 
             if dataset_info['season'] == season:
-                found_dataset.append(dataset_id)
+                found_dataset.append(dataset_info)
 
         return found_dataset
 

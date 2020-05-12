@@ -6,8 +6,8 @@ import logging
 import os
 from datetime import datetime
 import sys
-from svn import SVN
-from config import get_config
+#from svn import SVN
+from .config import get_config
 
 class DummyLogger(object):
     """
@@ -20,30 +20,30 @@ class DummyLogger(object):
 
     def debug(self, text):
         if not self.silence and self.level <= 10:
-            print text
+            print (text)
 
     def error(self, text):
         if not self.silence and self.level <= 40:
-            print text
+            print (text)
     
     def info(self, text):
         if not self.silence and self.level <= 20:
-            print text
+            print (text)
 
     def warning(self, text):
         if not self.silence and self.level <= 30:
-            print text
+            print (text)
     
     def log(self, level, text):
         if not self.silence and self.level <= level:
-            print text
+            print (text)
 
     def exception(self, text):
         self.error(text)
 
     def critical(self, text):
         if not self.silence and self.level <= 50:
-            print text
+            print (text)
 
     def set_level(self, level):
         self.level = level
@@ -58,7 +58,7 @@ def get_logger(loglevel, logfile, svn_info_from_file = False):
         svn_info_from_file (bool): Load SVN info from file (e.g. if SVN is not available on the machine)
     """
 
-    from path import get_rootdir, get_tmpdir
+    from .path import get_rootdir, get_tmpdir
 
     # logformat = get_config(DummyLogger()).get('Logger', 'Format')
     logformat = '[%(asctime)s] %(levelname)s: %(module)s(%(lineno)d):   %(message)s'
@@ -103,12 +103,14 @@ def get_logger(loglevel, logfile, svn_info_from_file = False):
     logger.info("Starting " + firstlog)
     logger.info("Using Python {0}".format(sys.version.replace('\n', ' ')))
 
+    """
     if svn_info_from_file:
         svn = SVN(get_rootdir(), logger, os.path.join(get_tmpdir(), 'svninfo.txt'))
     else:
         svn = SVN(get_rootdir(), logger)
 
     logger.info("SVN Revision {0}".format(svn.get('Revision')))
+    """
 
     return logger
 

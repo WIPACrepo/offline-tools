@@ -84,7 +84,7 @@ def get_sub_run_id_from_path(path, pattern, logger):
     """
 
     import re
-    from stringmanipulation import make_regex_for_var
+    from .stringmanipulation import make_regex_for_var
 
     regex = make_regex_for_var(pattern, 'sub_run_id', ignored_var_names = '*', var_value = '[0-9]+')
 

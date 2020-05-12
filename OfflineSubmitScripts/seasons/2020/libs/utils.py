@@ -100,7 +100,7 @@ class ChecksumCache(object):
         Returns:
             str: The checksum
         """
-        from files import File
+        from .files import File
 
         self._data[ctype][path] = checksum or File.get_checksum(path, ctype, self.logger)
         return self._data[ctype][path]
@@ -139,7 +139,7 @@ class DBChecksumCache(ChecksumCache):
     """
 
     def __init__(self, logger, dryrun):
-        from databaseconnection import DatabaseConnection
+        from .databaseconnection import DatabaseConnection
         self.db = DatabaseConnection.get_connection('filter-db', logger)
 
         ChecksumCache.__init__(self, logger, ['md5'])
@@ -214,5 +214,5 @@ class Counter(object):
         return ' | '.join(['{name}: {value}'.format(name = name, value = value) for name, value in self.counter.items()])
 
     def print_summary(self, prefix = ''):
-        print prefix + self.get_summary()
+        print (prefix + self.get_summary())
 

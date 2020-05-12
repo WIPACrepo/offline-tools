@@ -37,6 +37,29 @@ class DatabaseConnection:
 
         return ret
 
+    def executemany(self, sql, args = None, reconnect = True):
+        ret = None
+
+        try:
+            with self.__connection.cursor() as cursor:
+                cursor.execute(sql, args)
+                self.__connection.commit()
+                ret = cursor
+        except pymysql.Error as e:
+            if e.args[0] == 2006 and reconnect:
+                self._logger.warning('MySQL connection has been reset. Try to re-connect and do it again')
+
+                self._connect()
+
+                # Try this only once. If it fails again, stop it.
+                self.executemany(sql,args, reconnect = False)
+            else:
+                raise e
+
+        return ret
+
+
+
     def fetchall(self, sql, UseDict = True, reconnect = True):
         cursor_type = None
 
@@ -68,8 +91,8 @@ class DatabaseConnection:
     @classmethod
     def get_connection(cls, name, logger):
         installed_dbs = {
-            'filter-db': {'user': 'i3filter', 'password': '0a6f869d0c8fcc', 'host': 'filter-db.icecube.wisc.edu', 'database': 'i3filter'},
-            'dbs4': {'user': 'i3filter_user', 'password': 'srqC9yV0', 'host': 'dbs4.icecube.wisc.edu', 'database': 'i3filter'},
+            'filter-db': {'user': 'i3filter', 'password': '0a6f869d0c8fcc', 'host': 'juancarlosmysql.icecube.wisc.edu', 'database': 'i3filter'},
+            'dbs4': {'user': 'none', 'password': '', 'host': 'dbs4.icecube.wisc.edu', 'database': 'i3filter'},
             'dbs2': {'user': 'www', 'password': '', 'host': 'dbs2.icecube.wisc.edu', 'database': 'I3OmDb'},
             'i3live': {'user': 'icecube', 'password': 'skua', 'host': 'cygnus.icecube.wisc.edu', 'database': 'live'}
         }

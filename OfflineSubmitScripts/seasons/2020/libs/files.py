@@ -1,11 +1,11 @@
 
 import os
-import path
+from . import path
 import json
 
-import utils
+from . import utils
 
-from I3Tray import *
+#from I3Tray import *
 
 class File(object):
     def __init__(self, path, logger):
@@ -16,6 +16,7 @@ class File(object):
         return os.path.getsize(self.path)
 
     def exists(self):
+        self.logger.debug(self.path)
         return os.path.isfile(self.path)
 
     def remove(self):
@@ -26,7 +27,7 @@ class File(object):
 
         self.logger.debug("Try to open file for {ctype} checksum sum: {path}".format(ctype = ctype, path = self.path))
 
-        with open(self.path) as f:
+        with open(self.path,"rb") as f:
             import hashlib
             digest = None
 
@@ -236,7 +237,7 @@ class GapsFile(File):
         if self._values is not None and not force:
             return
 
-        from config import get_config
+        from .config import get_config
         config = get_config(self.logger)
 
         self._values = {}
@@ -533,12 +534,12 @@ def create_good_run_list(dataset_id, db, logger, dryrun):
         db (DatabaseConnection): The database that contains the run information for L2 and L3
     """
 
-    from config import get_config
+    from .config import get_config
     import datetime
     import copy
-    from runs import Run
+    from .runs import Run
     from glob import glob
-    from stringmanipulation import replace_var
+    from .stringmanipulation import replace_var
 
     config = get_config(logger)
     dataset_info = config.get_dataset_info(dataset_id)
@@ -826,7 +827,7 @@ def tar_log_files(run, logger, dryrun, run_folder = None):
         run_folder (None or str): If `None`, the L2 run folder will be used.
     """
 
-    from config import get_config
+    from .config import get_config
     from glob import glob
 
     config = get_config(logger)
@@ -867,7 +868,7 @@ def tar_gaps_files(iceprod, dataset_id, run, logger, dryrun):
         dryrun (boolea): Dryrun?
     """
 
-    from config import get_config
+    from .config import get_config
 
     run_folder = run.format(get_config(logger).get_l2_path_pattern(run.get_season(), 'RUN_FOLDER', pass_number = 1))
     gaps_tar_file = run.format(get_config(logger).get('Level2', 'GapsTarFile'), RUN_FOLDER = run_folder)
@@ -889,7 +890,7 @@ def tar_gaps_files(iceprod, dataset_id, run, logger, dryrun):
     iceprod.add_file_to_catalog(dataset_id, run, File(gaps_tar_file, logger))
 
 def insert_gaps_file_info_into_db(run, dryrun, logger):
-    from databaseconnection import DatabaseConnection
+    from .databaseconnection import DatabaseConnection
 
     l2files = run.get_level2_files()
     gaps_files = [f.get_gaps_file() for f in l2files]
@@ -932,8 +933,8 @@ def insert_gaps_file_info_into_db(run, dryrun, logger):
         if not dryrun:
             db.execute(sql)
 
-    # Insert sub runs
-    sql = """INSERT INTO sub_runs 
+        # Insert sub runs
+        sql = """INSERT INTO sub_runs 
                 (run_id, sub_run, first_event, last_event, first_event_year, first_event_frac, last_event_year, last_event_frac, livetime)
              VALUES {0}
              ON DUPLICATE KEY UPDATE first_event = VALUES(first_event),
@@ -944,13 +945,13 @@ def insert_gaps_file_info_into_db(run, dryrun, logger):
                                      last_event_frac = VALUES(last_event_frac),
                                      livetime = VALUES(livetime)"""
 
-    logger.debug('Insert sub runs into db')
-    sql = sql.format(','.join(sub_runs))
+        logger.debug('Insert sub runs into db')
+        sql = sql.format(','.join(sub_runs))
 
-    logger.debug('SQL: {0}'.format(sql))
+        logger.debug('SQL: {0}'.format(sql))
 
-    if not dryrun:
-        db.execute(sql)
+        if not dryrun:
+           db.execute(sql)
 
     return gaps_files
 
@@ -985,7 +986,7 @@ def has_subrun_dstheader_within_good_time_range(subrun, logger):
     # Note: It can happen that we find a I3DSTHeader before we find a I3EventHeader. We
     # need to ensure that we are within the good time range!
 
-    print subrun.path
+    print (subrun.path)
     f = dataio.I3File(subrun.path)
 
     try:

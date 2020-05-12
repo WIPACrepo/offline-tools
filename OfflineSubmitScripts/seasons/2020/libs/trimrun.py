@@ -73,14 +73,18 @@ def trim_to_good_run_time_range(iceprod, dataset_id, run, logger, dryrun, alread
         already_trimmed (boolean): Usually `True`. It indicates that only empty files need to be removed.
     """
 
-    from config import get_config
-    from runs import SubRun
+    from .config import get_config
+    from .runs import SubRun
 
     bad_sub_run_folder = run.format(get_config(logger).get_l2_path_pattern(run.get_season(), 'BAD_FILE_FOLDER'))
 
     l2files = SubRun.sort_sub_runs(run.get_level2_files())
+    logger.debug('l2files: {0}'.format(",".join(map(str,l2files))))
     good_l2_files = []
     bad_l2_files = []
+    if not len(l2files):
+        logger.error('No l2files found.')
+        return
 
     if already_trimmed:
         # Check if there are empty files (they are empty because the good start/stop time made them empty during processing
@@ -163,8 +167,8 @@ def trim_to_good_run_time_range(iceprod, dataset_id, run, logger, dryrun, alread
         trim_sub_run(iceprod, dataset_id, good_l2_files[-1], bad_sub_run_folder, logger, dryrun)
 
 def trim_sub_run(iceprod, dataset_id, sub_run, bad_sub_run_folder, logger, dryrun):
-    from path import get_tmpdir
-    from files import GapsFile
+    from .path import get_tmpdir
+    from .files import GapsFile
 
     # bzip2 -f of a zero-sized file results in a 
     # 14 byte large file 

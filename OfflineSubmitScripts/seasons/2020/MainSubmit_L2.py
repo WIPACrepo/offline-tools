@@ -4,7 +4,7 @@ import os
 
 from libs.logger import get_logger
 from libs.argparser import get_defaultparser
-from libs.iceprod1 import IceProd1
+from libs.iceprod2 import IceProd2
 from libs.config import get_config
 from libs.runs import Run, LoadRunDataException
 from libs.files import clean_datawarehouse, MetaXMLFile, has_subrun_dstheader_within_good_time_range, File
@@ -26,6 +26,7 @@ def main(args, run_ids, logger):
 
         if dataset_id is None:
             dataset_id = config.get_dataset_id_by_run(run_id, 'L2')
+            
 
             if len(dataset_id) > 1:
                 logger.critical('Run {0} has more than one L2 dataset ids: {1}. Specify the dataset id when running the script to solve this problem.'.format(run_id, dataset_id))
@@ -37,7 +38,9 @@ def main(args, run_ids, logger):
 
             dataset_id = dataset_id[0]
 
-        run_id_dataset_id_mapping[run_id] = dataset_id
+        dataset_info = config.get_dataset_info(dataset_id)
+        logger.info(dataset_info)
+        run_id_dataset_id_mapping[run_id] = dataset_info
 
     logger.debug('Dataset id mapping: {0}'.format(run_id_dataset_id_mapping))
 
@@ -55,12 +58,13 @@ def main(args, run_ids, logger):
     # Submit only good runs or test runs (if not failed)
     runs = [run for run in runs if run.is_good_run() or (run.is_test_run() and not run.is_failed_run())]
 
-    iceprod = IceProd1(logger, args.dryrun)
+    authtok = config.get('ip2auth','rotok')
+    iceprod = IceProd2(logger, args.dryrun, args.username, authtok)
 
     # Check if the resubmission flag has been set and if all runs are due for a resubmission
     ignored_runs = []
     for run in runs:
-        if iceprod.is_run_submitted(run_id_dataset_id_mapping[run.run_id], run):
+        if iceprod.is_run_submitted(run_id_dataset_id_mapping[run.run_id]['dataset_id'], run):
             if args.resubmission:
                 logger.warning(run.format('Run {run_id} will be resubmitted.'))
             else:
@@ -78,14 +82,16 @@ def main(args, run_ids, logger):
 
         try:
             # Dataset id for this run
-            dataset_id = run_id_dataset_id_mapping[run.run_id]
+            dataset = run_id_dataset_id_mapping[run.run_id]
 
             if not args.remove_submitted_runs:
-                logger.info(run.format('Start submission for run {run_id} with dataset id {dataset_id}', dataset_id = dataset_id))
+                logger.info(run.format('Start submission for run {run_id} with dataset id {dataset_id}', 
+                             dataset_id = dataset['dataset_id']))
             else:
-                logger.info(run.format('Remove run {run_id} with dataset id {dataset_id}', dataset_id = dataset_id))
+                logger.info(run.format('Remove run {run_id} with dataset id {dataset_id}', 
+                             dataset_id = dataset['dataset_id']))
 
-            iceprod.clean_run(dataset_id, run)
+            #iceprod.clean_run(dataset, run)
 
             if args.cleandatawarehouse:
                 clean_datawarehouse(run, logger, args.dryrun, run_folder = run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER')))
@@ -125,7 +131,7 @@ def main(args, run_ids, logger):
             run.get_gcd_file(force_reload = True)
 
             # Check for input files
-            input_files = run.get_pffilt_files()
+            input_files = list(run.get_pffilt_files())
 
             if not len(input_files):
                 logger.critical('No input files found')
@@ -169,7 +175,7 @@ def main(args, run_ids, logger):
                 run.set_first_files_aggregated(short_first_files)
 
             # Submit run
-            iceprod.submit_run(dataset_id, run, checksumcache, 'PFFilt', aggregate_only_first_files = short_first_files, aggregate_only_last_files = short_last_files, gcd_file = args.special_gcd)
+            iceprod.submit_run(dataset, run, checksumcache, 'PFFilt', aggregate_only_first_files = short_first_files, aggregate_only_last_files = short_last_files, gcd_file = args.special_gcd)
 
             # Write metadata
             if not args.nometadata:
@@ -197,6 +203,9 @@ def main(args, run_ids, logger):
 
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__, dryrun = True)
+
+    parser.add_argument("-u","--username",type=str, action="store", default=None, dest="username", help="username")
+    parser.add_argument("-g","--group",type=str, action="store", default="users", dest="group", help="group")
     parser.add_argument("--dataset-id", type = int, required = False, default = None, help="The dataset id. The default value is `None`. In this case it gets the dataset id from the database.")
     parser.add_argument("-s", "--startrun", type = int, required = False, default = None, help = "Start submitting from this run")
     parser.add_argument("-e", "--endrun", type = int, required = False, default= None, help = "End submitting at this run")

@@ -6,7 +6,7 @@ Helpers to manage processes.
 
 import subprocess as sub
 import os
-import files
+from . import files
 import datetime
 
 from libs.path import get_tmpdir

@@ -2,9 +2,9 @@
 from icecube import icetray, dataclasses
 from I3Tray import *
 
-from path import get_rootdir
+from .path import get_rootdir
 
-from icecube.gcdserver.GCDGeneratorModule import GCDGenerator
+from .GCDGeneratorModule import GCDGenerator
 
 def get_latest_transaction_of_gcd_db(logger):
     from libs.config import get_config
@@ -63,7 +63,7 @@ def generate_gcd(run, gcd_path, spe_correction_file, logger):
     from icecube.BadDomList.BadDomListTraySegment import BadDomList
     from icecube.phys_services.spe_fit_injector import I3SPEFitInjector
     from icecube import dataio
-    from config import get_config
+    from .config import get_config
 
     tray = I3Tray()
 
@@ -106,7 +106,7 @@ def run_gcd_audit(path, logger):
         del tray
 
         return 0
-    except Exception, err:
+    except Exception as err:
         del tray
         logger.error("AuditGCD Error: " + str(err))
         return 1
@@ -188,7 +188,7 @@ def rehydrate(gcd_path, input_path, tmp_name, logger):
     del tray
 
 def run_bad_dom_audit(gcd_path, rehydrated_input_file, logger):
-    from config import get_config
+    from .config import get_config
 
     logger.debug('BadDOMList = {0}'.format(get_config(logger).get('GCD', 'BadDomListNameSLC')))
 

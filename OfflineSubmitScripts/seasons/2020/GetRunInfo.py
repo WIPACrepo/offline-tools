@@ -192,7 +192,7 @@ def main(inputfiletype, logger, dryrun, check, skip_file_validation, cron):
         # Add run id/snapshot id combination
         run_snapshot_id_mapping[row['runNumber']] = row['snapshot_id']
 
-    run_ids = run_data.keys()
+    run_ids = list(run_data.keys())
     run_ids.sort()
 
     run_snapshot_id_str = ",".join(["'{run_id}_{snapshot_id}'".format(run_id = run_id, snapshot_id = snapshot_id) for run_id, snapshot_id in run_snapshot_id_mapping.items()])
@@ -354,9 +354,9 @@ def main(inputfiletype, logger, dryrun, check, skip_file_validation, cron):
             in_files = None
 
             if inputfiletype == 'PFFilt':
-                in_files = run.get_pffilt_files()
+                in_files = list(run.get_pffilt_files())
             elif inputfiletype == 'PFDST':
-                in_files = run.get_pfdst_files()
+                in_files = list(run.get_pfdst_files())
             else:
                 raise Exception('File type `{0}` cannot be handled'.format(inputfiletype))
 

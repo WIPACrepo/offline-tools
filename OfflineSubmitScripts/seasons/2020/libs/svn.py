@@ -30,7 +30,8 @@ class SVN:
 
         self._data[self._svn_path] = {}
 
-        info = subprocess.check_output(['svn', 'info', self._svn_path])
+        info = subprocess.check_output(['svn', 'info', self._svn_path], text=True)
+        self._logger.warning(info)
     
         for line in info.splitlines():
             if len(line.strip()) == 0:
@@ -77,5 +78,5 @@ if __name__ == "__main__":
 
     svn = SVN(svn_path = get_rootdir())
 
-    print "Revision %s" % svn.get('Revision')
-    print "Info: %s" % svn._data
+    print ("Revision %s" % svn.get('Revision'))
+    print ("Info: %s" % svn._data)

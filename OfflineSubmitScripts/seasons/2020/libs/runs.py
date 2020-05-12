@@ -1,10 +1,10 @@
 
 import os
-import files
-import times
+from . import files
+from . import times
 import json
-from config import get_config
-from icecube import dataclasses, icetray
+from .config import get_config
+#from icecube import dataclasses, icetray
 
 class LoadRunDataException(Exception):
     pass
@@ -18,7 +18,7 @@ class Run(object):
         self.dryrun = dryrun
 
         if db is None:
-            from databaseconnection import DatabaseConnection
+            from .databaseconnection import DatabaseConnection
             self._db = DatabaseConnection.get_connection('filter-db', logger)
             if self._db is None:
                 raise Exception('No database connection')
@@ -264,7 +264,7 @@ class Run(object):
 
         # Remove bad doms
         for dom in bdl:
-            detector_conf[dom.string].pop(detector_conf[dom.string].index(dom.om))
+            list(detector_conf[dom.string]).pop(detector_conf[dom.string].index(dom.om))
 
         # Calculate values
         # Count number of strings with at least one active non-IceTop DOM
@@ -366,6 +366,7 @@ class Run(object):
         Returns:
             dataclasses.I3Time: The time
         """
+        from icecube import dataclasses, icetray
 
         self._load_data(force_reload)
         return times.get_i3time(self._data['tstart'], self._data['tstart_frac'])
@@ -380,6 +381,7 @@ class Run(object):
         Returns:
             dataclasses.I3Time: The time
         """
+        from icecube import dataclasses, icetray
 
         self._load_data(force_reload)
         return times.get_i3time(self._data['tstop'], self._data['tstop_frac'])
@@ -394,6 +396,7 @@ class Run(object):
         Returns:
             dataclasses.I3Time: The time
         """
+        from icecube import dataclasses, icetray
 
         self._load_data(force_reload)
         return times.get_i3time(self._data['good_tstart'], self._data['good_tstart_frac'])
@@ -408,6 +411,7 @@ class Run(object):
         Returns:
             dataclasses.I3Time: The time
         """
+        from icecube import dataclasses, icetray
 
         self._load_data(force_reload)
         return times.get_i3time(self._data['good_tstop'], self._data['good_tstop_frac'])
@@ -441,10 +445,10 @@ class Run(object):
         """
 
         if self._subruns[x] is None or force_reload:
-            from stringmanipulation import replace_var
+            from .stringmanipulation import replace_var
             from dateutil.relativedelta import relativedelta
             from glob import glob
-            from path import get_sub_run_id_from_path
+            from .path import get_sub_run_id_from_path
 
             path_pattern_repl = replace_var(path_pattern, 'sub_run_id', '*[0-9]')
             path_pattern_repl = replace_var(path_pattern_repl, 'filtering_type', '*')
@@ -652,6 +656,8 @@ class Run(object):
         """
 
         path = self.format(get_config(self.logger).get('GCD', 'SPSGCDFile'))
+        self.logger.info('GCD SPSGCDFile: {0}'.format(path))
+        
         gcd_file = files.File(path, self.logger)
 
         if gcd_file.exists():
@@ -979,6 +985,7 @@ class SubRun(files.File):
                 return False
 
         # OK, the gaps file is empty, chekc if the i3 file is really empty
+        """
         from icecube import dataio, icetray
         o = dataio.I3File(self.path)
 
@@ -1005,6 +1012,7 @@ class SubRun(files.File):
         else:
             # The file is really empty, no I frames or ither frames
             return True
+        """
 
     def is_in_good_time_range(self):
         """
@@ -1029,6 +1037,7 @@ class SubRun(files.File):
         Returns:
             dataclasses.I3Time: Time of first event
         """
+        from icecube import dataclasses, icetray
 
         if self._data is None:
             self.logger.debug('Try to use actual gaps file')
@@ -1045,6 +1054,7 @@ class SubRun(files.File):
         Returns:
             dataclasses.I3Time: Time of the end of the last event
         """
+        from icecube import dataclasses, icetray
 
         if self._data is None:
             self.logger.debug('Try to use actual gaps file')
@@ -1145,7 +1155,7 @@ class SubRun(files.File):
             files.GapsFile: Object for the corresponding gaps file.
         """
 
-        from files import GapsFile
+        from .files import GapsFile
         return GapsFile(self.format(get_config(self.logger).get_l2_path_pattern(self.run.get_season(), 'GAPS', pass_number = self.pass_number)), self.logger, sub_run = self)
 
     def mark_as_bad(self):
@@ -1238,8 +1248,8 @@ def validate_file_integrity(run, files, logger, run_start_time = None, run_stop_
 
     # Check if good start/stop times are available:
     try:
-        run_start_time = files[0].run.get_good_start_time()
-        run_stop_time = files[0].run.get_good_stop_time()
+        run_start_time = files[0].run.get_good_start_time().date_time
+        run_stop_time = files[0].run.get_good_stop_time().date_time
     except LoadRunDataException as e:
         # OK, the run is not in the DB yet. Check if the times are provided
         if run_start_time is None or run_stop_time is None:
@@ -1384,7 +1394,7 @@ def get_all_runs_of_season(season, logger):
 
     season = int(season)
 
-    from databaseconnection import DatabaseConnection
+    from .databaseconnection import DatabaseConnection
     db = DatabaseConnection.get_connection('filter-db', logger)
 
     seasons = get_config(logger).get_seasons_info()
@@ -1465,7 +1475,7 @@ def get_validated_runs(dataset_id, logger):
 
     logger.debug('SQL: {0}'.format(sql))
 
-    from databaseconnection import DatabaseConnection
+    from .databaseconnection import DatabaseConnection
     db = DatabaseConnection.get_connection('filter-db', logger)
 
     return [r['run_id'] for r in db.fetchall(sql)]
