@@ -18,9 +18,7 @@ class IceProd2(iceprodinterface.IceProdInterface):
         self.path_prefix = 'gsiftp://gridftp.icecube.wisc.edu'
         self.increment = 100
 
-        #authtok = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJ1c2VybmFtZSI6Imp1YW5jYXJsb3MiLCJyb2xlIjoidXNlciIsImdyb3VwcyI6WyJzaW1wcm9kIiwidXNlcnMiXSwiaXNzIjoiSWNlUHJvZCIsInN1YiI6Imp1YW5jYXJsb3MiLCJleHAiOjE1ODE3OTgxODUuMDcwNTQzNSwibmJmIjoxNTgxNzExNzg1LjA3MDU0MzUsImlhdCI6MTU4MTcxMTc4NS4wNzA1NDM1LCJ0eXBlIjoidGVtcCJ9.I5h3wcd5dxQUigskGkvmrC7FBQ5ZiSwyAWmufY5NYWS0FVE8XU_aVjKGzpY3KobURnYb90j5DjdHQ9x8vKtJpQ"
 
-        #rotok = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJ1c2VybmFtZSI6ImRzY2h1bHR6Iiwicm9sZSI6InN5c3RlbSIsImdyb3VwcyI6W10sImlzcyI6IkljZVByb2QiLCJzdWIiOiJkc2NodWx0eiIsImV4cCI6MTU5NjY0Mzk2MC4wMTEyNzc3LCJuYmYiOjE1ODIwNjIxMDcuMDExMjc3NywiaWF0IjoxNTgyMDYyMTA3LjAxMTI3NzcsInR5cGUiOiJzeXN0ZW0ifQ.5Gc89jrZ9q0mkV5RPX5yOMDMjDpP1_3UwIqJlFNniOeJcJDUJK7hYrQtg33_09sPwJAAEAxRHTNICvZuwGcfEA"
         rro = IPRest(url="https://iceprod2-api.icecube.wisc.edu/", auth = 'Bearer %s'% authtok)
         if username:
              tok = rro.auth2(username,getpass.getpass())
@@ -29,15 +27,6 @@ class IceProd2(iceprodinterface.IceProdInterface):
              sessiontok = authtok
         self.iprest = IPRest(url="https://iceprod2-api.icecube.wisc.edu/", auth = 'Bearer %s'% sessiontok)
 
-
-
-        """
-        rro = IPRest(url="https://iceprod2-api.icecube.wisc.edu/",auth = 'bearer %s'% authtok)
-        tok = rro.auth2(username,password)
-        sessiontok = tok['token']
-
-        iprest = IPRest(url="https://iceprod2-api.icecube.wisc.edu/",auth = 'bearer %s'% sessiontok)
-        """
 
 
 
@@ -99,7 +88,6 @@ class IceProd2(iceprodinterface.IceProdInterface):
         ifile = 0
 
 
-
         for f in input_files:
             file_name = f.get_name()
             file_path = self.path_prefix + f.get_dirname() + "/"
@@ -107,11 +95,12 @@ class IceProd2(iceprodinterface.IceProdInterface):
             file_size = f.size()
 
             local_name = file_name
-            suffix = pathlib.Path(file_name).suffix
+            suffixes = pathlib.Path(file_name).suffixes
+            suffix = suffixes[-1]
             if f.file_type == 'gcd':
-                local_name = 'gcdfile.i3'+suffix
+                local_name = 'gcdfile{0}'.format("".join(suffixes[-2:]))
             elif f.file_type == 'subrun':
-                local_name = 'infile{0}.tar.bz2'.format(ifile)
+                local_name = 'infile{0}{1}'.format(ifile,"".join(suffixes[-2:]))
 
             file_dict = { 
                     "filename":file_path+file_name,
@@ -124,10 +113,11 @@ class IceProd2(iceprodinterface.IceProdInterface):
                     }
 
 
+            self.logger.debug('infile: {0}->{1}'.format(file_dict['filename'],file_dict['local']))
             if not self.dryrun:
                    cfg = self.iprest.add_files(dataset['iceprod_id'], file_dict, task_id=task_id, md5sum=False)
 
-            if f.file_type == 'subrun':
+            if f.file_type == 'subrun' and ifile == 0:
                 outfiles = dataset_config['steering']['parameters']['FILTER::outfiles']
                 outfile_dir = dataset_config['steering']['parameters']['FILTER::outfile_dir']
                 outfile_dir = run.format(outfile_dir,subrun=sub_run_id) 
@@ -147,10 +137,11 @@ class IceProd2(iceprodinterface.IceProdInterface):
                     out_local  = run.format(o['local'],subrun=sub_run_id,index=ifile)
                     outfile_dict['filename'] = self.path_prefix + outfile_dir + out_remote
                     outfile_dict['local'] = out_local
-                    self.logger.debug('outfile: {0}'.format(outfile_dict))
+                    self.logger.debug('outfile: {0}'.format(outfile_dict['filename']))
                     if not self.dryrun:
                         cfg = self.iprest.add_files(dataset['iceprod_id'], outfile_dict, 
                                 task_id=task_id,  md5sum=not out_local.endswith(".txt"))
+            if f.file_type == 'subrun':
                 ifile += 1
 
 
@@ -244,28 +235,10 @@ class IceProd2(iceprodinterface.IceProdInterface):
             self.logger.critical('No {0} files have been found'.format(source_file_type))
             return
         else:
-            queue_id = self._get_max_queue_id(dataset) +1
+            queue_id = self._get_max_queue_id(dataset) 
             dataset_info = self.iprest.get_dataset(dataset['iceprod_id'])
             dataset_config = self.iprest.get_config(dataset['iceprod_id'])
             self.logger.debug(json.dumps(dataset_info).encode('utf-8'))
-
-            increment = len(input_files)
-            if dataset_info['jobs_submitted'] < queue_id + increment+1: #+self.increment:
-                self.iprest.set_jobs(dataset['iceprod_id'],queue_id+increment+1)
-                self.iprest.buffer_jobs_tasks(dataset['iceprod_id'],num=increment+1)
-
-            cfg = self.iprest.tasks(dataset['iceprod_id'])
-            tasks = {}
-            self.logger.debug('Last queue_id = {0}'.format(queue_id))
-
-            max_job_index = 0
-            for k,v in cfg.items():
-                max_job_index = max(max_job_index,v['job_index'])
-                tasks[v['job_index']] = v
-
-            if max_job_index + 1 < queue_id + len(input_files):
-                self.logger.warn('task queue has not been populated yet. Current queue: {0}. Number of files:{1}'.format(queue_id,len(input_files)))
-                return
 
 
             self.logger.info("Attempting to submit {0} {2} files for run {1}".format(len(input_files), run.run_id, source_file_type))
@@ -282,6 +255,24 @@ class IceProd2(iceprodinterface.IceProdInterface):
             # If input_files[-1].sub_run_id % aggregate > 0, we need an additional job that processes the leftover files
             number_of_jobs = int((input_files[-1].sub_run_id + 1) / aggregate) + int(bool((input_files[-1].sub_run_id + 1) % aggregate))
 
+            self.logger.debug('Last queue_id = {0}'.format(queue_id))
+            if dataset_info['jobs_submitted'] < queue_id + number_of_jobs+1: 
+                self.iprest.set_status(dataset['iceprod_id'],'processing')
+                self.iprest.set_jobs(dataset['iceprod_id'],queue_id+number_of_jobs+1)
+                self.iprest.buffer_jobs_tasks(dataset['iceprod_id'],num=number_of_jobs+1)
+
+            cfg = self.iprest.tasks(dataset['iceprod_id'])
+            max_job_index = -1
+            tasks = {}
+            for k,v in cfg.items():
+                max_job_index = max(max_job_index,v['job_index'])
+                tasks[v['job_index']] = v
+
+            if max_job_index < queue_id + number_of_jobs:
+                self.logger.error('task queue has not been populated yet. Current queue: {0}. Number of jobs:{1}'.format(queue_id+1,number_of_jobs))
+                return
+
+
             if aggregate_only_last_files > 0:
                 # add aggregate_only_last_files jobs to the last job... therefore, we have aggregate_only_last_files less.
                 number_of_jobs -= aggregate_only_last_files
@@ -297,9 +288,9 @@ class IceProd2(iceprodinterface.IceProdInterface):
                 queue_id += 1
 
                 if aggregate > 1:
-                    self.logger.info('Job #{0}'.format(job_id))
+                    self.logger.info('Job #{0}, queue_id #{1}'.format(job_id,queue_id))
                 else:
-                    self.logger.debug('Job #{0}'.format(job_id))
+                    self.logger.debug('Job #{0}, queue_id #{1}'.format(job_id,queue_id))
 
                 # Add file type classifier
                 gcd_file.file_type = 'gcd'
@@ -339,7 +330,8 @@ class IceProd2(iceprodinterface.IceProdInterface):
                     self.logger.debug('Aggregate first {} files'.format(aggregate_only_first_files))
 
                     if aggregate_only_first_files > 10:
-                        self.logger.warning('*** There are too many files to aggregate at the beginning of the run. We assume that it is sufficient to submit two files withing this job and ignore the others.**')
+                        self.logger.warning('*** There are too many files to aggregate at the beginning of the run. '
+                                +'We assume that it is sufficient to submit two files withing this job and ignore the others.**')
                         # Remove the first file that is added within the `for _ in range(aggregate)` loop.
                         del job_input_files[-1]
                         job_input_files.extend(input_files[aggregate_only_first_files - 2 : aggregate_only_first_files + 1])
@@ -354,18 +346,22 @@ class IceProd2(iceprodinterface.IceProdInterface):
                     self.logger.debug('Aggregate last {} files'.format(aggregate_only_last_files))
 
                     if aggregate_only_last_files > 10:
-                        self.logger.warning('*** There are too many files to aggregate at the end of the run. We assume that it is sufficient to submit two files withing this job and ignore the others.**')
+                        self.logger.warning('*** There are too many files to aggregate at the end of the run. '
+                                +'We assume that it is sufficient to submit two files withing this job and ignore the others.**')
                         job_input_files.extend(input_files[file_counter : file_counter + 2])
                     else:
                         job_input_files.extend(input_files[file_counter :])
 
-                self.logger.debug('Submit job #{1}, sub run ID {2}, with the following input files: {0}'.format(job_input_files, job_id, input_files[job_id].sub_run_id))
 
                 if input_files_added:
+                    self.logger.debug('Submit job #{1}, sub run ID {2}, with the following input files: {0}'.format(
+                                job_input_files, job_id, input_files[job_id].sub_run_id))
+
                     self._submit_job(queue_id, dataset, run, input_files[job_id].sub_run_id, 
                             tasks[queue_id], checksumcache, job_input_files, dataset_config)
                 else:
-                    self.logger.warning('Job #{} has not been submitted since no input files have been added. This could be caused by missing files.'.format(job_id))
+                    self.logger.warning('Job #{} has not been submitted since no input files have been added.'.format(job_id)
+                           +' This could be caused by missing files.')
 
     def clean_run(self, dataset, run):
         self.logger.info("clean_run")
@@ -515,7 +511,7 @@ class IceProd2(iceprodinterface.IceProdInterface):
                 filetype = f['movement']
                 jresult[filetype].append({ 
                         'path': remove_path_prefix(f['remote']), 
-                        'md5': ""
+                        'sha512': remove_path_prefix(f['remote'])+'.sha512'
                         })
 
         return result

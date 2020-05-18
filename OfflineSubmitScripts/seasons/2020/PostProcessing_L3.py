@@ -12,7 +12,7 @@ from libs.config import get_config
 from libs.process import Lock
 from libs.databaseconnection import DatabaseConnection
 from libs.runs import Run, LoadRunDataException
-from libs.iceprod1 import IceProd1
+from libs.iceprod2 import IceProd2
 from libs.postprocessing import validate_files
 from libs.files import tar_gaps_files, insert_gaps_file_info_into_db, tar_log_files, MetaXMLFile
 from libs.trimrun import trim_to_good_run_time_range
@@ -91,7 +91,11 @@ def validate_run(source_dataset_ids, run, args, iceprod, logger, counter, checks
 
 def main(args, run_ids, config, logger):
     db = DatabaseConnection.get_connection('filter-db', logger)
-    iceprod = IceProd1(logger, args.dryrun)
+
+    # Get IceProd read-only authentication token
+    authtok = config.get('ip2auth','rotok')
+    iceprod = IceProd2(logger, args.dryrun, args.username, authtok)
+
     checksumcache = DBChecksumCache(logger, dryrun = args.dryrun)
 
     counter = Counter(['handled', 'validated', 'skipped', 'error'])
@@ -175,6 +179,8 @@ def main(args, run_ids, config, logger):
 
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__, dryrun = True)
+    parser.add_argument("-u","--username",type=str, action="store", default=None, dest="username", help="username")
+    parser.add_argument("-g","--group",type=str, action="store", default="users", dest="group", help="group")
     parser.add_argument("--source-dataset-id", type = int, required = False, default = None, help="Dataset ID to read from, usually L2 dataset. Use this option only if you want override the configuration.")
     parser.add_argument("--destination-dataset-id", type = int, required = True, default = None, help="Dataset ID to write to, usually L3 dataset")
     parser.add_argument("-s", "--startrun", type = int, required = False, default = None, help = "Start submitting from this run")

@@ -264,7 +264,9 @@ class Run(object):
 
         # Remove bad doms
         for dom in bdl:
-            list(detector_conf[dom.string]).pop(detector_conf[dom.string].index(dom.om))
+            dc_tmp = list(detector_conf[dom.string])
+            dc_tmp.pop(detector_conf[dom.string].index(dom.om))
+            detector_conf[dom.string] = dc_tmp
 
         # Calculate values
         # Count number of strings with at least one active non-IceTop DOM
@@ -572,6 +574,7 @@ class Run(object):
             self.logger.debug('Looking up L3 files for dataset {0} in {1}'.format(dataset_id, path))
 
             f = glob(path)
+            f = [k for k in f if not (k.endswith('.sha512') or k.endswith('.md5sum'))]
 
             if len(f) != 1:
                 raise RuntimeError('Could not find file')

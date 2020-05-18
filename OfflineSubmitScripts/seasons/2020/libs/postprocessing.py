@@ -23,7 +23,10 @@ def _get_checksum(f):
 
     for t in checksumtype:
         if t in f:
-            return (t, f[t])
+             #return (t, f[t])
+             with open(f['path']+'.'+t,'rU') as checksumfile:
+                 checksum = checksumfile.readline()
+                 return (t,checksum.split()[0])
 
     raise Exception('Did not find checksum')
 
@@ -204,7 +207,7 @@ def validate_L3_files(jobs, run, dataset_id, logger):
 
     l3info = l3[int(dataset_id)]
     expected_path = os.path.join(run.format(l3info['path']), '')
-    used_path = list(set([os.path.join(os.path.dirname(e['path']), '') for e in jobs[jobs.keys()[0]]['output']]))
+    used_path = list(set([os.path.join(os.path.dirname(e['path']), '') for e in jobs[list(jobs.keys())[0]]['output']]))
    
     logger.debug('used_path = {}'.format(used_path))
  
@@ -237,7 +240,7 @@ def validate_L3_files(jobs, run, dataset_id, logger):
     gcd_in_folder = gcds_in_folder[0]
 
     # Check if the linked file is the same as used in processing
-    used_gcd = list(set([e['path'] for e in jobs[jobs.keys()[0]]['input'] if 'gcd' in e['path'].lower()]))
+    used_gcd = list(set([e['path'] for e in jobs[list(jobs.keys())[0]]['input'] if 'gcd' in e['path'].lower()]))
     used_gcd = used_gcd[0]
 
     gcd_link_checksum = File.get_sha512(gcd_in_folder, logger)
@@ -323,15 +326,17 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2'
             if not os.path.exists(f['path']):
                 missing_files.append(f['path'])
             else:
-                continue ## temp -- remove
+                #continue ## temp -- remove 
                 # Check checksum
                 ctype, checksum = _get_checksum(f)
                 current_checksum = File.get_checksum(f['path'], ctype, logger)
 
                 if current_checksum != checksum:
+                    logger.warn('Checksum failed {0} {1} ?= {2}'.format(ctype,checksum,current_checksum))
                     checksum_fails.append({'path': f['path'], 'current_checksum': current_checksum, 'iceprod_checksum': checksum})
                 else:
-                    cache = True
+                    #cache = True
+                    cache = False
 
                     # Let's check for stream errors
                     if '.i3' in os.path.basename(f['path']):

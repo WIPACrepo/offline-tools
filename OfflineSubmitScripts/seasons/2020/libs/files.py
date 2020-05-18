@@ -264,6 +264,7 @@ class GapsFile(File):
                             'frac': int(tmp[2].strip())}
     
                 if pair[0] == 'Gap Detected':
+                    logger.debug(pair[0])
                     tmp = value.split(' ')
                     key = 'gap'
                     value = {'dt': float(tmp[0].strip()),
@@ -292,7 +293,8 @@ class GapsFile(File):
             self._values['subrun'] = self._sub_run.sub_run_id
 
     def has_gaps(self):
-        return 'gap' in self._values.keys()
+        self.logger.debug("has_gaps {0}".format(self._values))
+        return 'gap' in self._values
 
     def get_gaps(self):
         if self.has_gaps():
@@ -933,8 +935,8 @@ def insert_gaps_file_info_into_db(run, dryrun, logger):
         if not dryrun:
             db.execute(sql)
 
-        # Insert sub runs
-        sql = """INSERT INTO sub_runs 
+    # Insert sub runs
+    sql = """INSERT INTO sub_runs 
                 (run_id, sub_run, first_event, last_event, first_event_year, first_event_frac, last_event_year, last_event_frac, livetime)
              VALUES {0}
              ON DUPLICATE KEY UPDATE first_event = VALUES(first_event),
@@ -945,13 +947,13 @@ def insert_gaps_file_info_into_db(run, dryrun, logger):
                                      last_event_frac = VALUES(last_event_frac),
                                      livetime = VALUES(livetime)"""
 
-        logger.debug('Insert sub runs into db')
-        sql = sql.format(','.join(sub_runs))
+    logger.debug('Insert sub runs into db')
+    sql = sql.format(','.join(sub_runs))
 
-        logger.debug('SQL: {0}'.format(sql))
+    logger.debug('SQL: {0}'.format(sql))
 
-        if not dryrun:
-           db.execute(sql)
+    if not dryrun:
+        db.execute(sql)
 
     return gaps_files
 

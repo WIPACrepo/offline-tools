@@ -49,7 +49,7 @@ def validate_run(dataset_id, run, args, iceprod, logger, counter, checksumcache)
     logger.info("Files validated")
 
     # Write gap file info into filter-db
-    # This is important at this step to have al subrun information in orde rto trim the run
+    # This is important at this step to have al subrun information in order to trim the run
     logger.info('Insert gaps file info into DB')
     insert_gaps_file_info_into_db(run, args.dryrun, logger)
 

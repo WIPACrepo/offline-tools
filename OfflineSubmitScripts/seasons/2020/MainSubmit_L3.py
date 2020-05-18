@@ -9,7 +9,7 @@ from libs.process import Lock
 from libs.config import get_config
 from libs.utils import Counter, DBChecksumCache
 from libs.runs import Run, get_validated_runs, get_all_runs_of_season, LoadRunDataException
-from libs.iceprod1 import IceProd1
+from libs.iceprod2 import IceProd2
 from libs.l3processing import get_gcd_file, get_cosmicray_mc_gcd_file
 from libs.path import make_symlink, get_logdir, get_tmpdir
 from libs.cron import cron_finished
@@ -18,7 +18,8 @@ from collections import OrderedDict
 
 def main(run_ids, config, args, logger):
     counter = Counter(['handled', 'submitted', 'resubmitted', 'skipped', 'error'])
-    iceprod = IceProd1(logger, args.dryrun)
+    authtok = config.get('ip2auth','rotok')
+    iceprod = IceProd2(logger, args.dryrun, args.username, authtok)
     checksumcache = DBChecksumCache(logger, dryrun = args.dryrun)
 
     # Contains the get_dataset_info() + L3 info about the outdir
@@ -83,9 +84,12 @@ def main(run_ids, config, args, logger):
     logger.debug('run_dataset_mapping = {0}'.format(run_dataset_mapping))
     logger.debug('run_ids = {0}'.format(run_ids))
 
+
     # Create Run objects and filter bad runs
     validated_runs = {sd_id: get_validated_runs(sd_id, logger) for sd_id in source_dataset_ids}
     runs = []
+
+
     for run_id in run_ids:
         if run_id not in validated_runs[run_dataset_mapping[run_id]]:
             logger.warning('L2 files of run {} have not been validated yet. Skip this run.'.format(run_id))
@@ -144,6 +148,9 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, coun
         # Ok, there are some mismatches of how many L2 _could_ be there and how many are actually are there
         # This does NOT indicate an error. It could be an error. If sub runs have been marked as bad, there are no L2 files.
         # Therefore, check if this is the case
+        print(sub_runs)
+        print('---------------------------------------------------')
+        print(l2files)
 
         logger.debug('L2 files: {0}'.format(len(l2files)))
         for f in l2files:
@@ -221,7 +228,7 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, coun
     logger.info('Add GCD file to run folder')
     make_symlink(gcd_file.path, eff_gcd_file, args.dryrun, logger, replace = True)
 
-    iceprod.clean_run(args.destination_dataset_id, run)
+    #iceprod.clean_run(args.destination_dataset_id, run)
 
     try:
         # Determine source data. First, we assume that we're going to process L3 data. So, the source is L2 data.
@@ -234,7 +241,8 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, coun
         if dataset_info['type'] != 'L3':
             ftype = ('LevelX', source_dataset_id)
 
-        iceprod.submit_run(args.destination_dataset_id, run, checksumcache, ftype, aggregate = args.aggregate, gcd_file = gcd_file, special_files = special_files)
+        #iceprod.submit_run(args.destination_dataset_id, run, checksumcache, ftype, aggregate = args.aggregate, gcd_file = gcd_file, special_files = special_files)
+        iceprod.submit_run(dataset_info, run, checksumcache, ftype, aggregate = args.aggregate, gcd_file = gcd_file, special_files = special_files)
 
         # Write metadata
         if not args.nometadata:
@@ -258,6 +266,9 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, coun
 
 if __name__ == '__main__':
     parser = get_defaultparser(__doc__, dryrun = True)
+
+    parser.add_argument("-u","--username",type=str, action="store", default=None, dest="username", help="username")
+    parser.add_argument("-g","--group",type=str, action="store", default="users", dest="group", help="group")
     parser.add_argument("--source-dataset-id", type = int, required = False, default = None, help="Dataset ID to read from, usually L2 dataset. Use this option only if you want override the configuration.")
     parser.add_argument("--destination-dataset-id", type = int, required = True, default = None, help="Dataset ID to write to, usually L3 dataset")
     parser.add_argument("--aggregate", type = int, default = None, help = "USE THIS OPTION IF YOU WANT TO OVERRIDE THE DATASET CONFIGURATION ONLY. DO USE THIS OPTION ONLY IF YOU KNOW WHAT YOU ARE DOING. Number of subruns to aggregate to form one job, needed when processing 1 subrun is really short.")
