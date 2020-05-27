@@ -170,7 +170,7 @@ if __name__ == '__main__':
         else:
             with open(condor_file_path,"w") as condor_file:
                 condor_file.write("Universe = vanilla ")
-                condor_file.write('\nExecutable = {0}'.format(get_env_python_path()))
+                condor_file.write('\nExecutable = {0}'.format(get_gcd_env_python_path()))
                 condor_file.write(run.format("\narguments =  {script} --run-id {run_id} --production-version {production_version} --snapshot-id {snapshot_id}", script = os.path.join(get_rootdir(), 'GCDGenerator.py')))
                 condor_file.write("\nLog = {0}".format(condor_log))
                 condor_file.write("\nError = {0}".format(condor_err))
