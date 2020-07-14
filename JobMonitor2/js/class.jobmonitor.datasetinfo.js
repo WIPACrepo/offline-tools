@@ -255,7 +255,7 @@ JobMonitorDatasetInformation.prototype._queryComplete = function(data) {
                 '</div>';
     content += '<div class="col-md-4">';
     content += '<strong>Metaproject:</strong> ' + data['data']['metaproject'] + '<br/>';
-    content += '<strong>Tarball(s):</strong><ul>';
+    content += '<strong>Environment(s):</strong><ul>';
     $.each(data['data']['tarball'], function(index, name) {
         content += '<li>' + name + '</li>';
     });

@@ -15,7 +15,8 @@ try {
                                 $CONFIG['filter_db_host'],
                                 $CONFIG['filter_db_username'],
                                 $CONFIG['filter_db_password'],
-                                $CONFIG['filter_db_database']);
+                                $CONFIG['filter_db_database'],
+                                $CONFIG['iceprod_token']);
     
     if(isset($_GET['dataset']) && trim($_GET['dataset']) !== '') {
         $dataset->set_dataset_id(filter_input(INPUT_GET, 'dataset'));

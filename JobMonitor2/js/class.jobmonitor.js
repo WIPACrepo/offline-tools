@@ -40,7 +40,7 @@ function JobMonitor(params) {
     this.search = new JobMonitorSearch(this.url, 'search.php', this);
 
     this.updater = new JobMonitorUpdater('query.php', this.url,
-        function(data) {iam._updateData(data);},
+        function(data) { iam._updateData(data);},
         function() {iam._startLoading();},
         function() {iam._endLoading();},
         function() {iam._loadingError();},

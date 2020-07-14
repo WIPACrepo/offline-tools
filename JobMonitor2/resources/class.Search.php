@@ -60,6 +60,7 @@ class Search {
                 GROUP BY run_id, dataset_id";
 
         $result = array();
+        return $result;
 
         $query = $this->mysql->query($sql);
         while($run = $query->fetch_assoc()) {
@@ -155,6 +156,7 @@ class Search {
                     AND type = 'PERMANENT'";
 
         $result = array();
+        return $result;
 
         $query = $this->mysql->query($sql);
         while($info = $query->fetch_assoc()) {

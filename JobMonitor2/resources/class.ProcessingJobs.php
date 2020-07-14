@@ -1,13 +1,17 @@
 <?php
 
+require_once('class.Rest.php');
+
 class ProcessingJobs {
     private $mysql;
     private $live;
     private $result;
     private $dataset_id;
+    private $iceprod_id;
     private $dataset_ids;
     private $default_dataset_id;
     private $pass2;
+    private $rest;
 
     private $dataset_list_only;
 
@@ -18,7 +22,7 @@ class ProcessingJobs {
      */
     private static $RUN_STATUS = array('NONE', 'OK', 'IDLE', 'PROCESSING', 'PROCESSING/ERRORS', 'FAILED');
 
-    public function __construct($host, $user, $password, $db, $default_dataset_id, $api_version, $live_host, $live_user, $live_password, $live_db, $filter_db_host, $filter_db_user, $filter_db_password, $filter_db_db) {
+    public function __construct($host, $user, $password, $db, $default_dataset_id, $api_version, $live_host, $live_user, $live_password, $live_db, $filter_db_host, $filter_db_user, $filter_db_password, $filter_db_db,$iceprod_tok) {
         $this->mysql = @new mysqli($host, $user, $password, $db);
         $this->live = @new mysqli($live_host, $live_user, $live_password, $live_db);
         $this->filter_db = @new mysqli($filter_db_host, $filter_db_user, $filter_db_password, $filter_db_db);
@@ -28,6 +32,8 @@ class ProcessingJobs {
         $this->dataset_ids = null;
         $this->dataset_list_only = false;
         $this->pass2 = false;
+        $this->rest = new Rest("https://iceprod2-api.icecube.wisc.edu",$iceprod_tok);
+        $this->tasks = null;
     }
 
     private function build_job_status_query($prev) {
@@ -66,9 +72,9 @@ class ProcessingJobs {
         $this->add_season_list();
 
         if(!$this->dataset_list_only && !$this->result['error']) {
+            $this->add_good_run_list($run_pattern);
             $this->add_submitted_runs($run_pattern);
             $this->add_paths();
-            $this->add_good_run_list($run_pattern);
             $this->validate_runs();
             $this->set_run_states();
             $this->add_error_logs();
@@ -78,6 +84,10 @@ class ProcessingJobs {
     }
 
     private function add_paths() {
+
+        if ($this->iceprod_id) {
+        	return $this->add_paths_ip2();
+        }
         // Add paths to run folder (L2/3)
         $sql = "SELECT run_id,
                     GROUP_CONCAT(DISTINCT path SEPARATOR '*') AS `paths` 
@@ -134,6 +144,67 @@ class ProcessingJobs {
                 $this->result['data']['runs'][$run['run_id']]['gcd'] = Tools::join_paths(Tools::remove_path_prefix($run['path']), $run['name']);
             }
         }
+    }
+
+    private function add_paths_ip2() {
+        // Add paths to run folder (L2/3)
+
+        $sql = "SELECT run_id, sub_run, task_id
+                FROM dataset_subruns r
+                WHERE r.dataset_id = {$this->dataset_id}";
+
+        $query = $this->filter_db->query($sql);
+        $data = array(); 
+        $run_id = NULL;
+        while($run = $query->fetch_assoc()) { 
+		$paths = array();
+		if ($run['run_id'] == $run_id)
+		{
+			continue;
+		} 
+		$run_id = $run['run_id'];
+		$task_id = $run['task_id'];
+		$url = "/datasets/{$this->iceprod_id}/files/{$task_id}"; 
+
+		$response = $this->rest->httpGet($url, $data); 
+		$files = (array) json_decode($response,true);
+		foreach($files['files'] as $tfile) {
+			if ( (strcmp($tfile['movement'], 'input') == 0) && ( preg_match ( "/GCD/", $tfile['remote']) )) 
+			{
+				$gcdpath = $tfile['remote'];
+			} 
+			else if ( strcmp($tfile['movement'], 'output') == 0)
+			{ 
+				$path[] = $tfile['remote'];
+			}
+		}
+            $path = $paths[0];
+
+            // If there are more than one path, take the shortest (e.g. if not validated yet,
+            // the run has only the folder Run00123456_XX. If validated, it has
+            // also the sym link Run00123456. The other path appears in this list
+            // since the post processing creates a GapsTar file and inserts it into this
+            // table and uses the shorter path.
+            if(count($paths) > 0) {
+                // Start at '1' since $path has been initialized with index '0'
+                for($i = 1; $i < count($paths); ++$i) {
+                    if(strlen($path) > strlen($paths[$i])) {
+                        $path = $paths[$i];
+                    }
+                }
+            }
+
+            $path = Tools::remove_path_prefix($path);
+
+            // Add it to the list:
+            if(isset($this->result['data']['runs'][$run['run_id']])) {
+                $this->result['data']['runs'][$run['run_id']]['path'] = $path;
+                $this->result['data']['runs'][$run['run_id']]['gcd'] = $gcdpath;
+            }
+        }
+
+            if(isset($this->result['data']['runs'][$run['run_id']])) {
+            }
     }
 
     private function validate_datasets() {
@@ -427,6 +498,10 @@ class ProcessingJobs {
     }
 
     private function add_submitted_runs(array &$run_pattern) {
+
+        if (intval($this->dataset_id) > 20000) {
+        	return $this->add_submitted_runs_ip2($run_pattern);
+        }
         $sql = "SELECT  r.run_id, 
                         COUNT(sub_run) AS `sub_runs`, 
                         date, 
@@ -482,6 +557,107 @@ class ProcessingJobs {
             $this->result['data']['runs'][$row['run_id']] = $current_run;
         }
     }
+
+    private function get_tasks() { 
+	    if (is_null($this->tasks)) { 
+		$url = "/datasets/{$this->iceprod_id}/tasks"; 
+		$data = array('status'=>'processing'); 
+		$response = $this->rest->httpGet($url, $data); 
+		$this->tasks = (array) json_decode($response,true);
+	    } 
+	    return $this->tasks;
+    }
+
+    private function get_task($task_id) { 
+	   $url = "/datasets/{$this->iceprod_id}/tasks/{$task_id}"; 
+	   $data = array(); 
+	   $response = $this->rest->httpGet($url, $data); 
+	   return (array) json_decode($response,true);
+    }
+
+
+
+
+
+    private function add_submitted_runs_ip2(array &$run_pattern) {
+        $this->get_source_dataset_ids();
+
+        //$tasks = $this->get_tasks();
+
+        $sql = "SELECT  r.run_id, 
+                        COUNT(sub_run) AS `sub_runs`, 
+                        date, status
+                FROM dataset_subruns r
+                WHERE   r.dataset_id = {$this->dataset_id}
+                GROUP BY r.run_id
+                ORDER BY r.run_id ASC";
+ 
+        $query = $this->filter_db->query($sql);
+        while($row = $query->fetch_assoc()) {
+            //$current_run = $run_pattern;
+
+            $current_run = $this->result['data']['runs'][$row['run_id']];
+            $all_jobs_states = 0;
+
+	    $job_states = array(); 
+	    $job_prev_states = array(); 
+            $failures = array();
+
+	    foreach(self::$JOB_STATES as $job_status) { 
+		   $job_states[$job_status] = 0;
+		   $job_prev_states[$job_status] = 0;
+	    }
+
+
+
+            $sql = "SELECT  r.run_id, date, r.task_id, r.status, r.sub_run
+                FROM dataset_subruns r
+                WHERE   r.dataset_id = {$this->dataset_id}
+                AND r.run_id = {$row['run_id']}";
+             $subquery = $this->filter_db->query($sql);
+             while($subrun = $subquery->fetch_assoc()) {
+		   $task_id = $subrun['task_id'];
+		   //$task = $tasks[$task_id];
+		   //$task = $this->get_task($task_id);
+		   $task = json_decode('{"db433e30c07511ea8747141877284d92": {"dataset_id": "b5d62ef2c07311ea8747141877284d92", "job_id": "db3b7826c07511eaa037141877284d92", "task_index": 0, "job_index": 0, "name": "filtering", "depends": [], "requirements": {"memory": 3, "os": ["RHEL_7_x86_64"]}, "task_id": "db433e30c07511ea8747141877284d92", "status_changed": "2020-07-07T17:55:43.508761", "failures": 0, "evictions": 0, "walltime": 0.55, "walltime_err": 0.0, "walltime_err_n": 0, "site": "MSU", "status": "complete", "priority": 1.0}');
+		   $task_status = strtoupper( $task['status'] );
+		   if (strcmp($task_status, 'COMPLETE') == 0) {
+			   $job_states['OK'] += 1;
+		   } else { 
+			   $job_states[$task_status] += 1;
+		   }
+		   $all_jobs_states += 1;
+		   $job_prev_states[$subrun['status']] += 1;
+		   if (isset($task['status_changed'])) {
+		   	$current_run['last_status_change'] = $task['status_changed'];
+		   }
+                   $failures[] = array('sub_run' => $subrun['sub_run'], 'failures' => $task['failures'], 'job_id' => $task['job_index']);
+	     }
+
+            // This run is obviously submitted
+            $current_run['submitted'] = true;
+            $current_run['date'] = $row['date'];
+
+            $current_run['run_id'] = $row['run_id'];
+            //$current_run['validated'] = true;
+
+            $current_run['sub_runs'] = intval($row['sub_runs']);
+            $current_run['failures'] = $failures;
+            $current_run['jobs_states'] = $job_states;
+            $current_run['error_message'] = $failures;
+            $current_run['jobs_prev_states'] = $job_prev_states;
+            $current_run['path'] = 'some_path';
+            $current_run['gcd'] = 'some_gcd';
+            if (count($job_states['COMPLETED']) == $all_jobstates ) {
+                $current_run['status'] = self::get_status('OK');
+	    }
+
+            $current_run['sub_runs'] = intval($row['sub_runs']);
+
+            $this->result['data']['runs'][$row['run_id']] = $current_run; 
+	} 
+    }
+
 
     private function get_source_dataset_ids() {
         $sql = "SELECT * FROM i3filter.source_dataset_id";
@@ -549,6 +725,12 @@ class ProcessingJobs {
 
     public function set_dataset_id($dataset_id) {
         $dataset_id = intval($dataset_id);
+        $this->dataset_id = $dataset_id;
+        if ($this->dataset_id > 20000) { 
+		$sql = "SELECT `iceprod_id` FROM i3filter.datasets WHERE dataset_id = {$this->dataset_id}"; 
+		$fetch = $this->filter_db->query($sql)->fetch_assoc(); 
+		$this->iceprod_id = $fetch['iceprod_id']; 
+	}
 
         $this->add_dataset_list();   
         $this->add_season_list();
@@ -560,6 +742,10 @@ class ProcessingJobs {
             }
 
             $this->dataset_id = $dataset_id;
+
+            $sql = "SELECT `iceprod_id` FROM i3filter.datasets WHERE dataset_id = {$this->dataset_id}";
+	    $fetch = $this->filter_db->query($sql)->fetch_assoc();
+	    $this->iceprod_id = $fetch['iceprod_id']; 
 
             // Check if pass2
             $this->pass2 = $this->result['data']['datasets'][(string)$this->dataset_id]['pass'] == 2;
@@ -598,6 +784,9 @@ class ProcessingJobs {
     }
 
     private function get_error_jobs_and_msgs($run) {
+        if ($this->iceprod_id) {
+        	return $this->get_error_jobs_and_msgs_ip2($run);
+        }
        $sql = " SELECT  submitdir,
                         job_id,
                         status,
@@ -623,6 +812,48 @@ class ProcessingJobs {
                                               'sub_run' => $job['sub_run'],
                                               'submitdir' => $job['submitdir'],
                                               'log_tails' => $logs);
+        }
+
+        return $result;
+    }
+
+
+
+    private function get_error_jobs_and_msgs_ip2($run) {
+       // BOOKMARK
+       $sql = " SELECT  submitdir,
+                        task_id,
+                        status,
+                        sub_run,
+                        r.queue_id,
+                FROM    dataset_subruns r
+                WHERE   j.dataset_id = {$this->dataset_id}
+                        AND r.run_id = $run;";
+
+        //$tasks = $this->get_tasks();
+
+        $query = $this->filter_db->query($sql);
+
+
+        $result = array('ERROR' => array(), 'FAILED' => array());
+        while($job = $query->fetch_assoc()) { 
+		$task_id = $job['task_id']; 
+		//$task = $tasks[$task_id];
+		$task = $this->get_task($task_id);
+		$task_status = strtoupper( $task['status'] );
+		if ((strcmp($task_status, 'FAILED') == 0) || (strcmp($task_status, 'RESET') == 0) ) { 
+
+			$url = "/datasets/{$this->iceprod_id}/tasks/{$task_id}/logs"; 
+			$data = array(); 
+			$response = $this->rest->httpGet($url, $data); 
+			$logs = (array) json_decode($response,true); 
+
+			$result[$task_status][] = array('job_id' => $task_id,
+                                              'sub_run' => $job['sub_run'],
+                                              'submitdir' => 'N/A',
+                                              'log_tails' => $logs);
+
+		}
         }
 
         return $result;

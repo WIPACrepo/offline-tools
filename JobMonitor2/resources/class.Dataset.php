@@ -1,6 +1,8 @@
 <?php
 
 #require_once('class.Timer.php');
+require_once('class.Rest.php');
+
 
 if (!function_exists('stats_standard_deviation')) {
     /**
@@ -39,18 +41,21 @@ if (!function_exists('stats_standard_deviation')) {
 class Dataset {
     private $mysql;
     private $dataset_id;
+    private $iceprod_id;
     private $source_dataset_id;
     private $result;
     private $filter_db;
+    private $base_url;
     private $include_statistics;
 
     private $dataset_info;
+    private $rest;
 
     private static $node_regex = null;
 
     public static $result_pattern = array('api_version' => null,'error' => 0, 'error_msg' => '', 'error_trace' => '', 'data' => array());
 
-    public function __construct($host, $user, $password, $db, $datawarehouse_prefix, $api_version, $filter_db_host, $filter_db_user, $filter_db_password, $filter_db_db) {
+    public function __construct($host, $user, $password, $db, $datawarehouse_prefix, $api_version, $filter_db_host, $filter_db_user, $filter_db_password, $filter_db_db,$iceprod_tok) {
         $this->mysql = @new mysqli($host, $user, $password, $db);
         $this->filter_db = @new mysqli($filter_db_host, $filter_db_user, $filter_db_password, $filter_db_db);
 
@@ -60,10 +65,12 @@ class Dataset {
         $this->source_dataset_id = null;
         $this->include_statistics = false;
         $this->dataset_info = null;
+        $this->tasks = null;
 
         if(is_null(self::$node_regex)) {
             self::read_node_regex();
         }
+        $this->rest = new Rest("https://iceprod2-api.icecube.wisc.edu",$iceprod_tok);
     }
 
     public function set_include_statistics() {
@@ -72,6 +79,12 @@ class Dataset {
 
     public function set_dataset_id($dataset) {
         $this->dataset_id = intval($dataset);
+        if ($this->dataset_id > 20000) {
+		$sql = "SELECT `iceprod_id` FROM i3filter.datasets WHERE dataset_id = {$this->dataset_id}";
+		$fetch = $this->filter_db->query($sql)->fetch_assoc();
+		$this->iceprod_id = $fetch['iceprod_id'];
+	}
+
         $this->source_dataset_id = $this->get_parent_id($this->dataset_id);
 
         $this->dataset_info = $this->get_dataset_info();
@@ -127,6 +140,10 @@ class Dataset {
     }
 
     private function add_metaproject_information() {
+        if ($this->dataset_id > 20000) {
+        	return $this->add_metaproject_information_ip2();
+        }
+
         $sql = "SELECT 
     *
 FROM
@@ -150,7 +167,37 @@ WHERE
         }
     }
 
+    private function add_metaproject_information_ip2() {
+	$url = "/config/{$this->iceprod_id}";
+        $data = array();
+        $response = $this->rest->httpGet($url, $data);
+        $cfg = (array) json_decode($response,true);
+        $task = $cfg['tasks'][0];
+        $tray = $task['trays'][0];
+        $module= $tray['modules'][0];
+        $metaproject = explode(" ", $module['env_shell']);
+        $tarballs = array();
+	$this->result['data']['metaproject'] = $metaproject[1];
+        if(!isset($this->result['data']['tarball'])) { 
+		$this->result['data']['tarball'] = array();
+		foreach($cfg['tasks'] as $task) 
+		{ 
+			foreach($task['trays'] as $tray) 
+			{ 
+				foreach($tray['modules'] as $module) 
+				{ 
+					$tarballs[] = $module['env_shell'];
+					$this->result['data']['tarball'][] = $module['env_shell'];
+				}
+			}
+		}
+        }
+    }
+
     private function add_storage_information() {
+        if ($this->dataset_id > 20000) {
+        	return $this->add_storage_information_ip2();
+        }
         $sql = "SELECT SUM(size) AS `size`, COUNT(*) AS `num` FROM i3filter.urlpath WHERE dataset_id = {$this->dataset_id} AND type = 'PERMANENT'";
         $query = $this->mysql->query($sql);
         $fetch = $query->fetch_assoc();
@@ -162,7 +209,38 @@ WHERE
         $this->result['data']['input'] = array('size' => intval($fetch['size']), 'files' => intval($fetch['num']));
     }
 
+
+    private function add_storage_information_ip2() {
+	$url = "/datasets/{$this->iceprod_id}/files";
+        $data = array();
+        $response = $this->rest->httpGet($url, $data);
+        $files = (array) json_decode($response,true);
+        $outcount = 0;
+        $incount = 0;
+        $temp = 0;
+        foreach($files['files'] as $tfile) {
+		if (strcmp($tfile['transfer'], 'exists') == 0){
+			continue;
+		} else if (strcmp($tfile['type'], 'job_temp') == 0){
+			$temp++;
+		} else if (strcmp($tfile['movement'], 'output') == 0){
+			$outcount++;
+		} else if (strcmp($tfile['movement'], 'input') == 0){
+			$incount++;
+		}
+	}
+ 
+        $this->result['data']['input'] = array('size' => 0, 'files' => $incount);
+        $this->result['data']['output'] = array('size' => 0, 'files' => $outcount);
+        $this->result['data']['job_temp'] = array('size' => 0, 'files' => $temp);
+        return;
+    }
+
+
     private function add_grid_information() {
+        if ($this->dataset_id > 20000) {
+        	return $this->add_grid_information_ip2();
+        }
         $sql = "SELECT * FROM i3filter.grid g JOIN i3filter.grid_statistics gs ON g.grid_id = gs.grid_id WHERE dataset_id = {$this->dataset_id}";
 
         $query = $this->mysql->query($sql);
@@ -181,10 +259,65 @@ WHERE
         }
     }
 
+
+    private function get_tasks() { 
+	    if (is_null($this->tasks)) { 
+		$url = "/datasets/{$this->iceprod_id}/tasks"; 
+		$data = array(); 
+		$response = $this->rest->httpGet($url, $data); 
+		$this->tasks = (array) json_decode($response,true);
+	    } 
+	    return $this->tasks;
+    }
+
+    private function add_grid_information_ip2() {
+        $this->result['data']['grid'] = array();
+        $tasks = $this->get_tasks();
+        $grids = array();
+        foreach($tasks as $task_id => &$task) {
+        	$site = $task['site'];
+        	if (!array_key_exists ( $site, $grids) )
+		{
+        		$grids[$site] = array();
+        		$grids[$site]['name'] = $site;
+        		$grids[$site]['evictions'] = 0;
+        		$grids[$site]['failures'] = 0;
+        		$grids[$site]['jobs'] = 0;
+        		$grids[$site]['enabled'] = 1;
+		}
+        	$grids[$site]['evictions'] += $task['evictions'];
+        	$grids[$site]['failures'] += $task['failures'];
+        	$grids[$site]['jobs'] += 1;
+	}
+        foreach($grids as $gname => $grid) {
+        	$this->result['data']['grid'][] = $grid;
+	}
+        return;
+    }
+
+
     public function add_total_number_of_jobs() {
+        if ($this->dataset_id > 20000) {
+        	return $this->add_total_number_of_jobs_ip2();
+        }
         $sql = "SELECT COUNT(*) AS `num` FROM i3filter.job WHERE dataset_id = {$this->dataset_id}";
         $fetch = $this->mysql->query($sql)->fetch_assoc();
         $this->result['data']['number_of_jobs'] = intval($fetch['num']);
+    }
+
+
+
+    public function add_total_number_of_jobs_ip2() {
+        $this->result['data']['number_of_jobs'] = 0;
+
+        //$data = array('key1' => 'value1', 'key2' => 'value2');
+        $url = "/datasets/{$this->iceprod_id}/jobs";
+        $data = array();
+        $response = $this->rest->httpGet($url, $data);
+        $result = (array) json_decode($response);
+        $this->result['data']['number_of_jobs'] = count($result);
+
+        return;
     }
 
     private static function read_node_regex() {
@@ -223,6 +356,9 @@ WHERE
     }
 
     public function add_runntime_statistics() {
+        if ($this->iceprod_id) {
+        	return $this->add_runntime_statistics_ip2(); 
+        }
         $sql = "SELECT 
     `host`, `name`, `value`
 FROM
@@ -263,7 +399,42 @@ WHERE
         $this->result['data']['statistics']['execution_time'] = $data;
     }
 
+    public function add_runntime_statistics_ip2() {
+
+        $tasks = $this->get_tasks();
+        $grids = array();
+
+        $data = array();
+        foreach($tasks as $task_id => &$task) {
+        	$site = $task['site'];
+        	$grids[$site]['evictions'] += $task['evictions'];
+        	$grids[$site]['failures'] += $task['failures'];
+        	$grids[$site]['jobs'] += 1;
+            //$set = array('host'=>0,'name'=>'','value'=>0)
+            $host = self::make_host($task['site']);
+            if(!array_key_exists($host, $data)) {
+                $data[$host] = array('i3exec runtime' => array());
+            }
+            $data[$host]['i3exec runtime'][] = $task['walltime'];
+	}
+
+        foreach($data as &$value) {
+            $value['exec_average'] = array_sum($value['i3exec runtime']) / (double) count($value['i3exec runtime']);
+            $value['exec_std'] = self::std($value['i3exec runtime']);
+            $value['jobs'] = count($value['i3exec runtime']);
+            unset($value['i3exec runtime']);
+        }
+
+
+        $this->result['data']['statistics']['execution_time'] = $data;
+ 
+        return;
+    }
+
     public function add_num_of_jobs_completed_per_day() {
+        if ($this->iceprod_id) {
+        	return $this->add_num_of_jobs_completed_per_day_ip2();
+        }
         $this->result['data']['statistics']['job_completion'] = array();
 
         $sql = "SELECT 
@@ -291,7 +462,44 @@ GROUP BY DATE(status_changed) , j.grid_id";
         }
     }
 
+
+
+    public function add_num_of_jobs_completed_per_day_ip2() {
+        $this->result['data']['statistics']['job_completion'] = array();
+        $tasks = $this->get_tasks();
+        $job_completion = array(); 
+        
+        foreach($tasks as $task_id => &$task) {
+        	$site = $task['site'];
+		if (strcmp($task['status'], 'complete') == 0){ 
+			$date = date( "Y-m-d", strtotime($task['status_changed'])); 
+			if(!array_key_exists($date, $job_completion)) 
+			{ 
+				$job_completion[$date] = array(); 
+				$this->result['data']['statistics']['job_completion'][$date] = array();
+			}
+			if(!array_key_exists($task['site'], $job_completion[$date])) 
+			{
+				$job_completion[$date][$task['site']] = 0;
+			}
+			$job_completion[$date][$task['site']] += 1;
+		}
+	}
+        foreach($job_completion as $date => $stats) { 
+		foreach($stats as $grid => $value) { 
+			$this->result['data']['statistics']['job_completion'][$date][] = 
+				array('grid' => $grid, 'jobs' => $value);
+		}
+	}
+        return; 
+    }
+
+
+
     private function get_run_completion_time($dataset_id) {
+        if ($this->dataset_id > 20000) {
+        	return $this->get_run_completion_time_ip2($dataset_id);
+        }
         $sql = "SELECT 
     run_id, MAX(UNIX_TIMESTAMP(status_changed)) AS `date`
 FROM
@@ -312,6 +520,10 @@ GROUP BY run_id";
         }
 
         return $result;
+    }
+
+    private function get_run_completion_time_ip2($dataset_id) {
+        return array();
     }
 
     public function add_parent_delay() {

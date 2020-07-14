@@ -43,3 +43,5 @@ try {
 
     print(json_encode($content));
 }
+
+?>
