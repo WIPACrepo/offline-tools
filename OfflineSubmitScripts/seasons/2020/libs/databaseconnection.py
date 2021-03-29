@@ -91,7 +91,7 @@ class DatabaseConnection:
     @classmethod
     def get_connection(cls, name, logger):
         installed_dbs = {
-            'filter-db': {'user': 'i3filter', 'password': '0a6f869d0c8fcc', 'host': 'juancarlosmysql.icecube.wisc.edu', 'database': 'i3filter'},
+            'filter-db': {'user': 'i3filter', 'password': '0a6f869d0c8fcc', 'host': 'filter-db.icecube.wisc.edu', 'database': 'i3filter'},
             'dbs4': {'user': 'none', 'password': '', 'host': 'dbs4.icecube.wisc.edu', 'database': 'i3filter'},
             'dbs2': {'user': 'www', 'password': '', 'host': 'dbs2.icecube.wisc.edu', 'database': 'I3OmDb'},
             'i3live': {'user': 'icecube', 'password': 'skua', 'host': 'cygnus.icecube.wisc.edu', 'database': 'live'}
