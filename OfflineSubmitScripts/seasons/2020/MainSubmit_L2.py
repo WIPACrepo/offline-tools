@@ -108,6 +108,8 @@ def main(args, run_ids, logger):
 
                 if not args.dryrun:
                     os.makedirs(output)
+                    # Set group to IceC-filt so IceProd2 jobs running as ice3simusr can write
+                    os.chown(output,-1,5108)
 
             # Create GCD link
             gcd_file = run.get_gcd_file(exclude_run_folder_gcd = True) if args.special_gcd is None else File(args.special_gcd, logger)
