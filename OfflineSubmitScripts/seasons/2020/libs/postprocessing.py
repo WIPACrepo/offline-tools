@@ -238,10 +238,12 @@ def validate_L3_files(jobs, run, dataset_id, logger):
         return False
 
     gcd_in_folder = gcds_in_folder[0]
+    logger.debug('gcd_in_folder = {}'.format(gcd_in_folder))
 
     # Check if the linked file is the same as used in processing
     used_gcd = list(set([e['path'] for e in jobs[list(jobs.keys())[0]]['input'] if 'gcd' in e['path'].lower()]))
     used_gcd = used_gcd[0]
+    logger.debug('used_gcd = {}'.format(used_gcd))
 
     gcd_link_checksum = File.get_sha512(gcd_in_folder, logger)
     gcd_job_checksum = File.get_sha512(used_gcd, logger)
