@@ -20,7 +20,7 @@ def cron_finished(cron_name, counter, logger, dryrun):
     config = get_config(logger)
 
     filehandlers = [handler for handler in logger.handlers if isinstance(handler, logging.FileHandler)]
-    log_files = [h.baseFilename.replace('/mnt/lfs3/', '/data/') for h in filehandlers]
+    log_files = [h.baseFilename.replace('/mnt/lfs7/', '/data/') for h in filehandlers]
 
     subject = None
     content = None
