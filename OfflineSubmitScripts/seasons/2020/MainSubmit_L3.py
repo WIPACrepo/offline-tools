@@ -217,6 +217,8 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, coun
     logger.info('Create run folder if not exists: {0}'.format(outdir))
     if not os.path.isdir(outdir) and not args.dryrun:
         os.makedirs(outdir)
+        # Set group to level3 so IceProd2 jobs running as ice3simusr can write
+        os.chown(outdir,-1,36961)
 
     if args.cosmicray:
         logger.info('CosmicRay: Add MC GCD file to run folder')
