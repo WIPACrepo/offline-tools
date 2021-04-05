@@ -469,6 +469,39 @@ class IceProd2(iceprodinterface.IceProdInterface):
         query = self._db.fetchall(sql)
         return len(query) > 0
 
+    def get_iceprod_id(self, dataset_id):
+        self.logger.info("get_iceprod_id")
+        sql = """
+               SELECT * from i3filter.datasets
+               WHERE dataset_id = {dataset_id} 
+             """.format(dataset_id = dataset_id)
+        self.logger.debug('SQL: {0}'.format(sql))
+        query = self._db.fetchall(sql)
+        dataset = query[0]
+        iceprod_id = dataset['iceprod_id']
+        return iceprod_id
+
+    def get_tasks(self, dataset_id, run):
+        self.logger.info("get_tasks")
+        tasks = {}
+        sql = """ SELECT * FROM i3filter.dataset_subruns WHERE 
+            dataset_id = {dataset_id} AND run_id = {run_id} 
+            ORDER BY sub_run
+            """.format(dataset_id = dataset_id, run_id = run.run_id)
+        self.logger.debug('SQL: {0}'.format(sql))
+        query  = self._db.fetchall(sql) 
+        #self.logger.debug('query: {0}'.format(query))
+        for entry in query:
+            self.logger.debug(entry)
+            tasks[entry['sub_run']] = entry['task_id']
+        return tasks
+
+    def get_logs(self, iceprod_id, task_id):
+        self.logger.info("get_logs")
+        self.logger.debug('iceprod_id: {0} task_id: {1}'.format(iceprod_id, task_id))
+        logs = self.iprest.get_logs(iceprod_id, task_id)
+        return logs
+
     def get_jobs(self, dataset_id, run):
         self.logger.info("get_jobs")
         sql = """

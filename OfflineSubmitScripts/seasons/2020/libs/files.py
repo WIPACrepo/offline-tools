@@ -264,7 +264,7 @@ class GapsFile(File):
                             'frac': int(tmp[2].strip())}
     
                 if pair[0] == 'Gap Detected':
-                    logger.debug(pair[0])
+                    self.logger.debug(pair[0])
                     tmp = value.split(' ')
                     key = 'gap'
                     value = {'dt': float(tmp[0].strip()),
