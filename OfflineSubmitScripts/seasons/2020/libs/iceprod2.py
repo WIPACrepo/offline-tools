@@ -100,7 +100,7 @@ class IceProd2(iceprodinterface.IceProdInterface):
             if f.file_type == 'gcd':
                 local_name = 'gcdfile{0}'.format("".join(suffixes[-2:]))
             elif f.file_type == 'subrun':
-                local_name = 'infile{0}{1}'.format(ifile,"".join(suffixes[-2:]))
+                local_name = 'infile{0:0>8d}{1}'.format(ifile,"".join(suffixes[-2:]))
 
             file_dict = { 
                     "filename":file_path+file_name,
@@ -140,7 +140,7 @@ class IceProd2(iceprodinterface.IceProdInterface):
                     self.logger.debug('outfile: {0}'.format(outfile_dict['filename']))
                     if not self.dryrun:
                         cfg = self.iprest.add_files(dataset['iceprod_id'], outfile_dict, 
-                                task_id=task_id,  md5sum=not out_local.endswith(".txt"))
+                                task_id=task_id,  md5sum=True)
             if f.file_type == 'subrun':
                 ifile += 1
 
