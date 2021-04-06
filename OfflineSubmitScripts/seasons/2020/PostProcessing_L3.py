@@ -57,7 +57,8 @@ def validate_run(source_dataset_ids, run, args, iceprod, logger, counter, checks
         counter.count('skipped')
         return
 
-    if not validate_files(iceprod, args.destination_dataset_id, run, checksumcache, logger, level = level):
+    #if not validate_files(iceprod, args.destination_dataset_id, run, checksumcache, logger, level = level):
+    if not validate_files(iceprod, args.destination_dataset_id, run, checksumcache, logger, level = level, dryrun = args.dryrun):
         logger.error(run.format('Files validation failed for run {run_id}, production_version = {production_version}'))
         counter.count('error')
         return

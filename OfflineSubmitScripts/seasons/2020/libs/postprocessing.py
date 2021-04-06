@@ -1,6 +1,9 @@
 
 import os
+import filecmp
 
+from datetime import datetime
+from libs.path import get_tmpdir
 from glob import glob
 from .stringmanipulation import replace_var, replace_all_vars
 from .config import get_config
@@ -255,7 +258,8 @@ def validate_L3_files(jobs, run, dataset_id, logger):
     logger.info('Passed L3 GCD checks')
     return True
 
-def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2'):
+#def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2'):
+def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2', dryrun = False):
     """
     Validates the files of a run including the GCD file. Works for L2 and L3 production.
 
@@ -266,6 +270,7 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2'
         checksumcache (utils.ChecksumCache): The checksum cache
         logger (Logger): The logger
         level (str): `L2` or `L3`.
+        dryrun (boolean): If `True`, this function does NOT download log files.
     """
 
     if level not in ('L2', 'L3', 'L4'):
@@ -278,6 +283,8 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2'
         dataset_info = config.get_level3_info()[int(dataset_id)]
 
     jobs = iceprod.get_jobs(dataset_id, run)
+    logger.debug('jobs = {}'.format(jobs))
+    logger.debug('run.run_id = {}'.format(run.run_id))
 
     bad_sub_runs = [sr.sub_run_id for sr in run.get_sub_runs().values() if sr.is_bad()]
 
@@ -289,6 +296,12 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2'
     else:
         if not validate_L3_files(jobs, run, dataset_id, logger):
             return False
+    
+    # Get iceprod_id and tasks from DB, needed to get logs in loop below
+    iceprod_id = iceprod.get_iceprod_id(dataset_id)
+    logger.debug('iceprod_id = {}'.format(iceprod_id))
+    tasks = iceprod.get_tasks(dataset_id, run)
+    logger.debug('tasks = {}'.format(tasks))
 
     # Check of all output files are existing
     # Also check checksums
@@ -298,6 +311,7 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2'
     stream_errors = []
     l2_files = []
     in_files = []
+    missing_log_files = []
 
     for sub_run_id, job in jobs.items():
         if sub_run_id in bad_sub_runs:
@@ -314,6 +328,39 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2'
             expected_lx_file_name = run.format(os.path.join(dataset_info['path'], config.get('Level4', 'FileName')), sub_run_id = sub_run_id)
         else:
             raise RuntimeError('Unknown level: {}'.format(level))
+
+        # Print all versions of stdout stderr stdlog to log file, starting with most recent
+        #logger.debug('expected_lx_file_name = {0}'.format(expected_lx_file_name))
+        today = datetime.now()
+        today = today.strftime("%Y_%m_%d_%H_%M")
+        logend = ".log"
+        log_file_name = expected_lx_file_name.split('.i3')[0] + '.' + today + logend
+        logger.debug('log_file_name = {0}'.format(log_file_name))
+        prev_log_pattern = expected_lx_file_name.split('.i3')[0] + '.*' + logend
+        prev_log_file_names = glob(prev_log_pattern)
+        logger.debug('sub_run_id = {0} task_id = {1}'.format(sub_run_id, tasks[sub_run_id]))
+        logs = iceprod.get_logs(iceprod_id, tasks[sub_run_id])
+        if dryrun:
+            log_file_name = os.path.join(get_tmpdir(), os.path.basename(log_file_name))
+            logger.warning('Since it is a dryrun, the log file will be {0}'.format(log_file_name))
+        fl = open(log_file_name,'a')
+        for log in logs:
+            for section in logs[log]:
+                print ('\n','*'*50,' ',section['name'],' ',"*"*50, file=fl)
+                print (section['data'], file=fl)
+                print ('**'*56, file=fl)
+        fl.close()
+        if os.path.exists(log_file_name) and os.path.getsize(log_file_name) > 0:
+            for f in prev_log_file_names:
+                logger.debug('previous log = {0}'.format(f))
+                if filecmp.cmp(f,log_file_name,shallow=False):
+                    logger.debug('Delete this duplicate log: {0}'.format(log_file_name))
+                    os.remove(log_file_name)
+                    break
+        else:
+            logger.warning('Missing or empty log file {0}'.format(log_file_name))
+            missing_log_files.append(log_file_name)
+
 
         logger.info('Calculating checksums and looking for stream errors for sub run {0}'.format(sub_run_id))
 
@@ -373,7 +420,12 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2'
         for f in stream_errors:
             logger.error('Path {}'.format(f))
 
-    if len(missing_files) or len(checksum_fails) or len(missing_lx_files) or len(stream_errors):
+    if len(missing_log_files):
+        logger.error('{0} missing log files:'.format(len(missing_log_files)))
+        for f in missing_log_files:
+            logger.error('Path {0}'.format(f))
+
+    if len(missing_files) or len(checksum_fails) or len(missing_lx_files) or len(stream_errors) or len(missing_log_files):
         return False
 
     logger.info('All output files exists and have the currect checksums and all expected {} files exists'.format(level))
