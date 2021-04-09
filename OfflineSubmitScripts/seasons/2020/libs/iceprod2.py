@@ -144,6 +144,7 @@ class IceProd2(iceprodinterface.IceProdInterface):
             if f.file_type == 'subrun':
                 ifile += 1
 
+        self.iprest.set_status(dataset['iceprod_id'],'waiting',task_id=task_id)
 
 
     def submit_run(self, dataset, run, checksumcache, source_file_type, gcd_file = None, special_files = [], aggregate = 1, aggregate_only_first_files = 0, aggregate_only_last_files = 0):
@@ -458,7 +459,7 @@ class IceProd2(iceprodinterface.IceProdInterface):
 
     def is_run_submitted(self, dataset_id, run):
         self.logger.info("is_run_submitted")
-        return
+        #return
         sql = """
             SELECT * FROM i3filter.dataset_subruns 
             WHERE dataset_id = {dataset_id:d}
