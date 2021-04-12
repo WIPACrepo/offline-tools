@@ -359,6 +359,7 @@ if __name__ == '__main__':
     if lock is not None:
         lock.unlock()
         cron_finished(os.path.basename(__file__), counter, logger, args.dryrun)
+        lock = None # This triggers `__del__` and avoids: name 'open' is not defined
 
     if delete_log:
         delete_log_file(logger)
