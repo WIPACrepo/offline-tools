@@ -88,7 +88,7 @@ def validate_run(source_dataset_ids, run, args, iceprod, logger, counter, checks
 
     counter.count('validated')
 
-    logger.info("Checks passed")
+    logger.info("Checks passed for run {0}".format(run.run_id))
 
 def main(args, run_ids, config, logger):
     db = DatabaseConnection.get_connection('filter-db', logger)
@@ -246,6 +246,7 @@ if __name__ == '__main__':
     if args.cron:
         lock.unlock()
         cron_finished(os.path.basename(__file__), counter, logger, args.dryrun)
+        lock = None # This triggers `__del__` and avoids: name 'open' is not defined
 
     logger.info('Done')
 
