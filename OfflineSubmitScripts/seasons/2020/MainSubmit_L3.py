@@ -219,6 +219,7 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, coun
         os.makedirs(outdir)
         # Set group to level3 so IceProd2 jobs running as ice3simusr can write
         os.chown(outdir,-1,36961)
+        os.chmod(outdir, 0o775)
 
     if args.cosmicray:
         logger.info('CosmicRay: Add MC GCD file to run folder')
