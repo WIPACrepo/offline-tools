@@ -144,7 +144,8 @@ class IceProd2(iceprodinterface.IceProdInterface):
             if f.file_type == 'subrun':
                 ifile += 1
 
-        self.iprest.set_status(dataset['iceprod_id'],'waiting',task_id=task_id)
+        if not self.dryrun:
+            self.iprest.set_status(dataset['iceprod_id'],'waiting',task_id=task_id)
 
 
     def submit_run(self, dataset, run, checksumcache, source_file_type, gcd_file = None, special_files = [], aggregate = 1, aggregate_only_first_files = 0, aggregate_only_last_files = 0):
@@ -258,9 +259,10 @@ class IceProd2(iceprodinterface.IceProdInterface):
 
             self.logger.debug('Last queue_id = {0}'.format(queue_id))
             if dataset_info['jobs_submitted'] < queue_id + number_of_jobs+1: 
-                self.iprest.set_status(dataset['iceprod_id'],'processing')
-                self.iprest.set_jobs(dataset['iceprod_id'],queue_id+number_of_jobs+1)
-                self.iprest.buffer_jobs_tasks(dataset['iceprod_id'],num=number_of_jobs+1)
+                if not self.dryrun:
+                    self.iprest.set_status(dataset['iceprod_id'],'processing')
+                    self.iprest.set_jobs(dataset['iceprod_id'],queue_id+number_of_jobs+1)
+                    self.iprest.buffer_jobs_tasks(dataset['iceprod_id'],num=number_of_jobs+1)
 
             cfg = self.iprest.tasks(dataset['iceprod_id'])
             max_job_index = -1
@@ -413,52 +415,83 @@ class IceProd2(iceprodinterface.IceProdInterface):
              self._db.execute(sql)
 
     def get_run_status(self, dataset_id, run):
-        self.logger.info("get_run_status")
+        self.logger.debug("get_run_status")
 
-        sql = """
-               SELECT * from i3filter.datasets
-               WHERE dataset_id = {dataset_id} 
-             """.format(dataset_id = dataset_id)
-        self.logger.debug('SQL: {0}'.format(sql))
-        query = self._db.fetchall(sql)
-        dataset = query[0]
+        #sql = """
+        #       SELECT * from i3filter.datasets
+        #       WHERE dataset_id = {dataset_id} 
+        #     """.format(dataset_id = dataset_id)
+        #self.logger.debug('SQL: {0}'.format(sql))
+        #query = self._db.fetchall(sql)
+        #dataset = query[0]
 
-        jobs = self.iprest.get_dataset_task_counts(dataset['iceprod_id'])
-        sql = """
-            SELECT COUNT(*) AS `jobs`,
-                SUM(IF(j.status = "OK", 1, 0)) AS `ok`,
-                SUM(IF(j.status = 'BadRun', 1, 0)) AS `bad_runs`,
-                SUM(IF(j.status = 'ERROR', 1, 0)) AS `error`,
-                SUM(IF(j.status = 'FAILED', 1, 0)) AS `failed`
-            FROM i3filter.dataset_subruns j 
-            WHERE j.dataset_id = {dataset_id} AND
-                j.run_id = {run_id}""".format(dataset_id = dataset_id, run_id = run.run_id)
+        #jobs = self.iprest.get_dataset_task_counts(dataset['iceprod_id'])
+        #self.logger.debug('jobs: {0}'.format(jobs))
+        #sql = """
+        #    SELECT COUNT(*) AS `jobs`,
+        #        SUM(IF(j.status = "OK", 1, 0)) AS `ok`,
+        #        SUM(IF(j.status = 'BadRun', 1, 0)) AS `bad_runs`,
+        #        SUM(IF(j.status = 'ERROR', 1, 0)) AS `error`,
+        #        SUM(IF(j.status = 'FAILED', 1, 0)) AS `failed`
+        #    FROM i3filter.dataset_subruns j 
+        #    WHERE j.dataset_id = {dataset_id} AND
+        #        j.run_id = {run_id}""".format(dataset_id = dataset_id, run_id = run.run_id)
 
-        self.logger.debug('SQL: {0}'.format(sql))
-        query = self._db.fetchall(sql)
-        total = sum(jobs.values())
+        #self.logger.debug('SQL: {0}'.format(sql))
+        #query = self._db.fetchall(sql)
+        #total = sum(jobs.values())
+
+        #self.logger.debug('jobs.values(): {0}'.format(jobs.values()))
+        #self.logger.debug('jobs: {0}'.format(jobs))
+        ##print(jobs)
+        ##print(sum(jobs.values()))
+        ##print(total)
+        ##print(jobs.values())
+        #self.logger.debug('sum(jobs.values()): {0}'.format(sum(jobs.values())))
+        #self.logger.debug('query: {0}'.format(query))
+        #self.logger.debug('query[0][ok]: {0}'.format(query[0]['ok']))
+        #self.logger.debug('len(query): {0}'.format(len(query)))
+        #self.logger.debug('total: {0}'.format(total))
+        #self.logger.debug('jobs[complete]: {0}'.format(jobs['complete']))
+
         #'processing','failed','suspended','errors','complete'
     
-        if not total or jobs['complete'] is None:
+        #if not total or jobs['complete'] is None:
+        #if not len(query) or query[0]['ok'] is None:
+        if not self.is_run_submitted(dataset_id, run):
             return 'NOT_SUBMITTED'
 
-        data = query[0]
-        if not data['bad_runs']:
-           data['bad_runs'] = 0
-        if not 'complete' in jobs:
-           jobs['complete'] = 0
+        #data = query[0]
+        #if not data['bad_runs']:
+        #   data['bad_runs'] = 0
+        #if not 'complete' in jobs:
+        #   jobs['complete'] = 0
         
+        iceprod_id = self.get_iceprod_id(dataset_id)
+        tasks = self.get_tasks(dataset_id, run)
+        # Loop over task_ids to get each status
+        for task in tasks:
+            self.logger.debug("task: {0}".format(task))
+            self.logger.debug("tasks[task]: {0}".format(tasks[task]))
+            iptask = self.iprest.tasks(iceprod_id, task_id = tasks[task])
+            self.logger.debug("iptask: {0}".format(iptask))
+            self.logger.debug("iptask['status']: {0}".format(iptask['status']))
+            # Return first non-complete status
+            if iptask['status'] != 'complete':
+                return iptask['status']
 
-        if total == jobs['complete'] + data['bad_runs']:
-            return 'OK'
-        elif 'complete' in jobs and jobs['complete'] > 0:
-        #elif jobs['errors'] > 0 or jobs['failed'] > 0:
-            return 'OK'
-        else:
-            return 'ERROR'
+        return 'OK'
+
+        #if total == jobs['complete'] + data['bad_runs']:
+        #    return 'OK'
+        #elif 'complete' in jobs and jobs['complete'] > 0:
+        ##elif jobs['errors'] > 0 or jobs['failed'] > 0:
+        #    return 'OK'
+        #else:
+        #    return 'ERROR'
 
     def is_run_submitted(self, dataset_id, run):
-        self.logger.info("is_run_submitted")
+        self.logger.debug("is_run_submitted")
         #return
         sql = """
             SELECT * FROM i3filter.dataset_subruns 
@@ -471,7 +504,7 @@ class IceProd2(iceprodinterface.IceProdInterface):
         return len(query) > 0
 
     def get_iceprod_id(self, dataset_id):
-        self.logger.info("get_iceprod_id")
+        self.logger.debug("get_iceprod_id")
         sql = """
                SELECT * from i3filter.datasets
                WHERE dataset_id = {dataset_id} 
@@ -483,7 +516,7 @@ class IceProd2(iceprodinterface.IceProdInterface):
         return iceprod_id
 
     def get_tasks(self, dataset_id, run):
-        self.logger.info("get_tasks")
+        self.logger.debug("get_tasks")
         tasks = {}
         sql = """ SELECT * FROM i3filter.dataset_subruns WHERE 
             dataset_id = {dataset_id} AND run_id = {run_id} 
@@ -492,19 +525,23 @@ class IceProd2(iceprodinterface.IceProdInterface):
         self.logger.debug('SQL: {0}'.format(sql))
         query  = self._db.fetchall(sql) 
         #self.logger.debug('query: {0}'.format(query))
+        iceprod_id = self.get_iceprod_id(dataset_id)
+        self.logger.debug('iceprod_id: {0}'.format(iceprod_id))
         for entry in query:
-            self.logger.debug(entry)
+            self.logger.debug('entry: {0}'.format(entry))
             tasks[entry['sub_run']] = entry['task_id']
+            #iptask = self.iprest.tasks(iceprod_id, task_id = entry['task_id'])
+            #self.logger.debug('iptask: {0}'.format(iptask))
         return tasks
 
     def get_logs(self, iceprod_id, task_id):
-        self.logger.info("get_logs")
+        self.logger.debug("get_logs")
         self.logger.debug('iceprod_id: {0} task_id: {1}'.format(iceprod_id, task_id))
         logs = self.iprest.get_logs(iceprod_id, task_id)
         return logs
 
     def get_jobs(self, dataset_id, run):
-        self.logger.info("get_jobs")
+        self.logger.debug("get_jobs")
         sql = """
                SELECT * from i3filter.datasets
                WHERE dataset_id = {dataset_id} 
@@ -557,7 +594,8 @@ class IceProd2(iceprodinterface.IceProdInterface):
         Args:
             path (files.File): The file
         """
-        self.logger.info("remove_file_from_catalog")
+        #self.logger.info("remove_file_from_catalog")
+        self.logger.debug("remove_file_from_catalog")
         return
 
     def update_file_in_catalog(self, dataset_id, run, path):
