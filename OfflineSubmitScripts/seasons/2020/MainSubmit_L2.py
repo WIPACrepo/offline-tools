@@ -110,6 +110,7 @@ def main(args, run_ids, logger):
                     os.makedirs(output)
                     # Set group to IceC-filt so IceProd2 jobs running as ice3simusr can write
                     os.chown(output,-1,5108)
+                    os.chmod(output, 0o775)
 
             # Create GCD link
             gcd_file = run.get_gcd_file(exclude_run_folder_gcd = True) if args.special_gcd is None else File(args.special_gcd, logger)
@@ -280,5 +281,6 @@ if __name__ == '__main__':
     if args.cron:
         lock.unlock()
         cron_finished(os.path.basename(__file__), counter, logger, args.dryrun)
+        lock = None # This triggers `__del__` and avoids: name 'open' is not defined
 
     logger.info('Done')

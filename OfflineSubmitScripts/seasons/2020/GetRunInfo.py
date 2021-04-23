@@ -51,7 +51,7 @@ def updated_runs_manual_check(runs, logger):
             ok_action = False
 
             while not ok_action:
-                action = raw_input('Run {0}, new snapshot id {1}: '.format(run_id, snapshot_id))
+                action = input('Run {0}, new snapshot id {1}: '.format(run_id, snapshot_id))
 
                 action = action.upper()
                 if action == 'I' or action == 'U' or action == 'Q':
@@ -73,7 +73,7 @@ def updated_runs_manual_check(runs, logger):
 
         ok_approved = False
         while not ok_approved:
-            approved = raw_input('Is this correct? (Y/N): ')
+            approved = input('Is this correct? (Y/N): ')
 
             if approved.upper() in ('Y', 'N'):
                 logger.info('Is this correct? (Y/N): {}'.format(approved.upper()))
@@ -503,5 +503,6 @@ if __name__ == "__main__":
     if args.cron:
         lock.unlock()
         cron_finished(os.path.basename(__file__), counter, logger, args.dryrun)
+        lock = None # This triggers `__del__` and avoids: name 'open' is not defined
 
     logger.info('Done')
