@@ -61,6 +61,7 @@ class Lock:
             # Check if a process with this pid is still running, just printing the command w/o the ps header (so, no line if no process with PID is running)
             sub_proc = sub.Popen(['ps', '-p', str(pid), '-o', 'command='], shell=False, stdout=sub.PIPE)
             for line in sub_proc.stdout:
+                line = line.decode()
                 # Check if the running process is still a PoleGCDCheck (is required since the PIDs are recycled)
 
                 self._logger.debug("Check line: %s"%line)
@@ -71,7 +72,9 @@ class Lock:
                     if exit_if_running:
                         self._logger.info("Exiting...")
                         self._lock_file_owned_by_other = True
-                        exit(0)
+                        #exit(0)
+                        #raise SystemError("foo")
+                        return True
                     else:
                         return True
         
