@@ -239,7 +239,11 @@ if __name__ == '__main__':
             logger,
             lock_file = os.path.join(get_tmpdir(), os.path.splitext(os.path.basename(__file__))[0] + '-' + str(args.destination_dataset_id) + '.lock')
         )
-        lock.lock()
+        #lock.lock()
+        if lock.lock():
+            logger.critical('Exit because another instance of this script is running')
+            lock = None # This triggers `__del__` and avoids: name 'open' is not defined
+            exit(0)
 
     counter = main(args, runs, config, logger)
 

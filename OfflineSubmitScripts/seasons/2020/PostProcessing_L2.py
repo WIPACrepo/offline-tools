@@ -104,7 +104,7 @@ def validate_run(dataset_id, run, args, iceprod, logger, counter, checksumcache)
 
     counter.count('validated')
 
-    logger.info("Checks passed")
+    logger.info("Checks passed for run {0}".format(run.run_id))
 
 def main(args, run_ids, config, logger):
     db = DatabaseConnection.get_connection('filter-db', logger)
@@ -288,13 +288,18 @@ if __name__ == '__main__':
 
         # Check if cron is already running
         lock = Lock(os.path.basename(__file__), logger)
-        lock.lock()
+        #lock.lock()
+        if lock.lock():
+            logger.critical('Exit because another instance of this script is running')
+            lock = None # This triggers `__del__` and avoids: name 'open' is not defined
+            exit(0)
 
     counter = main(args, runs, config, logger)
 
     if args.cron:
         lock.unlock()
         cron_finished(os.path.basename(__file__), counter, logger, args.dryrun)
+        lock = None # This triggers `__del__` and avoids: name 'open' is not defined
 
     logger.info('Done')
 

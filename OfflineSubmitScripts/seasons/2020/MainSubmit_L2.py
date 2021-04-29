@@ -39,7 +39,7 @@ def main(args, run_ids, logger):
             dataset_id = dataset_id[0]
 
         dataset_info = config.get_dataset_info(dataset_id)
-        logger.info(dataset_info)
+        logger.debug(dataset_info)
         run_id_dataset_id_mapping[run_id] = dataset_info
 
     logger.debug('Dataset id mapping: {0}'.format(run_id_dataset_id_mapping))
@@ -274,7 +274,11 @@ if __name__ == '__main__':
 
         # Check if cron is already running
         lock = Lock(os.path.basename(__file__), logger)
-        lock.lock()
+        #lock.lock()
+        if lock.lock():
+            logger.critical('Exit because another instance of this script is running')
+            lock = None # This triggers `__del__` and avoids: name 'open' is not defined
+            exit(0)
 
     counter = main(args, runs, logger)
 
