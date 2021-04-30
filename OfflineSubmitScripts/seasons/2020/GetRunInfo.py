@@ -496,7 +496,11 @@ if __name__ == "__main__":
 
         # Check if cron is already running
         lock = Lock(os.path.basename(__file__), logger)
-        lock.lock()
+        #lock.lock()
+        if lock.lock():
+            logger.critical('Exit because another instance of this script is running')
+            lock = None # This triggers `__del__` and avoids: name 'open' is not defined
+            exit(0)
 
     counter = main(inputfiletype = args.inputfiletype, logger = logger, dryrun = args.dryrun, check = args.check, skip_file_validation = args.skip_file_validation, cron = args.cron)
 
