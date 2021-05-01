@@ -201,7 +201,7 @@ class Run(object):
         if not force_reload and self._data is not None and self._subruns['common'] is not None:
             return
 
-        self.logger.debug('load data')
+        #self.logger.debug('load data')
 
         # Run information
         sql = 'SELECT * FROM i3filter.runs WHERE run_id = {run_id} ORDER BY production_version DESC LIMIT 1'.format(run_id = self.run_id)
