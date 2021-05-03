@@ -166,6 +166,7 @@ def validate_GCD_L2(jobs, run, logger):
         return False
 
     logger.info('The GCD file is present in the datawarehouse')
+    logger.info('gcd_name: {0}'.format(gcd_name))
 
     if len(gcd_file_checksums) != 1:
         logger.error('Did not find exactly one checksum for GCD file.')
