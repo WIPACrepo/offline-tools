@@ -283,7 +283,7 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2'
         dataset_info = config.get_level3_info()[int(dataset_id)]
 
     jobs = iceprod.get_jobs(dataset_id, run)
-    logger.debug('jobs = {}'.format(jobs))
+    #logger.debug('jobs = {}'.format(jobs))
     logger.debug('run.run_id = {}'.format(run.run_id))
 
     bad_sub_runs = [sr.sub_run_id for sr in run.get_sub_runs().values() if sr.is_bad()]
@@ -301,7 +301,7 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2'
     iceprod_id = iceprod.get_iceprod_id(dataset_id)
     logger.debug('iceprod_id = {}'.format(iceprod_id))
     tasks = iceprod.get_tasks(dataset_id, run)
-    logger.debug('tasks = {}'.format(tasks))
+    #logger.debug('tasks = {}'.format(tasks))
 
     # Check of all output files are existing
     # Also check checksums
@@ -386,16 +386,17 @@ def validate_files(iceprod, dataset_id, run, checksumcache, logger, level = 'L2'
                 else:
                     #cache = True
                     cache = False
-
-                    # Let's check for stream errors
-                    if '.i3' in os.path.basename(f['path']):
-                        if not check_for_stream_errors(f['path'], logger):
-                            stream_errors.append(f['path'])
-                            cache = False
-
-                    if cache:
-                        # OK, let's cache this checksum
-                        checksumcache.set_checksum(f['path'], ctype, current_checksum)
+    
+                    if level != 'L2':
+                        # Let's check for stream errors
+                        if '.i3' in os.path.basename(f['path']):
+                            if not check_for_stream_errors(f['path'], logger):
+                                stream_errors.append(f['path'])
+                                cache = False
+    
+                        if cache:
+                            # OK, let's cache this checksum
+                            checksumcache.set_checksum(f['path'], ctype, current_checksum)
 
         if not found_l2_output:
             missing_lx_files.append(expected_lx_file_name)
