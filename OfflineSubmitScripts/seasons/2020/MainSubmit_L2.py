@@ -93,7 +93,9 @@ def main(args, run_ids, logger):
                 logger.info(run.format('Remove run {run_id} with dataset id {dataset_id}', 
                              dataset_id = dataset['dataset_id']))
 
-            #iceprod.clean_run(dataset, run)
+            if args.resubmission:
+                logger.warning(run.format('Clean run {run_id} from database.'))
+                iceprod.clean_run(dataset, run)
 
             if args.cleandatawarehouse:
                 clean_datawarehouse(run, logger, args.dryrun, run_folder = run.format(config.get_l2_path_pattern(run.get_season(), 'RUN_FOLDER')))

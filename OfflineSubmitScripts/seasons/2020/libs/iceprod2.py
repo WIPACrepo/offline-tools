@@ -392,6 +392,8 @@ class IceProd2(iceprodinterface.IceProdInterface):
         if not self.dryrun:
              self._db.execute(sql)
 
+        return
+
         # Clean urlpath table
         sql = "DELETE FROM i3filter.urlpath WHERE dataset_id = {dataset_id} AND queue_id IN ({queue_ids})".format(
             dataset_id = dataset_id,
