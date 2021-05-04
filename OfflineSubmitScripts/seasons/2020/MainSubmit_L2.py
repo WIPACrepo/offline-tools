@@ -42,7 +42,7 @@ def main(args, run_ids, logger):
         logger.debug(dataset_info)
         run_id_dataset_id_mapping[run_id] = dataset_info
 
-    logger.debug('Dataset id mapping: {0}'.format(run_id_dataset_id_mapping))
+    #logger.debug('Dataset id mapping: {0}'.format(run_id_dataset_id_mapping))
 
     # Create Run objects and filter bad runs
     runs = []
@@ -74,11 +74,13 @@ def main(args, run_ids, logger):
     checksumcache = DBChecksumCache(logger, dryrun = args.dryrun)
 
     for run in runs:
-        counter.count('handled')
+        #counter.count('handled')
 
         if run in ignored_runs:
             counter.count('skipped')
             continue
+
+        counter.count('handled')
 
         try:
             # Dataset id for this run
