@@ -471,8 +471,9 @@ class IceProd2(iceprodinterface.IceProdInterface):
         tasks = self.get_tasks(dataset_id, run)
         # Loop over task_ids to get each status
         for task in tasks:
-            self.logger.debug("task: {0}".format(task))
-            self.logger.debug("tasks[task]: {0}".format(tasks[task]))
+            #self.logger.debug("task: {0}".format(task))
+            #self.logger.debug("tasks[task]: {0}".format(tasks[task]))
+            self.logger.debug("task: {0} tasks[task]: {1}".format(task,tasks[task]))
             iptask = self.iprest.tasks(iceprod_id, task_id = tasks[task])
             self.logger.debug("iptask: {0}".format(iptask))
             self.logger.debug("iptask['status']: {0}".format(iptask['status']))
@@ -535,7 +536,7 @@ class IceProd2(iceprodinterface.IceProdInterface):
         return tasks
 
     def get_logs(self, iceprod_id, task_id):
-        self.logger.debug("get_logs")
+        #self.logger.debug("get_logs")
         self.logger.debug('iceprod_id: {0} task_id: {1}'.format(iceprod_id, task_id))
         logs = self.iprest.get_logs(iceprod_id, task_id)
         return logs
