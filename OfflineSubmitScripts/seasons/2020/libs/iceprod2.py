@@ -84,6 +84,8 @@ class IceProd2(iceprodinterface.IceProdInterface):
 
         if not self.dryrun:
             self._db.execute(sql)
+            # Delete any files for this task, in case of resubmission (but does not hurt anyway)
+            cfg = self.iprest.delete_files(dataset['iceprod_id'], task_id=task_id)
 
         ifile = 0
 
