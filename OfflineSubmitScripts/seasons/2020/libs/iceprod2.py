@@ -259,6 +259,16 @@ class IceProd2(iceprodinterface.IceProdInterface):
             # If input_files[-1].sub_run_id % aggregate > 0, we need an additional job that processes the leftover files
             number_of_jobs = int((input_files[-1].sub_run_id + 1) / aggregate) + int(bool((input_files[-1].sub_run_id + 1) % aggregate))
 
+            if aggregate_only_last_files > 0:
+                # add aggregate_only_last_files jobs to the last job... therefore, we have aggregate_only_last_files less.
+                number_of_jobs -= aggregate_only_last_files
+
+            if aggregate_only_first_files > 0:
+                # add aggregate_only_first_files jobs to the first job... therefore, we have aggregate_only_first_files less.
+                number_of_jobs -= aggregate_only_first_files
+
+            self.logger.debug('Number of jobs: {0}'.format(number_of_jobs))
+
             self.logger.debug('Last queue_id = {0}'.format(queue_id))
             if dataset_info['jobs_submitted'] < queue_id + number_of_jobs+1: 
                 if not self.dryrun:
@@ -277,16 +287,6 @@ class IceProd2(iceprodinterface.IceProdInterface):
                 self.logger.error('task queue has not been populated yet. Current queue: {0}. Number of jobs:{1}'.format(queue_id+1,number_of_jobs))
                 return
 
-
-            if aggregate_only_last_files > 0:
-                # add aggregate_only_last_files jobs to the last job... therefore, we have aggregate_only_last_files less.
-                number_of_jobs -= aggregate_only_last_files
-
-            if aggregate_only_first_files > 0:
-                # add aggregate_only_first_files jobs to the first job... therefore, we have aggregate_only_first_files less.
-                number_of_jobs -= aggregate_only_first_files
-
-            self.logger.debug('Number of jobs: {0}'.format(number_of_jobs))
 
             file_counter = 0
             for job_id in range(number_of_jobs):
