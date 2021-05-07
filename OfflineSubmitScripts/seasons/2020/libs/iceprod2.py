@@ -557,7 +557,7 @@ class IceProd2(iceprodinterface.IceProdInterface):
         iceprod_id = dataset['iceprod_id']
 
         sql = """
-            SELECT s.task_id, s.sub_run
+            SELECT DISTINCT s.task_id, s.sub_run
             FROM i3filter.dataset_subruns s
             JOIN i3filter.runs r
                 ON r.run_id = s.run_id
