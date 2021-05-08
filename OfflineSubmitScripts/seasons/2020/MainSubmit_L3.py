@@ -231,7 +231,9 @@ def handle_run(args, dataset_info, iceprod, config, run, source_dataset_id, coun
     logger.info('Add GCD file to run folder')
     make_symlink(gcd_file.path, eff_gcd_file, args.dryrun, logger, replace = True)
 
-    #iceprod.clean_run(args.destination_dataset_id, run)
+    if args.resubmission:
+        logger.warning(run.format('Clean run {run_id} from database.'))
+        iceprod.clean_run(dataset_info, run)
 
     try:
         # Determine source data. First, we assume that we're going to process L3 data. So, the source is L2 data.
