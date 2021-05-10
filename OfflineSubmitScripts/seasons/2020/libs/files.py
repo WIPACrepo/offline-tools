@@ -38,14 +38,14 @@ class File(object):
             else:
                 raise Exception('Unsupported checksum type: {0}'.format(ctype))
 
-            self.logger.debug("Read file")
+            #self.logger.debug("Read file")
 
             buffer = f.read(buffersize)
             while buffer:
                 digest.update(buffer)
                 buffer = f.read(buffersize)
 
-            self.logger.debug("Close file")
+            #self.logger.debug("Close file")
         
         return digest.hexdigest()
 
@@ -898,7 +898,7 @@ def insert_gaps_file_info_into_db(run, dryrun, logger):
     gaps_files = [f.get_gaps_file() for f in l2files]
     gaps_files = [f for f in gaps_files if f.exists()]
 
-    logger.debug('Gaps files: {0}'.format([f.path for f in gaps_files]))
+    #logger.debug('Gaps files: {0}'.format([f.path for f in gaps_files]))
 
     sub_runs = []
     gaps = []
