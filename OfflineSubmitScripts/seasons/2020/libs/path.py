@@ -70,17 +70,6 @@ def get_env_python_path():
 
     return os.path.join(get_bindir(), 'EnvPython.sh')
 
-def get_gcd_env_python_path():
-    """
-    Returns the absolite path to the ./bin/EnvPython.sh script that
-    is equivalent to `/path/to/build/./env-shell.sh python`.
-
-    Returns:
-        str: The path
-    """
-
-    return os.path.join(get_bindir(), 'EnvPython2.sh')
-
 
 
 def get_sub_run_id_from_path(path, pattern, logger):
