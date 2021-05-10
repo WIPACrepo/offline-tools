@@ -464,6 +464,8 @@ class Run(object):
 
             paths = glob(todays_path)
             paths.extend(glob(tomorrows_path))
+            paths.sort()
+            #self.logger.debug('paths: {0}'.format(paths))
 
             result = {get_sub_run_id_from_path(p, path_pattern, self.logger): p for p in paths}
 
