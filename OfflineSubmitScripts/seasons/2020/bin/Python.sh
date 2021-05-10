@@ -1,3 +1,4 @@
 #!/bin/sh
-eval `/cvmfs/icecube.opensciencegrid.org/py2-v3.1.1/setup.sh`
+unset PYTHONPATH
+eval `/cvmfs/icecube.opensciencegrid.org/py3-v4.1.0/setup.sh`
 python $@
