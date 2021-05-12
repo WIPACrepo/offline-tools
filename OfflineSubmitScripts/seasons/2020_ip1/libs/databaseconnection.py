@@ -25,13 +25,15 @@ class DatabaseConnection:
                 self.__connection.commit()
                 ret = cursor
         except pymysql.Error as e:
-            if e.args[0] == 2006 and reconnect:
+            # RMS20200220 if e.args[0] == 2006 and reconnect:
+            if (e.args[0] == 2006 or e.args[0] == 2013) and reconnect:
                 self._logger.warning('MySQL connection has been reset. Try to re-connect and do it again')
 
                 self._connect()
 
                 # Try this only once. If it fails again, stop it.
-                self.execute(sql, reconnect = False)
+                # RMS20200220 self.execute(sql, reconnect = False)
+                ret = self.execute(sql, reconnect = False)
             else:
                 raise e
 
@@ -50,13 +52,15 @@ class DatabaseConnection:
                 cursor.execute(sql)
                 ret = cursor.fetchall()
         except pymysql.Error as e:
-            if e.args[0] == 2006 and reconnect:
+            # RMS20200220 if e.args[0] == 2006 and reconnect:
+            if (e.args[0] == 2006 or e.args[0] == 2013) and reconnect:
                 self._logger.warning('MySQL connection has been reset. Try to re-connect and do it again')
 
                 self._connect()
 
                 # Try this only once. If it fails again, stop it.
-                self.fetchall(sql, UseDict = UseDict, reconnect = False)
+                # RMS20200220 self.fetchall(sql, UseDict = UseDict, reconnect = False)
+                ret = self.fetchall(sql, UseDict = UseDict, reconnect = False)
             else:
                 raise e
 
