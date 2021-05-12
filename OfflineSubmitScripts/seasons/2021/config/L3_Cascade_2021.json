@@ -1,0 +1,107 @@
+{
+  "difplus": null,
+  "tasks": [
+    {
+      "requirements": {
+        "memory": 3,
+        "os": [
+          "RHEL_7_x86_64"
+        ]
+      },
+      "name": "filtering",
+      "parameters": {},
+      "depends": [],
+      "batchsys": null,
+      "trays": [
+        {
+          "name": "L2",
+          "parameters": {},
+          "modules": [
+            {
+              "src": "$steering(ScriptsURL)/level3_Master.py",
+              "resources": [],
+              "name": "",
+              "env_clear": true,
+              "args": {
+                "input": "infile00000000.i3.zst",
+                "gcd": "gcdfile.i3.zst",
+                "output": "outfile.i3.zst",
+                "year": "2020"
+              },
+              "env_shell": "/cvmfs/icecube.opensciencegrid.org/py3-v4.1.1/icetray-env combo/V01-01-01",
+              "classes": [],
+              "running_class": "",
+              "parameters": {},
+              "data": [],
+              "projects": []
+            },
+            {
+              "src": "/cvmfs/icecube.opensciencegrid.org/py3-v4.1.1/metaprojects/combo/V01-01-01/dataio/resources/examples/scan.py",
+              "resources": [],
+              "name": "",
+              "env_clear": true,
+              "args": [
+                "-c",
+                "outfile.i3.zst"
+              ],
+              "env_shell": "/cvmfs/icecube.opensciencegrid.org/py3-v4.1.1/icetray-env combo/V01-01-01",
+              "classes": [],
+              "running_class": "",
+              "parameters": {},
+              "data": [],
+              "projects": []
+            },
+            {
+              "src": "/cvmfs/icecube.opensciencegrid.org/users/i3filter/scripts/gen_checksums.py",
+              "resources": [],
+              "name": "",
+              "env_clear": true,
+              "args": [
+                "outfile.i3.zst"
+              ],
+              "env_shell": "/cvmfs/icecube.opensciencegrid.org/py3-v4.1.1/icetray-env combo/V01-01-01",
+              "classes": [],
+              "running_class": "",
+              "parameters": {},
+              "data": [],
+              "projects": []
+            }
+          ],
+          "classes": [],
+          "resources": [],
+          "iterations": 1,
+          "data": [],
+          "projects": []
+        }
+      ],
+      "projects": [],
+      "classes": [],
+      "data": [],
+      "task_files": true,
+      "resources": []
+    }
+  ],
+  "description": "IC86 2021 L3 Data Production for the Cascade WG",
+  "parent_id": 21245,
+  "version": 3,
+  "steering": {
+    "batchsys": null,
+    "data": [],
+    "system": {},
+    "parameters": {
+      "FILTER::outfile_dir": "/data/ana/Cscd/{detector_configuration}-{season}/level3/exp/{year}/{month:02d}{day:02d}/Run{run_id:08d}/",
+      "FILTER::outfiles": [
+        {
+          "local": "outfile.i3.zst",
+          "remote": "Level3_{detector_configuration}.{season}_data_Run{run_id:08d}_Subrun00000000_{subrun:08d}.i3.zst"
+        }
+      ],
+      "geometry": "IC86",
+      "ScriptsURL": "/cvmfs/icecube.opensciencegrid.org/py3-v4.1.1/metaprojects/combo/V01-01-01/level3-filter-cascade/python"
+    },
+    "resources": []
+  },
+  "options": {},
+  "categories": [],
+  "dataset": 21406
+}
