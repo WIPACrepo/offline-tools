@@ -26,7 +26,7 @@
                 "input": "infile00000000.i3.zst",
                 "gcd": "gcdfile.i3.zst",
                 "output": "outfile.i3.zst",
-                "year": "2020"
+                "year": "2021"
               },
               "env_shell": "/cvmfs/icecube.opensciencegrid.org/py3-v4.1.1/icetray-env combo/V01-01-01",
               "classes": [],
