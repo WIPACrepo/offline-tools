@@ -31,7 +31,7 @@ def validate_run(dataset_id, run, args, iceprod, logger, counter, checksumcache)
             logger.info('Re-validate this run.')
         else:
             counter.count('skipped')
-            logger.info('Run has already been validated. Skip this run.')
+            logger.info('Run {0} has already been validated. Skip this run.'.format(run.run_id))
             return
 
     # Check run status
