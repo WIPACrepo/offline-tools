@@ -1,0 +1,88 @@
+
+import pymysql
+
+class DatabaseConnection:
+    __db_connection = {}
+
+    def __init__(self, user, password, host, database, logger):
+        self._user = user
+        self._password = password
+        self._host = host
+        self._database = database
+        self._logger = logger
+
+        self._connect()
+
+    def _connect(self):
+        self.__connection = pymysql.connect(user = self._user, password = self._password, host = self._host, database = self._database)
+
+    def execute(self, sql, args = None, reconnect = True):
+        ret = None
+
+        try:
+            with self.__connection.cursor() as cursor:
+                cursor.execute(sql, args)
+                self.__connection.commit()
+                ret = cursor
+        except pymysql.Error as e:
+            # RMS20200220 if e.args[0] == 2006 and reconnect:
+            if (e.args[0] == 2006 or e.args[0] == 2013) and reconnect:
+                self._logger.warning('MySQL connection has been reset. Try to re-connect and do it again')
+
+                self._connect()
+
+                # Try this only once. If it fails again, stop it.
+                # RMS20200220 self.execute(sql, reconnect = False)
+                ret = self.execute(sql, reconnect = False)
+            else:
+                raise e
+
+        return ret
+
+    def fetchall(self, sql, UseDict = True, reconnect = True):
+        cursor_type = None
+
+        if UseDict:
+            cursor_type = pymysql.cursors.DictCursor
+
+        ret = None
+
+        try:
+            with self.__connection.cursor(cursor_type) as cursor:
+                cursor.execute(sql)
+                ret = cursor.fetchall()
+        except pymysql.Error as e:
+            # RMS20200220 if e.args[0] == 2006 and reconnect:
+            if (e.args[0] == 2006 or e.args[0] == 2013) and reconnect:
+                self._logger.warning('MySQL connection has been reset. Try to re-connect and do it again')
+
+                self._connect()
+
+                # Try this only once. If it fails again, stop it.
+                # RMS20200220 self.fetchall(sql, UseDict = UseDict, reconnect = False)
+                ret = self.fetchall(sql, UseDict = UseDict, reconnect = False)
+            else:
+                raise e
+
+        return ret
+
+    def close(self):
+        self.__connection.close()
+
+    @classmethod
+    def get_connection(cls, name, logger):
+        installed_dbs = {
+            'filter-db': {'user': 'i3filter', 'password': '0a6f869d0c8fcc', 'host': 'filter-db.icecube.wisc.edu', 'database': 'i3filter'},
+            'dbs4': {'user': 'i3filter_user', 'password': 'srqC9yV0', 'host': 'dbs4.icecube.wisc.edu', 'database': 'i3filter'},
+            'dbs2': {'user': 'www', 'password': '', 'host': 'dbs2.icecube.wisc.edu', 'database': 'I3OmDb'},
+            'i3live': {'user': 'icecube', 'password': 'skua', 'host': 'cygnus.icecube.wisc.edu', 'database': 'live'}
+        }
+
+        if name not in installed_dbs:
+            return None
+
+        if name not in cls.__db_connection.keys():
+            cls.__db_connection[name] = cls(logger = logger, **installed_dbs[name])
+
+        return cls.__db_connection[name]
+
