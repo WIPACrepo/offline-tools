@@ -11,12 +11,14 @@ from libs.logger import get_logger
 from libs.path import get_logdir
 from libs.runs import Run, validate_file_integrity
 from libs.databaseconnection import DatabaseConnection
+from libs.PostgreSQLconnection import PostgreSqlConnection
 from libs import times
 from libs.process import Lock
 from libs.cron import cron_finished, send_custom_message
 from libs.utils import Counter
 
 import os
+import psycopg2
 
 def send_check_notification(new_records, changed_records, logger, dryrun):
     from libs.email import send_email
@@ -107,7 +109,7 @@ def main(inputfiletype, logger, dryrun, check, skip_file_validation, cron):
         logger.info('Only in check mode. Just checking if an update is available.')
 
     db_filter = DatabaseConnection.get_connection('filter-db', logger)
-    db_i3live = DatabaseConnection.get_connection('i3live', logger)
+    db_i3live = PostgreSqlConnection.get_connection('i3live', logger)
 
     config = get_config(logger)
 
@@ -153,16 +155,16 @@ def main(inputfiletype, logger, dryrun, check, skip_file_validation, cron):
     # get the newest data from the live db      
     livesql = """
         SELECT
-            r.runNumber, r.tStart, r.tStop,
-            r.tStart_frac, r.tStop_frac, r.nEvents, r.rateHz,
+            r."runNumber", r."tStart", r."tStop",
+            r."tStart_frac", r."tStop_frac", r."nEvents", r."rateHz",
             l.snapshot_id, l.good_i3, l.good_it, l.reason_i3, l.reason_it,
             l.good_tstart, l.good_tstart_frac, l.good_tstop,l.good_tstop_frac
-        FROM live.livedata_snapshotrun l
-        JOIN live.livedata_run r
+        FROM livedata_snapshotrun l
+        JOIN livedata_run r
             ON l.run_id = r.id
-        WHERE (r.runNumber >= {first_run} OR r.runNumber IN ({test_runs}))
-            AND r.runNumber <= {last_run}
-            AND r.runNumber NOT IN ({exclude_next_testruns})
+        WHERE (r."runNumber" >= {first_run} OR r."runNumber" IN ({test_runs}))
+            AND r."runNumber" <= {last_run}
+            AND r."runNumber" NOT IN ({exclude_next_testruns})
         ORDER BY l.snapshot_id
     """.format(
             first_run = first_run,
