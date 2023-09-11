@@ -11,7 +11,7 @@ from .iceprod_tools.rest3 import IPRest
 import json
 
 class IceProd2(iceprodinterface.IceProdInterface):
-    def __init__(self, logger, dryrun, username, authtok):
+    def __init__(self, logger, dryrun, username):
         super(IceProd2, self).__init__(logger, dryrun)
 
         self._db = DatabaseConnection.get_connection('filter-db', logger)
@@ -19,13 +19,7 @@ class IceProd2(iceprodinterface.IceProdInterface):
         self.increment = 100
 
 
-        rro = IPRest(url="https://iceprod2-api.icecube.wisc.edu/", auth = 'Bearer %s'% authtok)
-        if username:
-             tok = rro.auth2(username,getpass.getpass())
-             sessiontok = tok['token']
-        else:
-             sessiontok = authtok
-        self.iprest = IPRest(url="https://iceprod2-api.icecube.wisc.edu/", auth = 'Bearer %s'% sessiontok)
+        self.iprest = IPRest(url="https://iceprod2-api.icecube.wisc.edu/")
 
 
 
