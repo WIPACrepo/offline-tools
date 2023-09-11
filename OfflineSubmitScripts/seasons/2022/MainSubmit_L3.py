@@ -18,8 +18,7 @@ from collections import OrderedDict
 
 def main(run_ids, config, args, logger):
     counter = Counter(['handled', 'submitted', 'resubmitted', 'skipped', 'error'])
-    authtok = config.get('ip2auth','rotok')
-    iceprod = IceProd2(logger, args.dryrun, args.username, authtok)
+    iceprod = IceProd2(logger, args.dryrun, args.username)
     checksumcache = DBChecksumCache(logger, dryrun = args.dryrun)
 
     # Contains the get_dataset_info() + L3 info about the outdir
