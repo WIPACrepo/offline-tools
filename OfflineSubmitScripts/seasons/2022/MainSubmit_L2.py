@@ -58,8 +58,7 @@ def main(args, run_ids, logger):
     # Submit only good runs or test runs (if not failed)
     runs = [run for run in runs if run.is_good_run() or (run.is_test_run() and not run.is_failed_run())]
 
-    authtok = config.get('ip2auth','rotok')
-    iceprod = IceProd2(logger, args.dryrun, args.username, authtok)
+    iceprod = IceProd2(logger, args.dryrun, args.username)
 
     # Check if the resubmission flag has been set and if all runs are due for a resubmission
     ignored_runs = []
