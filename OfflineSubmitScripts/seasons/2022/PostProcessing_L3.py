@@ -93,9 +93,8 @@ def validate_run(source_dataset_ids, run, args, iceprod, logger, counter, checks
 def main(args, run_ids, config, logger):
     db = DatabaseConnection.get_connection('filter-db', logger)
 
-    # Get IceProd read-only authentication token
-    authtok = config.get('ip2auth','rotok')
-    iceprod = IceProd2(logger, args.dryrun, args.username, authtok)
+    # Get IceProd
+    iceprod = IceProd2(logger, args.dryrun, args.username)
 
     checksumcache = DBChecksumCache(logger, dryrun = args.dryrun)
 
