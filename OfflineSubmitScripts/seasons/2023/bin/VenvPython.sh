@@ -1,4 +1,4 @@
-41;295;0c#!/bin/sh
+#!/bin/sh
 
 unset PYTHONPATH
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
