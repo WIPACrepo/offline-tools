@@ -1326,7 +1326,7 @@ def validate_file_integrity(run, files, logger, run_start_time = None, run_stop_
         raise Exception('Could not find *.meta.xml in tar file')
 
     doc = ElementTree(file = meta_xml)
-    start_time = [t.text for t in doc.getiterator() if t.tag=="Start_DateTime"]
+    start_time = [t.text for t in doc.iter() if t.tag=="Start_DateTime"]
 
     tfile.close()
 
@@ -1343,7 +1343,7 @@ def validate_file_integrity(run, files, logger, run_start_time = None, run_stop_
         raise Exception('Could not find *.meta.xml in tar file')
 
     doc = ElementTree(file = meta_xml)
-    stop_time = [t.text for t in doc.getiterator() if t.tag=="End_DateTime"]
+    stop_time = [t.text for t in doc.iter() if t.tag=="End_DateTime"]
 
     tfile.close()
 
