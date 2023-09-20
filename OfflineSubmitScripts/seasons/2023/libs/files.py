@@ -995,7 +995,7 @@ def has_subrun_dstheader_within_good_time_range(subrun, logger):
         while f.more():
             frame = f.pop_frame()
 
-            if frame.Has('I3DSTHeader'):
+            if frame.Has('I3DST22Header'):
                 found_dstheader = True
 
                 if within_good_time_range:
