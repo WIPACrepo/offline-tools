@@ -1,10 +1,12 @@
 
 from icecube import icetray, dataclasses
-from I3Tray import *
+from icecube.icetray import I3Tray
 
-from .path import get_rootdir
+#from path import get_rootdir
 
-from .GCDGeneratorModule import GCDGenerator
+from icecube.gcdserver.GCDGeneratorModule import GCDGenerator
+
+from icecube.filterscripts_v2.icetop_GCDmodification.overwrite_snowheights import ChangeSnowHeights_FromDB
 
 def get_latest_transaction_of_gcd_db(logger):
     from libs.config import get_config
@@ -82,6 +84,7 @@ def generate_gcd(run, gcd_path, spe_correction_file, logger):
              logger = logger,
              Streams = [icetray.I3Frame.DetectorStatus])
     tray.Add(BadDomList, "baddomlist", RunId = run.run_id)
+    tray.Add(ChangeSnowHeights_FromDB, 'updateSnowHeights', Run = run.run_id)   # <---------- NEW THING
     tray.Add('I3Writer', 'GCDWriter',
              FileName = gcd_path,
              Streams = [icetray.I3Frame.TrayInfo,

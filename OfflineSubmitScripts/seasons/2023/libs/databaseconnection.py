@@ -14,7 +14,7 @@ class DatabaseConnection:
         self._connect()
 
     def _connect(self):
-        self.__connection = pymysql.connect(user = self._user, password = self._password, host = self._host, database = self._database)
+        self.__connection = pymysql.connect(user = self._user, password = self._password, host = self._host, database = self._database, charset='utf8')
 
     def execute(self, sql, args = None, reconnect = True):
         ret = None

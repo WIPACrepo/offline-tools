@@ -3,7 +3,7 @@ import os
 import shutil
 
 from icecube import dataio, dataclasses, icetray
-from I3Tray import *
+from icecube.icetray import I3Tray
 from icecube.filterscripts.offlineL2 import SpecialWriter
 
 class TrimFileClass(icetray.I3PacketModule):

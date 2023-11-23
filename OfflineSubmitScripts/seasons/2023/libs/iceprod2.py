@@ -269,6 +269,9 @@ class IceProd2(iceprodinterface.IceProdInterface):
                     self.iprest.set_status(dataset['iceprod_id'],'processing')
                     self.iprest.set_jobs(dataset['iceprod_id'],queue_id+number_of_jobs+1)
                     self.iprest.buffer_jobs_tasks(dataset['iceprod_id'],num=number_of_jobs+1)
+                else:
+                    self.logger.warning('Return because dryrun. Current queue: {0}. Number of jobs:{1}'.format(queue_id+1,number_of_jobs))
+                    return
 
             cfg = self.iprest.tasks(dataset['iceprod_id'])
             max_job_index = -1
