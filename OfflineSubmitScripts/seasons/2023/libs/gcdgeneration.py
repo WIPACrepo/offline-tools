@@ -6,7 +6,7 @@ from icecube.icetray import I3Tray
 
 from icecube.gcdserver.GCDGeneratorModule import GCDGenerator
 
-from icecube.filterscripts_v2.icetop_GCDmodification.overwrite_snowheights import ChangeSnowHeights_FromDB
+from icecube.offline_filterscripts.icetop_GCDmodification.overwrite_snowheights import ChangeSnowHeights_FromDB
 
 def get_latest_transaction_of_gcd_db(logger):
     from libs.config import get_config
