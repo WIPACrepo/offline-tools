@@ -55,7 +55,7 @@ def main(run_id, production_version, snapshot_id, outdir, logger):
             db.execute(run.format("UPDATE i3filter.runs SET gcd_generated = 1 WHERE run_id = {run_id} and snapshot_id = {snapshot_id}"))
 
         logger.info("==== END: Auditing GCD file ====")
-
+        ''' Comment out bad dom audits temporarily
         # Bad doms audit
         logger.info(run.format("Start: BadDOMs Auditing for GCD file for run {run_id}"))
 
@@ -110,6 +110,8 @@ def main(run_id, production_version, snapshot_id, outdir, logger):
                 logger.error("Bad doms audit for {0} has errors".format(gcd_data_path))
 
         logger.info("==== End: Bad doms auditing ====")
+        '''
+        logger.info("Skipped bad dom audits")
     logger.info("End of GCD generation")
 
 if __name__ == '__main__':
