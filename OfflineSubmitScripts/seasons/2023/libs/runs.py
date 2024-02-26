@@ -1305,6 +1305,7 @@ def validate_file_integrity(run, files, logger, run_start_time = None, run_stop_
 
     from xml.etree.ElementTree import ElementTree
     from dateutil.parser import parse
+    from pytz import timezone
 
     def get_meta_xml(f):
         tfile = tarfile.open(f)
@@ -1351,6 +1352,9 @@ def validate_file_integrity(run, files, logger, run_start_time = None, run_stop_
         raise Exception('Could not find stop time')
 
     stop_time = parse(stop_time[0])
+    # Add timezone to avoid python 3.11 TypeError: can't compare offset-naive and offset-aware datetimes
+    start_time = start_time.replace(tzinfo=timezone('UTC'))
+    stop_time = stop_time.replace(tzinfo=timezone('UTC'))
 
     mismatches = False
     if start_time > run_start_time:
