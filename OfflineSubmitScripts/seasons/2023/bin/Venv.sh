@@ -3,7 +3,7 @@
 unset PYTHONPATH
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 
-eval `/cvmfs/icecube.opensciencegrid.org/py3-v4.2.1/setup.sh`
+eval `/cvmfs/icecube.opensciencegrid.org/py3-v4.3.0/setup.sh`
 #eval `/cvmfs/icecube.opensciencegrid.org/py3-v4.1.1/setup.sh`
 #eval `/cvmfs/icecube.opensciencegrid.org/iceprod/v2.5.3/setup.sh`
 
@@ -15,6 +15,6 @@ echo "I3_BUILD=${Level2[i3_build]}"
 # Activate python virtual environment for wipac-rest-tools                                                                                                                                                                                                                                            
 
 "${Level2[i3_build]}/./env-shell.sh" <<EOF 
-source ${DIR}/venv0/bin/activate
+source ${DIR}/venv_py3-v4.3.0/bin/activate
 $@
 EOF
