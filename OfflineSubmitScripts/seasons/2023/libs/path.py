@@ -61,14 +61,14 @@ def get_bindir():
 
 def get_env_python_path():
     """
-    Returns the absolite path to the ./bin/EnvPython.sh script that
+    Returns the absolite path to the ./bin/VenvPython.sh script that
     is equivalent to `/path/to/build/./env-shell.sh python`.
 
     Returns:
         str: The path
     """
 
-    return os.path.join(get_bindir(), 'EnvPython.sh')
+    return os.path.join(get_bindir(), 'VenvPython.sh')
 
 
 
