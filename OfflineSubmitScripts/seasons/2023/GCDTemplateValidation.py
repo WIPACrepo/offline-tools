@@ -215,7 +215,8 @@ if __name__ == '__main__':
             WHERE (run_id BETWEEN {first_run} AND {last_run} OR run_id IN ({test_runs})) AND
                 run_id NOT IN ({exclude_next_testruns}) AND
                 (gcd_template_validation IS NULL {recheck}) AND
-                gcd_generated AND gcd_bad_doms_validated
+                #gcd_generated AND gcd_bad_doms_validated
+                gcd_generated
         """.format(
             recheck = recheck,
             first_run = first_run,
