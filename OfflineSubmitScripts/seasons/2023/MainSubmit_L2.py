@@ -123,7 +123,8 @@ def main(args, run_ids, logger):
                 counter.count('error')
                 continue
 
-            if not run.get_gcd_bad_dom_list_checked() or not run.get_gcd_generated():
+            #if not run.get_gcd_bad_dom_list_checked() or not run.get_gcd_generated():
+            if not run.get_gcd_generated():
                 logger.critical('The GCD file has not been validated yet')
                 counter.count('error')
                 continue   
