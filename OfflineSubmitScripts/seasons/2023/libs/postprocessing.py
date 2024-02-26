@@ -30,7 +30,7 @@ def _get_checksum(f):
              if os.stat(f['path']+'.'+t).st_size == 0:
                  # Return -1 if checksum file is empty
                  return (t,-1)
-             with open(f['path']+'.'+t,'rU') as checksumfile:
+             with open(f['path']+'.'+t,'r') as checksumfile:
                  checksum = checksumfile.readline()
                  return (t,checksum.split()[0])
 
